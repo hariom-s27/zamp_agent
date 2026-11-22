@@ -1,0 +1,12 @@
+ledger_id,po_line_no,description,qty,unit_price,amount
+H001,1,"Portable multi-gas detector, 4 gas",8,25000.00,200000.00
+H002,1,"Portable multi-gas detector, 4 gas",8,25000.00,200000.00
+H003,1,"Business laptop 14 inch, 16 GB RAM, 512 GB SSD",8,58500.00,468000.00
+H003,2,USB-C docking station with power delivery,8,9200.00,73600.00
+H004,1,Facility management and housekeeping services,,,60000.00
+H005,1,Facility management and housekeeping services,,,60000.00
+H006,1,Facility management and housekeeping services,,,60000.00
+H007,1,Facility management and housekeeping services,,,60000.00
+H008,1,Facility management and housekeeping services,,,60000.00
+H009,1,Facility management and housekeeping services,,,60000.00
+H010,1,Facility management and housekeeping services,,,60000.00

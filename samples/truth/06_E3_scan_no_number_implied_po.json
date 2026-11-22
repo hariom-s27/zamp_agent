@@ -1,0 +1,54 @@
+{
+  "id": "06_E3_scan_no_number_implied_po",
+  "layout": "typewriter",
+  "scanned": true,
+  "vendor_id": "V003",
+  "vendor_name_printed": "Malabar Polywrap Packaging Co",
+  "vendor_gstin": "32AAVFM2290R1ZH",
+  "buyer_gstin": "29AAKCN4821M1ZX",
+  "invoice_no": null,
+  "invoice_date": "2026-11-12",
+  "po_ref": null,
+  "tax_inclusive": false,
+  "gst_rate": "18",
+  "taxable": "181300.00",
+  "cgst": "0",
+  "sgst": "0",
+  "igst": "32634.00",
+  "tax_total": "32634.00",
+  "total": "213934.00",
+  "bank_account": "30211456789",
+  "ifsc": "PCBL0003021",
+  "lines": [
+    {
+      "description": "Stretch wrap film roll 23 micron",
+      "hsn": "3920",
+      "qty": "120",
+      "uom": "Roll",
+      "unit_price": "640.00",
+      "amount": "76800.00",
+      "unit_price_pre_tax": "640.00",
+      "amount_pre_tax": "76800.00"
+    },
+    {
+      "description": "BOPP packing tape 48 mm (carton of 72)",
+      "hsn": "3919",
+      "qty": "25",
+      "uom": "Carton",
+      "unit_price": "2340.00",
+      "amount": "58500.00",
+      "unit_price_pre_tax": "2340.00",
+      "amount_pre_tax": "58500.00"
+    },
+    {
+      "description": "Bubble wrap roll 1 m x 100 m",
+      "hsn": "3921",
+      "qty": "40",
+      "uom": "Roll",
+      "unit_price": "1150.00",
+      "amount": "46000.00",
+      "unit_price_pre_tax": "1150.00",
+      "amount_pre_tax": "46000.00"
+    }
+  ]
+}

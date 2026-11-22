@@ -1,0 +1,44 @@
+{
+  "id": "05_E2_disguised_duplicate",
+  "layout": "modern",
+  "scanned": false,
+  "vendor_id": "V002",
+  "vendor_name_printed": "Deccan Quill Infotech LLP",
+  "vendor_gstin": "36AAHFD5127Q1Z0",
+  "buyer_gstin": "29AAKCN4821M1ZX",
+  "invoice_no": "DQI/26-27/1193",
+  "invoice_date": "2026-11-05",
+  "po_ref": "PO-2026-0171",
+  "tax_inclusive": false,
+  "gst_rate": "18",
+  "taxable": "541600.00",
+  "cgst": "0",
+  "sgst": "0",
+  "igst": "97488.00",
+  "tax_total": "97488.00",
+  "total": "639088.00",
+  "bank_account": "918273645501",
+  "ifsc": "GUBL0007712",
+  "lines": [
+    {
+      "description": "Business Laptop 14 inch, 16 GB RAM, 512 GB SSD",
+      "hsn": "8471",
+      "qty": "8",
+      "uom": "Nos",
+      "unit_price": "58500.00",
+      "amount": "468000.00",
+      "unit_price_pre_tax": "58500.00",
+      "amount_pre_tax": "468000.00"
+    },
+    {
+      "description": "USB-C Docking Station with Power Delivery",
+      "hsn": "8473",
+      "qty": "8",
+      "uom": "Nos",
+      "unit_price": "9200.00",
+      "amount": "73600.00",
+      "unit_price_pre_tax": "9200.00",
+      "amount_pre_tax": "73600.00"
+    }
+  ]
+}

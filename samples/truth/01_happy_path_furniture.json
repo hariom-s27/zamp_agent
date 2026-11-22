@@ -1,0 +1,54 @@
+{
+  "id": "01_happy_path_furniture",
+  "layout": "classic",
+  "scanned": false,
+  "vendor_id": "V001",
+  "vendor_name_printed": "Tungabhadra Office Furnishings Pvt Ltd",
+  "vendor_gstin": "29AABCT7306K1Z2",
+  "buyer_gstin": "29AAKCN4821M1ZX",
+  "invoice_no": "TOF/26-27/0412",
+  "invoice_date": "2026-11-05",
+  "po_ref": "PO-2026-0147",
+  "tax_inclusive": false,
+  "gst_rate": "18",
+  "taxable": "381300.00",
+  "cgst": "34317.00",
+  "sgst": "34317.00",
+  "igst": "0",
+  "tax_total": "68634.00",
+  "total": "449934.00",
+  "bank_account": "004512309876",
+  "ifsc": "HMBL0000451",
+  "lines": [
+    {
+      "description": "Ergonomic Mesh Office Chair (High Back)",
+      "hsn": "9401",
+      "qty": "40",
+      "uom": "Nos",
+      "unit_price": "4500.00",
+      "amount": "180000.00",
+      "unit_price_pre_tax": "4500.00",
+      "amount_pre_tax": "180000.00"
+    },
+    {
+      "description": "Height Adjustable Workstation 1500 mm",
+      "hsn": "9403",
+      "qty": "10",
+      "uom": "Nos",
+      "unit_price": "14250.00",
+      "amount": "142500.00",
+      "unit_price_pre_tax": "14250.00",
+      "amount_pre_tax": "142500.00"
+    },
+    {
+      "description": "Steel Storage Cupboard, 4 Shelf",
+      "hsn": "9403",
+      "qty": "6",
+      "uom": "Nos",
+      "unit_price": "9800.00",
+      "amount": "58800.00",
+      "unit_price_pre_tax": "9800.00",
+      "amount_pre_tax": "58800.00"
+    }
+  ]
+}

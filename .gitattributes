@@ -1,0 +1,11 @@
+# Sample invoices and recorded files are compared by hash: never let git touch their bytes.
+*.pdf binary
+*.png binary
+# Text files keep LF endings on every machine (the code also tolerates CRLF).
+*.py   text eol=lf
+*.md   text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+*.csv  text eol=lf
+*.txt  text eol=lf

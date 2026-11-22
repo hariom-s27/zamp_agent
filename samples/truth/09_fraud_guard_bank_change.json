@@ -1,0 +1,44 @@
+{
+  "id": "09_fraud_guard_bank_change",
+  "layout": "classic",
+  "scanned": false,
+  "vendor_id": "V001",
+  "vendor_name_printed": "Tungabhadra Office Furnishing Pvt. Ltd.",
+  "vendor_gstin": "29AABCT7306K1Z2",
+  "buyer_gstin": "29AAKCN4821M1ZX",
+  "invoice_no": "TOF/26-27/0431",
+  "invoice_date": "2026-11-14",
+  "po_ref": "PO-2026-0152",
+  "tax_inclusive": false,
+  "gst_rate": "18",
+  "taxable": "121400.00",
+  "cgst": "10926.00",
+  "sgst": "10926.00",
+  "igst": "0",
+  "tax_total": "21852.00",
+  "total": "143252.00",
+  "bank_account": "770031245566",
+  "ifsc": "CHUB0002290",
+  "lines": [
+    {
+      "description": "Visitor Chair, Cantilever Frame",
+      "hsn": "9401",
+      "qty": "12",
+      "uom": "Nos",
+      "unit_price": "2950.00",
+      "amount": "35400.00",
+      "unit_price_pre_tax": "2950.00",
+      "amount_pre_tax": "35400.00"
+    },
+    {
+      "description": "Conference Table 8 Seater, Laminate Top",
+      "hsn": "9403",
+      "qty": "4",
+      "uom": "Nos",
+      "unit_price": "21500.00",
+      "amount": "86000.00",
+      "unit_price_pre_tax": "21500.00",
+      "amount_pre_tax": "86000.00"
+    }
+  ]
+}

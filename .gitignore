@@ -1,0 +1,18 @@
+# secrets
+.env
+.streamlit/secrets.toml
+
+# environments and caches
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# runtime data: the SQLite file and stored uploads (re-created and re-seeded on start)
+data/runtime/
+*.db
+
+# OS noise
+.DS_Store
+Thumbs.db

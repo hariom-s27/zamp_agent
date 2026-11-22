@@ -1,0 +1,44 @@
+{
+  "id": "10_ai_assist_letter_invoice",
+  "layout": "letter",
+  "scanned": false,
+  "vendor_id": "V002",
+  "vendor_name_printed": "Deccan Quill Infotech LLP",
+  "vendor_gstin": "36AAHFD5127Q1Z0",
+  "buyer_gstin": "29AAKCN4821M1ZX",
+  "invoice_no": "DQI/26-27/1213",
+  "invoice_date": "2026-11-14",
+  "po_ref": "PO-2026-0178",
+  "tax_inclusive": false,
+  "gst_rate": "18",
+  "taxable": "195000.00",
+  "cgst": "0",
+  "sgst": "0",
+  "igst": "35100.00",
+  "tax_total": "35100.00",
+  "total": "230100.00",
+  "bank_account": "918273645501",
+  "ifsc": "GUBL0007712",
+  "lines": [
+    {
+      "description": "Managed network switch 24 port gigabit",
+      "hsn": "8517",
+      "qty": "6",
+      "uom": "Nos",
+      "unit_price": "18500.00",
+      "amount": "111000.00",
+      "unit_price_pre_tax": "18500.00",
+      "amount_pre_tax": "111000.00"
+    },
+    {
+      "description": "Online UPS 3 kVA with batteries",
+      "hsn": "8504",
+      "qty": "2",
+      "uom": "Nos",
+      "unit_price": "42000.00",
+      "amount": "84000.00",
+      "unit_price_pre_tax": "42000.00",
+      "amount_pre_tax": "84000.00"
+    }
+  ]
+}

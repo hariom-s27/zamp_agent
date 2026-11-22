@@ -1,0 +1,26 @@
+# Invoice Desk: everything the app, the scripts and the tests need.
+# Versions are pinned to the ones the test suite passed with (Python 3.11, 3.12 and 3.13).
+#   pip install -r requirements.txt
+
+# app
+streamlit==1.67.0
+pandas==3.1.1
+altair==6.3.0
+
+# reading PDFs and scans
+pdfplumber==0.11.11
+pypdfium2==5.15.2
+pytesseract==0.3.13        # the Python wrapper; the Tesseract program itself is installed separately (optional)
+Pillow==13.0.0
+numpy==2.4.6
+
+# engine
+pydantic==2.14.4
+rapidfuzz==3.14.6
+PyYAML==6.0.4
+requests==2.34.2           # only used for the optional LLM assist
+python-dotenv==1.2.4
+
+# test data generator and tests
+reportlab==5.1.0
+pytest==9.2.0

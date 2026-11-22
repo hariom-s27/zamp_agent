@@ -1,0 +1,34 @@
+{
+  "id": "08_E4b_tax_inclusive_over_tolerance",
+  "layout": "retail",
+  "scanned": false,
+  "vendor_id": "V005",
+  "vendor_name_printed": "Sahyadri Inkwell Supplies",
+  "vendor_gstin": "29ABJFS6641D1ZY",
+  "buyer_gstin": "29AAKCN4821M1ZX",
+  "invoice_no": "SIS/2327",
+  "invoice_date": "2026-11-17",
+  "po_ref": "PO-2026-0229",
+  "tax_inclusive": true,
+  "gst_rate": "18",
+  "taxable": "97500.00",
+  "cgst": "8775.00",
+  "sgst": "8775.00",
+  "igst": "0",
+  "tax_total": "17550.00",
+  "total": "115050.00",
+  "bank_account": "117700452981",
+  "ifsc": "CUCB0001177",
+  "lines": [
+    {
+      "description": "Laser Toner Cartridge 26A (Compatible)",
+      "hsn": "8443",
+      "qty": "30",
+      "uom": "Nos",
+      "unit_price": "3835.00",
+      "amount": "115050.00",
+      "unit_price_pre_tax": "3250.00",
+      "amount_pre_tax": "97500.00"
+    }
+  ]
+}

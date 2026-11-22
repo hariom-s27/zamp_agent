@@ -1,0 +1,8 @@
+vendor_id,legal_name,aliases,gstin,state_code,status,bank_name,bank_account,ifsc,payment_terms_days,phone_on_file,email
+V001,Tungabhadra Office Furnishings Pvt Ltd,Tungabhadra Furnishings|Tungabhadra Office Furnishing,29AABCT7306K1Z2,29,APPROVED,Hoysala Mercantile Bank,004512309876,HMBL0000451,30,080-5550-0118,accounts@tungabhadra-furnishings.example
+V002,Deccan Quill Infotech LLP,Deccan Quill Infotech|DQ Infotech,36AAHFD5127Q1Z0,36,APPROVED,Golconda United Bank,918273645501,GUBL0007712,45,040-5550-0177,billing@deccanquill.example
+V003,Malabar Polywrap Packaging Co,Malabar Polywrap|Malabar Polywrap Packaging Company,32AAVFM2290R1ZH,32,APPROVED,Periyar Co-operative Bank,30211456789,PCBL0003021,30,0484-555-0142,office@malabarpolywrap.example
+V004,Aravalli Shield Safety Equipment Pvt Ltd,Aravalli Shield|Aravalli Shield Safety,27AALCA9084H1Z7,27,APPROVED,Sinhagad Industrial Bank,620045871230,SIBL0006200,30,02135-555-019,ar@aravallishield.example
+V005,Sahyadri Inkwell Supplies,Sahyadri Inkwell|Sahyadri Ink Well Supplies,29ABJFS6641D1ZY,29,APPROVED,Cauvery Urban Co-op Bank,117700452981,CUCB0001177,15,080-5550-0109,sales@sahyadriinkwell.example
+V006,Vindhya Spark Facility Services Pvt Ltd,Vindhya Spark|Vindhya Spark Facility Services,29AAGCV3518B1ZG,29,APPROVED,Hoysala Mercantile Bank,004598001234,HMBL0000459,30,080-5550-0127,finance@vindhyaspark.example
+V007,Konkan Fasteners & Hardware,Konkan Fasteners,30AAOFK1182C1ZS,30,BLOCKED,Mandovi Traders Bank,550012340099,MTBL0005500,30,0832-555-0107,accounts@konkanfasteners.example

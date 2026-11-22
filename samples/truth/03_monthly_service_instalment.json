@@ -1,0 +1,34 @@
+{
+  "id": "03_monthly_service_instalment",
+  "layout": "modern",
+  "scanned": false,
+  "vendor_id": "V006",
+  "vendor_name_printed": "Vindhya Spark Facility Services Pvt Ltd",
+  "vendor_gstin": "29AAGCV3518B1ZG",
+  "buyer_gstin": "29AAKCN4821M1ZX",
+  "invoice_no": "VSF/26-27/11",
+  "invoice_date": "2026-11-15",
+  "po_ref": "PO-2026-0160",
+  "tax_inclusive": false,
+  "gst_rate": "18",
+  "taxable": "60000.00",
+  "cgst": "5400.00",
+  "sgst": "5400.00",
+  "igst": "0",
+  "tax_total": "10800.00",
+  "total": "70800.00",
+  "bank_account": "004598001234",
+  "ifsc": "HMBL0000459",
+  "lines": [
+    {
+      "description": "Facility management and housekeeping services for November 2026 (instalment 8 of 12)",
+      "hsn": "998533",
+      "qty": null,
+      "uom": null,
+      "unit_price": null,
+      "amount": "60000.00",
+      "unit_price_pre_tax": null,
+      "amount_pre_tax": "60000.00"
+    }
+  ]
+}

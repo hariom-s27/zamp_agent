@@ -1,0 +1,117 @@
+# rules.yaml: every threshold and every decision this process makes.
+# A process owner can change a number or an action here without touching code.
+# The file's hash is written into every decision receipt, so an auditor can tell
+# which version of the rules produced a given decision.
+
+version: "2026.11-1"
+
+company:                       # who "we" are: the buyer whose AP inbox this is
+  name: Nilgiri Precision Components Pvt Ltd
+  gstin: 29AAKCN4821M1ZX
+  state_code: "29"
+
+tolerances:
+  rounding_inr: 1.00           # arithmetic on the invoice may be off by this much
+  unit_price:
+    pct: 1.0                   # a line passes only if the price is within this percentage ...
+    abs_inr: 500               # ... and the extra money on the line is within this amount
+  quantity_over_pct: 0         # billed quantity may exceed the PO quantity by this percentage
+  po_total:
+    pct: 0.5                   # cumulative billing may exceed the PO value by this percentage ...
+    abs_inr: 500               # ... and by no more than this amount
+
+auto_approve:
+  max_invoice_total_inr: 1000000   # a clean invoice above this still needs a person to sign off
+
+po_inference:                  # used only when the invoice quotes no PO number
+  min_confidence: 0.75         # below this no candidate is suggested
+  min_margin: 0.15             # the best candidate must beat the runner-up by this much
+  # an inferred PO is always confirmed by a person; there is deliberately no auto-accept switch
+
+duplicates:
+  window_days: 15              # how far apart two invoice dates can be and still look like one invoice
+  amount_tolerance_inr: 1.00
+  line_similarity_min: 0.90
+
+dates:
+  max_age_days: 365            # older invoices go to a person
+  allow_future_days: 0
+
+reading:
+  min_confidence_critical: 0.70    # invoice number, date and total: below this a person checks the value
+
+gst:
+  rates_current: [0, 5, 18, 40]            # main slabs since 22 September 2025
+  rates_before_2025_09_22: [0, 5, 12, 18, 28]
+  rates_special: [0.1, 0.25, 1.5, 3]       # precious metals, stones and similar
+  rate_tolerance_pct: 0.2                  # computed rate may differ from a slab by this much
+
+llm:
+  assist: gaps                 # gaps = call the model only when rules leave a required field empty
+                               # always = also use it as a second reader and report disagreements
+                               # off = never call it
+
+# What each finding means for the decision. action: REJECT > HOLD > NOTE.
+# owner: who is asked when the action is HOLD (or who is told, for REJECT).
+reasons:
+  # --- the file itself
+  UNREADABLE_FILE:        {action: REJECT, owner: AP analyst,          title: File cannot be opened}
+  FILE_TOO_LARGE:         {action: HOLD,   owner: AP analyst,          title: Too large for automatic processing}
+  SCAN_NOT_READ:          {action: HOLD,   owner: AP analyst,          title: Scanned page could not be read}
+  NOT_AN_INVOICE:         {action: REJECT, owner: AP analyst,          title: Not an invoice}
+  NOT_A_TAX_INVOICE:      {action: REJECT, owner: AP analyst,          title: Not a tax invoice}
+  UNSUPPORTED_DOCUMENT:   {action: HOLD,   owner: AP analyst,          title: Document type handled manually}
+  # --- what is printed on the invoice
+  MISSING_INVOICE_NUMBER: {action: HOLD,   owner: AP analyst,          title: Invoice number missing}
+  MISSING_INVOICE_DATE:   {action: HOLD,   owner: AP analyst,          title: Invoice date missing}
+  MISSING_TOTAL:          {action: HOLD,   owner: AP analyst,          title: Invoice total not found}
+  MISSING_VENDOR_ID:      {action: HOLD,   owner: AP analyst,          title: Vendor could not be identified}
+  LINE_ITEMS_UNREADABLE:  {action: HOLD,   owner: AP analyst,          title: Line items could not be read}
+  LOW_CONFIDENCE_READ:    {action: HOLD,   owner: AP analyst,          title: A key field was read with low confidence}
+  ARITHMETIC_MISMATCH:    {action: HOLD,   owner: AP analyst,          title: Figures on the invoice do not add up}
+  AMOUNT_WORDS_MISMATCH:  {action: HOLD,   owner: AP analyst,          title: Amount in words differs from figures}
+  TAX_RATE_UNUSUAL:       {action: HOLD,   owner: Tax team,            title: GST rate is not a standard rate}
+  TAX_TYPE_MISMATCH:      {action: HOLD,   owner: Tax team,            title: Wrong kind of GST for this supply}
+  GSTIN_INVALID:          {action: HOLD,   owner: Vendor master team,  title: Vendor GSTIN fails its check character}
+  BUYER_GSTIN_MISSING:    {action: HOLD,   owner: AP analyst,          title: Our GSTIN is not on the invoice}
+  DATE_IN_FUTURE:         {action: HOLD,   owner: AP analyst,          title: Invoice is dated in the future}
+  DATE_TOO_OLD:           {action: HOLD,   owner: AP analyst,          title: Invoice is older than the limit}
+  CURRENCY_NOT_SUPPORTED: {action: HOLD,   owner: AP analyst,          title: Invoice is not in rupees}
+  # --- the vendor
+  VENDOR_NOT_APPROVED:    {action: HOLD,   owner: Procurement,         title: Vendor is not on the approved list}
+  VENDOR_BLOCKED:         {action: REJECT, owner: Procurement,         title: Vendor is blocked}
+  VENDOR_GSTIN_MISMATCH:  {action: HOLD,   owner: Vendor master team,  title: GSTIN differs from the vendor master}
+  BANK_DETAILS_CHANGED:   {action: HOLD,   owner: Vendor master team,  title: Bank account differs from the vendor master}
+  VENDOR_NAME_VARIANT:    {action: NOTE,   owner: "",                  title: Vendor name printed differently from the master}
+  VENDOR_MATCHED_BY_NAME: {action: HOLD,   owner: Vendor master team,  title: Vendor matched by name only}
+  # --- the purchase order
+  PO_NOT_FOUND:           {action: HOLD,   owner: Procurement,         title: Quoted PO is not in the register}
+  PO_VENDOR_MISMATCH:     {action: HOLD,   owner: Procurement,         title: PO belongs to a different vendor}
+  PO_CLOSED:              {action: HOLD,   owner: Procurement,         title: PO is closed}
+  PO_INFERRED:            {action: HOLD,   owner: Procurement,         title: "PO not quoted, inferred from the lines"}
+  NO_PO_FOUND:            {action: HOLD,   owner: Procurement,         title: No purchase order could be matched}
+  DATE_BEFORE_PO:         {action: HOLD,   owner: Procurement,         title: Invoice is dated before the PO}
+  LINE_NOT_ON_PO:         {action: HOLD,   owner: Procurement,         title: Invoice line is not on the PO}
+  PRICE_VARIANCE:         {action: HOLD,   owner: Procurement,         title: Price is above the PO beyond tolerance}
+  QTY_OVER_PO:            {action: HOLD,   owner: Procurement,         title: Quantity exceeds what the PO has left}
+  GOODS_NOT_RECEIVED:     {action: HOLD,   owner: Stores,              title: Billed quantity exceeds goods received}
+  OVER_PO_BALANCE:        {action: HOLD,   owner: Procurement,         title: Billing would exceed the PO value}
+  BUNDLED_PARTIAL:        {action: HOLD,   owner: Procurement,         title: Lump-sum invoice cannot be allocated to PO lines}
+  PRICE_WITHIN_TOLERANCE: {action: NOTE,   owner: "",                  title: Small price difference inside tolerance}
+  PRICE_BELOW_PO:         {action: NOTE,   owner: "",                  title: Billed below the PO price}
+  TAX_INCLUSIVE_NORMALISED: {action: NOTE, owner: "",                  title: Tax-inclusive prices converted to pre-tax}
+  MATCHED_AT_TOTAL_LEVEL: {action: NOTE,   owner: "",                  title: Lump-sum invoice matched to the PO balance}
+  PO_REFERENCE_CORRECTED: {action: NOTE,   owner: "",                  title: PO number matched after a reading correction}
+  READ_CORRECTED:         {action: NOTE,   owner: "",                  title: A scanned figure was corrected by arithmetic}
+  SCAN_READS_DIFFER:      {action: NOTE,   owner: "",                  title: "Two reads of the scan differed, the consistent one was used"}
+  LLM_ASSISTED:           {action: NOTE,   owner: "",                  title: Some fields were read with LLM assist}
+  # --- duplicates
+  DUPLICATE_FILE:         {action: REJECT, owner: AP analyst,          title: This exact file was already processed}
+  DUPLICATE_INVOICE_NUMBER: {action: REJECT, owner: AP analyst,        title: Invoice number already on record for this vendor}
+  DUPLICATE_CONTENT:      {action: REJECT, owner: AP analyst,          title: Same invoice under a different number}
+  POSSIBLE_DUPLICATE:     {action: HOLD,   owner: AP analyst,          title: Looks like an invoice already on record}
+  RESUBMITTED_WHILE_ON_HOLD: {action: HOLD, owner: AP analyst,          title: "Same invoice number is already on hold, possible corrected copy"}
+  # --- policy
+  ABOVE_AUTO_APPROVE_LIMIT: {action: HOLD, owner: Finance controller,  title: Above the auto-approval limit}
+  POSTING_FAILED:         {action: HOLD,   owner: AP analyst,          title: Ledger write could not be verified}
+  INTERNAL_ERROR:         {action: HOLD,   owner: AP analyst,          title: "Processing error, handled by hand"}

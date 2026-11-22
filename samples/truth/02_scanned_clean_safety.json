@@ -1,0 +1,44 @@
+{
+  "id": "02_scanned_clean_safety",
+  "layout": "grid",
+  "scanned": true,
+  "vendor_id": "V004",
+  "vendor_name_printed": "Aravalli Shield Safety Equipment Pvt Ltd",
+  "vendor_gstin": "27AALCA9084H1Z7",
+  "buyer_gstin": "29AAKCN4821M1ZX",
+  "invoice_no": "ASS/2026/0941",
+  "invoice_date": "2026-11-14",
+  "po_ref": "PO-2026-0201",
+  "tax_inclusive": false,
+  "gst_rate": "18",
+  "taxable": "94100.00",
+  "cgst": "0",
+  "sgst": "0",
+  "igst": "16938.00",
+  "tax_total": "16938.00",
+  "total": "111038.00",
+  "bank_account": "620045871230",
+  "ifsc": "SIBL0006200",
+  "lines": [
+    {
+      "description": "Fire Extinguisher ABC Type 6 kg",
+      "hsn": "8424",
+      "qty": "30",
+      "uom": "Nos",
+      "unit_price": "2150.00",
+      "amount": "64500.00",
+      "unit_price_pre_tax": "2150.00",
+      "amount_pre_tax": "64500.00"
+    },
+    {
+      "description": "Emergency Exit Signage LED",
+      "hsn": "9405",
+      "qty": "20",
+      "uom": "Nos",
+      "unit_price": "1480.00",
+      "amount": "29600.00",
+      "unit_price_pre_tax": "1480.00",
+      "amount_pre_tax": "29600.00"
+    }
+  ]
+}
