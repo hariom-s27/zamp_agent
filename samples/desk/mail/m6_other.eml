@@ -1,0 +1,26 @@
+From: Festive Offers <greetings@festive-offers.example>
+To: ap@nilgiri-precision.example
+Subject: Season's greetings from our family to yours
+Date: Sat, 21 Nov 2026 11:02:00 +0530
+Message-ID: <greet.20261121.1102@festive-offers.example>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="desk-mail-06"
+
+--desk-mail-06
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Warm wishes for the festive season!
+
+Please see our brochure of gift hampers for your team.
+
+--desk-mail-06
+Content-Type: image/png
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="brochure.png"
+MIME-Version: 1.0
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4//8/AAX+Av6n1qS4
+AAAAAElFTkSuQmCC
+
+--desk-mail-06--

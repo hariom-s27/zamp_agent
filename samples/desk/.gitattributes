@@ -1,0 +1,3 @@
+# the bundled .eml files are compared by hash: git must keep their CRLF bytes
+*.eml binary
+.gitattributes text eol=lf

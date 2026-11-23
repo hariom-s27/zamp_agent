@@ -1,0 +1,32 @@
+[
+  {
+    "id": "d1_clean_bearings",
+    "file": "desk/d1_clean_bearings.pdf",
+    "order": 1,
+    "title": "A clean invoice that arrives by email",
+    "group": "desk",
+    "tag": "Arrives by email",
+    "received_as": "Kaveri_KBD-26-27-1208.pdf",
+    "scanned": false,
+    "layout": "classic",
+    "expected_verdict": "APPROVE",
+    "expected_reasons": [],
+    "description": "Bearings on PO-2026-1046, received in full on 17 Nov and billed at the PO prices. Nobody needs to touch it."
+  },
+  {
+    "id": "d2_no_invoice_number",
+    "file": "desk/d2_no_invoice_number.pdf",
+    "order": 2,
+    "title": "An emailed invoice with the number left blank",
+    "group": "desk",
+    "tag": "Arrives by email",
+    "received_as": "NandiHills_invoice_Nov.pdf",
+    "scanned": false,
+    "layout": "modern",
+    "expected_verdict": "HOLD",
+    "expected_reasons": [
+      "MISSING_INVOICE_NUMBER"
+    ],
+    "description": "Cartons on PO-2026-1043, received in full. The invoice number box is empty, so the vendor is asked for it."
+  }
+]

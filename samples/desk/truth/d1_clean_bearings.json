@@ -1,0 +1,44 @@
+{
+  "id": "d1_clean_bearings",
+  "layout": "classic",
+  "scanned": false,
+  "vendor_id": "V101",
+  "vendor_name_printed": "Kaveri Bearings & Drives Pvt Ltd",
+  "vendor_gstin": "29AAECK6152L1Z4",
+  "buyer_gstin": "29AAKCN4821M1ZX",
+  "invoice_no": "KBD/26-27/1208",
+  "invoice_date": "2026-11-18",
+  "po_ref": "PO-2026-1046",
+  "tax_inclusive": false,
+  "gst_rate": "18",
+  "taxable": "114500.00",
+  "cgst": "10305.00",
+  "sgst": "10305.00",
+  "igst": "0",
+  "tax_total": "20610.00",
+  "total": "135110.00",
+  "bank_account": "004533118870",
+  "ifsc": "HMBL0000453",
+  "lines": [
+    {
+      "description": "Taper Roller Bearing 30205",
+      "hsn": "8482",
+      "qty": "200",
+      "uom": "Nos",
+      "unit_price": "420.00",
+      "amount": "84000.00",
+      "unit_price_pre_tax": "420.00",
+      "amount_pre_tax": "84000.00"
+    },
+    {
+      "description": "Pillow Block Bearing UCP205",
+      "hsn": "8483",
+      "qty": "50",
+      "uom": "Nos",
+      "unit_price": "610.00",
+      "amount": "30500.00",
+      "unit_price_pre_tax": "610.00",
+      "amount_pre_tax": "30500.00"
+    }
+  ]
+}

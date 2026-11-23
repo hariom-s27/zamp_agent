@@ -1,0 +1,5 @@
+po_number,po_date,vendor_id,status,currency,buyer,line_no,item_code,description,hsn_sac,uom,qty_ordered,unit_price,line_amount,match_basis,qty_received,received_on
+PO-2026-1043,2026-11-02,V102,OPEN,INR,A. Kulkarni (Stores),1,PKG-BOX-3PLY,Printed 3-ply corrugated box,4819,Nos,1500,22.00,33000.00,QTY,1500,2026-11-12
+PO-2026-1046,2026-11-06,V101,OPEN,INR,R. Iyer (Procurement),1,BRG-30205,Taper roller bearing 30205,8482,Nos,200,420.00,84000.00,QTY,200,2026-11-17
+PO-2026-1046,2026-11-06,V101,OPEN,INR,R. Iyer (Procurement),2,BRG-UCP205,Pillow block bearing UCP205,8483,Nos,50,610.00,30500.00,QTY,50,2026-11-17
+PO-2026-1047,2026-09-30,V102,OPEN,INR,A. Kulkarni (Stores),1,PKG-CTN-7PLY,Printed 7-ply shipper carton,4819,Nos,1800,35.00,63000.00,QTY,1800,2026-10-12

@@ -43,6 +43,22 @@ def load_case_manifest() -> list[dict]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def load_desk_manifest() -> list[dict]:
+    """The desk samples (round 4, scripts/generate_desk_data.py): the invoices the bundled mail carries."""
+    path = config.SAMPLES_DIR / "desk" / "manifest.json"
+    if not path.is_file():
+        return []
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def load_mail_manifest() -> list[dict]:
+    """The bundled demo mailbox (round 4): one entry per .eml file, in delivery order, with its expected kind."""
+    path = config.SAMPLES_DIR / "desk" / "mail" / "manifest.json"
+    if not path.is_file():
+        return []
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def sample_bytes(sample: dict) -> bytes:
     return (config.SAMPLES_DIR / sample["file"]).read_bytes()
 

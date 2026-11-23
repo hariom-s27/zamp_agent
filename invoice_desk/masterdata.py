@@ -93,13 +93,15 @@ def _rows(path: Path) -> list[dict]:
 # Optional files beside the base ones (round 3): the after-hold vendors and their purchase orders.
 # Delete them and the master is exactly what it was.
 CASE_FILES = ("vendors_cases.csv", "purchase_orders_cases.csv")
+# Round 4: the desk's own purchase orders (scripts/generate_desk_data.py), for vendors already on file.
+DESK_FILES = ("purchase_orders_desk.csv",)
 
 
 def master_files(data_dir: Optional[Path] = None) -> list[Path]:
     """The files the master is read from, in order: the two base files, then any case file present."""
     data_dir = Path(data_dir or config.DATA_DIR)
     base = [data_dir / "vendors.csv", data_dir / "purchase_orders.csv"]
-    return base + [data_dir / name for name in CASE_FILES if (data_dir / name).is_file()]
+    return base + [data_dir / name for name in CASE_FILES + DESK_FILES if (data_dir / name).is_file()]
 
 
 def _add_vendors(vendors: dict[str, Vendor], rows: list[dict], source: Path, refuse_known: bool) -> None:
@@ -149,6 +151,9 @@ def load_master(data_dir: Optional[Path] = None) -> MasterData:
         _add_vendors(vendors, _rows(extra_vendors), extra_vendors, refuse_known=True)
     if extra_pos.is_file():
         _add_pos(pos, _rows(extra_pos), extra_pos, refuse_known=True)
+    desk_pos = data_dir / DESK_FILES[0]
+    if desk_pos.is_file():
+        _add_pos(pos, _rows(desk_pos), desk_pos, refuse_known=True)
     digest = hashlib.sha256()
     for path in master_files(data_dir):
         digest.update(path.read_bytes().replace(b"\r\n", b"\n"))

@@ -1,0 +1,32 @@
+From: Aravalli Shield Receivables <ar@aravallishield.example>
+To: ap@nilgiri-precision.example
+Subject: Statement of account, November 2026
+Date: Sat, 21 Nov 2026 10:20:00 +0530
+Message-ID: <ass-soa.20261121.1020@aravallishield.example>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="desk-mail-05"
+
+--desk-mail-05
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+
+Dear Sir or Madam,
+
+Please find attached our statement of account for November 2026.
+
+Regards,
+Accounts receivable
+Aravalli Shield Safety Equipment Pvt Ltd
+
+--desk-mail-05
+Content-Type: text/csv
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="statement_nov.csv"
+MIME-Version: 1.0
+
+ZGF0ZSxkb2N1bWVudCxyZWZlcmVuY2UsZGViaXQsY3JlZGl0LGJhbGFuY2UKMjAyNi0xMS0wMSxP
+cGVuaW5nIGJhbGFuY2UsLCwsMC4wMAoyMDI2LTExLTEyLEludm9pY2UsQVNTLzIwMjYvMDkzMywx
+ODI5MDAuMDAsLDE4MjkwMC4wMAoyMDI2LTExLTE0LEludm9pY2UsQVNTLzIwMjYvMDk0MSw2NTc4
+NS4wMCwsMjQ4Njg1LjAwCjIwMjYtMTEtMzAsQ2xvc2luZyBiYWxhbmNlLCwsLDI0ODY4NS4wMAo=
+
+--desk-mail-05--

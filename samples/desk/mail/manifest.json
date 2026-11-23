@@ -1,0 +1,75 @@
+[
+  {
+    "file": "desk/mail/m1_invoice_clean.eml",
+    "order": 1,
+    "from": "accounts@kaveribearings.example",
+    "subject": "Invoice KBD/26-27/1208 against PO-2026-1046",
+    "attachments": [
+      "Kaveri_KBD-26-27-1208.pdf"
+    ],
+    "expected_kind": "invoice",
+    "description": "A clean invoice from the address on file. Read and approved with no person."
+  },
+  {
+    "file": "desk/mail/m2_invoice_no_number.eml",
+    "order": 2,
+    "from": "billing@nandihillspack.example",
+    "subject": "Invoice for cartons, PO-2026-1043",
+    "attachments": [
+      "NandiHills_invoice_Nov.pdf"
+    ],
+    "expected_kind": "invoice",
+    "description": "An invoice with the number left blank. Held, and a case opened."
+  },
+  {
+    "file": "desk/mail/m3_payment_question.eml",
+    "order": 3,
+    "from": "billing@deccanquill.example",
+    "subject": "Payment status: DQI/26-27/1187 and DQI/26-27/1193",
+    "attachments": [],
+    "expected_kind": "status_query",
+    "description": "A vendor on file asks when two invoices will be paid."
+  },
+  {
+    "file": "desk/mail/m4_bank_change_lookalike.eml",
+    "order": 4,
+    "from": "accounts@tungabhadra-furnishing.example",
+    "subject": "URGENT: updated bank details before the next payment",
+    "attachments": [],
+    "expected_kind": "bank_change_request",
+    "description": "Asks to change a bank account, from a domain one letter away from the vendor's. Nothing changes."
+  },
+  {
+    "file": "desk/mail/m5_statement.eml",
+    "order": 5,
+    "from": "ar@aravallishield.example",
+    "subject": "Statement of account, November 2026",
+    "attachments": [
+      "statement_nov.csv"
+    ],
+    "expected_kind": "statement",
+    "description": "A statement of account as a CSV file."
+  },
+  {
+    "file": "desk/mail/m6_other.eml",
+    "order": 6,
+    "from": "greetings@festive-offers.example",
+    "subject": "Season's greetings from our family to yours",
+    "attachments": [
+      "brochure.png"
+    ],
+    "expected_kind": "other",
+    "description": "A greeting from an unknown sender with a picture."
+  },
+  {
+    "file": "desk/mail/m7_same_invoice_again.eml",
+    "order": 7,
+    "from": "accounts@kaveribearings.example",
+    "subject": "Re-sending: Invoice KBD/26-27/1208",
+    "attachments": [
+      "Kaveri_KBD-26-27-1208.pdf"
+    ],
+    "expected_kind": "invoice",
+    "description": "The first invoice sent again with a new Message-ID. Nothing is booked twice."
+  }
+]

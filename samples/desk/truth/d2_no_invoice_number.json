@@ -1,0 +1,34 @@
+{
+  "id": "d2_no_invoice_number",
+  "layout": "modern",
+  "scanned": false,
+  "vendor_id": "V102",
+  "vendor_name_printed": "Nandi Hills Print & Pack",
+  "vendor_gstin": "29ABNFN7734G1ZP",
+  "buyer_gstin": "29AAKCN4821M1ZX",
+  "invoice_no": null,
+  "invoice_date": "2026-11-14",
+  "po_ref": "PO-2026-1043",
+  "tax_inclusive": false,
+  "gst_rate": "18",
+  "taxable": "33000.00",
+  "cgst": "2970.00",
+  "sgst": "2970.00",
+  "igst": "0",
+  "tax_total": "5940.00",
+  "total": "38940.00",
+  "bank_account": "117709934410",
+  "ifsc": "CUCB0001179",
+  "lines": [
+    {
+      "description": "Printed 3-Ply Corrugated Box",
+      "hsn": "4819",
+      "qty": "1500",
+      "uom": "Nos",
+      "unit_price": "22.00",
+      "amount": "33000.00",
+      "unit_price_pre_tax": "22.00",
+      "amount_pre_tax": "33000.00"
+    }
+  ]
+}

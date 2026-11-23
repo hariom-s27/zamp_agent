@@ -164,6 +164,33 @@ class ValueModel(Strict):
     desk_cost_per_month_inr: Decimal = Field(ge=0)
 
 
+INBOX_KINDS = ("status_query", "bank_change_request", "statement", "credit_note", "not_an_invoice", "other")
+
+
+class InboxRules(Strict):
+    """The AP inbox (round 4): how mail that reaches the AP address is sorted, owned and timed."""
+    enabled: bool
+    max_attachments: int = Field(gt=0)
+    answer_due_days: int = Field(ge=0)
+    lookalike_max_edits: int = Field(ge=1)
+    shared_mail_domains: list[str]
+    bank_change_phrases: list[str] = Field(min_length=1)
+    status_phrases: list[str] = Field(min_length=1)
+    statement_phrases: list[str] = Field(min_length=1)
+    owners: dict[str, str]
+    ai_label: bool
+
+    @model_validator(mode="after")
+    def _owners_cover_every_kind(self):
+        missing = [k for k in INBOX_KINDS if k not in self.owners]
+        extra = [k for k in self.owners if k not in INBOX_KINDS]
+        if missing or extra:
+            raise ValueError(f"inbox.owners must name exactly {', '.join(INBOX_KINDS)}"
+                             + (f" (missing {', '.join(missing)})" if missing else "")
+                             + (f" (unknown {', '.join(extra)})" if extra else ""))
+        return self
+
+
 class Reason(Strict):
     action: Action
     owner: str = ""
@@ -187,6 +214,7 @@ class Rules(Strict):
     cases: CaseRules
     msme: Msme
     value_model: ValueModel
+    inbox: InboxRules
     reasons: dict[str, Reason]
     sha256: str = ""
 
@@ -207,6 +235,10 @@ class Rules(Strict):
             reason = self.reasons.get(code)
             if reason is None or reason.action != "HOLD":
                 raise ValueError(f"cases.auto_resume: '{code}' is not a HOLD reason in reasons")
+        for kind, owner in self.inbox.owners.items():       # an inbox item can never be owned by a role with no clock
+            for name, table in (("reply_due_days", c.reply_due_days), ("escalate_to", c.escalate_to)):
+                if owner not in table:
+                    raise ValueError(f"inbox.owners: '{kind}' goes to '{owner}', who has no entry in cases.{name}")
         return self
 
     def reason(self, code: str) -> Reason:

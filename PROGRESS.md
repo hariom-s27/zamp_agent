@@ -354,3 +354,14 @@ checkpoints 2 to 7 and T as in the user's instructions of 23 Nov; not 8 to 12.
 **Standing-command helper.** The scratchpad script used for every checkpoint is not in the repository; the commands
 are the four standing ones plus `python -m invoice_desk.run --cases`, and `sha256sum -c` against
 `D:\sem_iitk\sem9\zamp\baseline_round3\sha256_*.txt`.
+
+## Round 4
+
+**Checkpoint 1: desk data and the inbox rules** (23 Nov 2026). `rules.yaml` gains an `inbox:` section (every key commented,
+required by `InboxRules`; a validator ties each inbox owner to `cases.reply_due_days` and `cases.escalate_to`).
+`scripts/generate_desk_data.py` writes `data/purchase_orders_desk.csv` (PO-2026-1043, 1046, 1047 for V101 and V102),
+`samples/desk/` (d1 APPROVE, d2 HOLD `MISSING_INVOICE_NUMBER`, own manifest) and the seven bundled emails with their
+manifest, UTF-8 8bit with CRLF, fixed dates, Message-IDs and MIME boundaries. `masterdata` reads the desk PO file.
+`samples/desk/.gitattributes` keeps the .eml bytes. Tests 638 (+11). Standing results unchanged.
+Deviation: the rule sections of features 2 to 5 are added at the checkpoint that builds each feature (context budget),
+not all at checkpoint 1; `rules.yaml` changes are additions only (checked against `b381b2e`).

@@ -124,6 +124,29 @@ value_model:                   # ASSUMPTIONS for the Business case page. Each is
   average_invoice_value_inr: 85000        # assumption
   desk_cost_per_month_inr: 0              # licence, hosting and oversight. 0 = show gross saving only
 
+inbox:                         # the AP inbox (round 4): every message sorted, owned and timed
+  enabled: true                # false = the Inbox page says it is off and no email is read
+  max_attachments: 10          # more than this and the whole message goes to a person, unopened
+  answer_due_days: 2           # a message waiting for a person is overdue after this many days
+  lookalike_max_edits: 2       # a sender domain this many letters away from a vendor's domain is flagged
+  shared_mail_domains:         # on these, only an exact address on file counts as the vendor
+    [gmail.com, yahoo.com, yahoo.co.in, outlook.com, hotmail.com, rediffmail.com]
+  bank_change_phrases:         # asks to change where money is sent. Always goes to the Vendor master team
+    ["change of bank", "changed our bank", "new bank account", "new account details",
+     "update our bank", "updated bank details", "revised bank details"]
+  status_phrases:              # a question about payment
+    ["payment status", "status of payment", "when will", "outstanding", "overdue",
+     "pending payment", "not received payment", "remittance", "reminder"]
+  statement_phrases: ["statement of account", "account statement", "ledger statement"]   # a vendor's statement
+  owners:                      # who gets each kind that is not decided by the nine stages
+    status_query: AP analyst
+    bank_change_request: Vendor master team
+    statement: AP analyst
+    credit_note: AP analyst
+    not_an_invoice: AP analyst
+    other: AP analyst
+  ai_label: false              # true = AI may suggest a label for a message the rules left as "other". It never routes.
+
 # What each finding means for the decision. action: REJECT > HOLD > NOTE.
 # owner: who is asked when the action is HOLD (or who is told, for REJECT).
 reasons:
