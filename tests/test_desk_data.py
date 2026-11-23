@@ -16,7 +16,7 @@ from invoice_desk.rules import RulesError, load_rules
 from scripts import generate_desk_data as GD
 
 ROOT = Path(__file__).resolve().parent.parent
-DESK_FILES = ["data/purchase_orders_desk.csv", "samples/desk/manifest.json", "samples/desk/mail/manifest.json"]
+DESK_FILES = ["data/purchase_orders_desk.csv", "data/vendor_terms_desk.csv", "samples/desk/manifest.json", "samples/desk/mail/manifest.json"]
 
 
 @pytest.fixture(scope="module")
@@ -61,13 +61,14 @@ def test_desk_ids_are_outside_every_range_in_use():
 
 def test_desk_samples_give_exactly_their_expected_reasons(pipeline):
     desk = samples.load_desk_manifest()
-    assert [s["id"] for s in desk] == ["d1_clean_bearings", "d2_no_invoice_number"]
+    assert [s["id"] for s in desk] == ["d1_clean_bearings", "d2_no_invoice_number", "p1_micro_supplier_due"]
     for sample in desk:
         result = pipeline.run(samples.sample_bytes(sample), samples.received_name(sample), source="cli")
         ok, verdict, reasons = samples.check(sample, result)
         assert ok, (sample["id"], result.verdict, [f.code for f in result.decision.reasons])
     assert desk[0]["expected_verdict"] == "APPROVE" and desk[0]["expected_reasons"] == []
     assert desk[1]["expected_verdict"] == "HOLD" and desk[1]["expected_reasons"] == ["MISSING_INVOICE_NUMBER"]
+    assert desk[2]["expected_verdict"] == "APPROVE" and desk[2]["expected_reasons"] == []
 
 
 def test_bundled_mail_is_utf8_8bit_with_crlf():

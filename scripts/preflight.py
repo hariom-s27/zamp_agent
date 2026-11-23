@@ -330,6 +330,7 @@ def check_desk(rep: Report) -> None:
         else:
             rep.line("WARN", "replies", "no recorded AI answer for the bundled replies, so the manual path is shown "
                      "(record them with python -m scripts.record_reply_fixtures)")
+        _rehearse_payments(rep, folder, today)
         chain = store.verify_chain()
         rep.line("ok" if chain["ok"] else "FAIL", "audit trail after the desk rehearsal",
                  f"{chain['count']} entries verified")
@@ -337,6 +338,44 @@ def check_desk(rep: Report) -> None:
         rep.line("FAIL", "desk rehearsal", f"{type(exc).__name__}: {str(exc)[:160]}")
     finally:
         shutil.rmtree(folder, ignore_errors=True)
+
+
+def _rehearse_payments(rep: Report, folder: Path, today) -> None:
+    """The worked example of the payment run on its own scratch books: groups, order, two approvers, the export."""
+    import hashlib
+    from invoice_desk import cases, payments
+    from invoice_desk.llm import LlmAssist
+    from invoice_desk.pipeline import Pipeline
+    from invoice_desk.store import Store
+    pipeline = Pipeline(store=Store(folder / "payments.db"), today=today,
+                        llm=LlmAssist(config.llm_config(mode="fixture")))
+    store, master, rules = pipeline.store, pipeline.master, pipeline.rules
+    if not rules.payments.enabled:
+        rep.line("WARN", "payment run", "switched off in rules.yaml (payments.enabled)")
+        return
+    by_id = {s["id"]: s for s in sample_lib.load_manifest() + sample_lib.load_case_manifest()
+             + sample_lib.load_desk_manifest()}
+    ids = {}
+    for sid in ("01_happy_path_furniture", "02_scanned_clean_safety", "03_monthly_service_instalment",
+                "07_E4a_tax_inclusive_within_tolerance", "09_fraud_guard_bank_change", "p1_micro_supplier_due",
+                "c2_small_supplier_late_invoice"):
+        ids[sid] = pipeline.run(sample_lib.sample_bytes(by_id[sid]), sample_lib.received_name(by_id[sid]), "preflight")
+    cases.sync(store, master, rules, today)
+    proposal = payments.propose(store, master, rules, today)
+    problems = []
+    if not proposal["pay"] or proposal["pay"][0]["ledger_id"] != ids["p1_micro_supplier_due"].ledger_id:
+        problems.append("the micro supplier's legal date is not first")
+    if ids["01_happy_path_furniture"].ledger_id not in {ln["ledger_id"] for ln in proposal["blocked"]}:
+        problems.append("the vendor with a bank change is not blocked")
+    if not problems:
+        done = payments.approve(store, master, rules, today, proposal["fingerprint"], ["Preflight (CFO)", "Preflight (AP)"],
+                                True, today)
+        entry = store.receipts()[-1]["body"]
+        if entry.get("export_sha256") != hashlib.sha256(done["path"].read_bytes()).hexdigest():
+            problems.append("the export file does not match its audit entry")
+    rep.line("FAIL" if problems else "ok", "payment run", "; ".join(problems) or
+             f"legal date first, bank-change vendor blocked, approved by two people, {len(proposal['pay'])} lines "
+             f"exported; nothing paid")
 
 
 def check_pages(rep: Report) -> None:
@@ -360,7 +399,7 @@ def check_pages(rep: Report) -> None:
     os.environ["INVOICE_DESK_DB"], os.environ["LLM_USAGE_DB"] = str(folder / "pages.db"), str(folder / "usage.db")
     try:
         for key, title in (("demo", "Guided demo"), ("inbox", "Inbox"), ("process", "Process invoice"), ("review", "Review queue"),
-                           ("cases", "Cases"), ("dashboard", "Dashboard"), ("value", "Business case"), ("reference", "Rules and data"), ("guide", "How it works")):
+                           ("cases", "Cases"), ("payments", "Payments"), ("dashboard", "Dashboard"), ("value", "Business case"), ("reference", "Rules and data"), ("guide", "How it works")):
             app = AppTest.from_file(str(config.ROOT / "app.py"), default_timeout=120)
             app.session_state["goto"] = key
             app.run()

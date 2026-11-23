@@ -87,3 +87,36 @@ def test_review_form_is_prefilled_from_an_offered_value(app):
     words = said(app)
     assert f"From the vendor's reply, read by AI and checked against the reply text: \"{sentence}\"" in words
     assert "The vendor's reply states PO-2026-1043. This agrees with the PO on the invoice." in words
+
+def test_payments_page_opens_and_says_nothing_is_paid(app):
+    go(app, "payments", "Payments")
+    assert "Nothing is paid from here." in said(app)
+    assert "Proposal for 21 Nov 2026. It covers what must be paid by 28 Nov 2026." in shown(app)
+
+
+def test_payments_two_people_approve_and_nothing_is_paid(app, tmp_path):
+    from invoice_desk import samples
+    from invoice_desk.pipeline import Pipeline
+    from invoice_desk.llm import LlmAssist
+    from invoice_desk import config
+    from tests.conftest import TODAY
+    pipe = Pipeline(store=app.db, llm=LlmAssist(config.LlmConfig(mode="off")), today=TODAY, ocr_mode="fixture")
+    by_id = {s["id"]: s for s in samples.load_manifest() + samples.load_desk_manifest()}
+    for sid in ("02_scanned_clean_safety", "07_E4a_tax_inclusive_within_tolerance", "p1_micro_supplier_due"):
+        pipe.run(samples.sample_bytes(by_id[sid]), samples.received_name(by_id[sid]), source="cli")
+    go(app, "payments", "Payments")
+    assert "This run is above" in said(app)
+    app.text_input(key="pay_name").input("N. Rao")
+    app.checkbox(key="pay_auth").check()
+    app.button(key="FormSubmitter:pay_approve_form-Approve the run").click().run()
+    assert "First approval: N. Rao." in said(app)
+    app.text_input(key="pay_name_2").input("n rao")
+    app.checkbox(key="pay_auth_2").check()
+    app.button(key="FormSubmitter:pay_approve_form-Approve the run").click().run()
+    assert any("different person" in e.value for e in app.error)
+    app.text_input(key="pay_name_2").input("S. Iyer")
+    app.button(key="FormSubmitter:pay_approve_form-Approve the run").click().run()
+    assert not app.exception, [str(e.value) for e in app.exception]
+    assert "approved by N. Rao and S. Iyer. Nothing has been paid." in said(app)
+    assert app.db.payment_runs()[0]["status"] == "APPROVED"
+    assert all(e["status"] == "POSTED" for e in app.db.ledger_entries() if e["origin"] == "run")

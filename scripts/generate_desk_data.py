@@ -56,7 +56,14 @@ DESK_SAMPLES = [
     G.spec(id="d2_no_invoice_number", layout="modern", vendor="V102", invoice_no=None,
            invoice_date=date(2026, 11, 14), po_ref="PO-2026-1043", po_date=date(2026, 11, 2),
            lines=[G.line("Printed 3-Ply Corrugated Box", "4819", 1500, "Nos", "22.00")]),
+    G.spec(id="p1_micro_supplier_due", layout="modern", vendor="V102", invoice_no="NHP/26-27/0262",
+           invoice_date=date(2026, 10, 14), po_ref="PO-2026-1047", po_date=date(2026, 9, 30),
+           lines=[G.line("Printed 7-Ply Shipper Carton", "4819", 1800, "Nos", "35.00")]),
 ]
+
+# Early-payment discounts agreed with two vendors (feature 3): vendor_id, discount_pct, discount_days.
+# Read by invoice_desk/payments.py only, so the vendor master and its fingerprint do not change.
+VENDOR_TERMS = [("V004", "2.0", 10), ("V006", "0.5", 10)]
 
 # id: (title, verdict, reason codes, description, the file name the attachment arrived under)
 DESK_META = {
@@ -68,6 +75,11 @@ DESK_META = {
         "An emailed invoice with the number left blank", "HOLD", ["MISSING_INVOICE_NUMBER"],
         "Cartons on PO-2026-1043, received in full. The invoice number box is empty, so the vendor is asked for it.",
         "NandiHills_invoice_Nov.pdf"),
+    "p1_micro_supplier_due": (
+        "A micro supplier's invoice, five days from the legal pay-by date", "APPROVE", [],
+        "Cartons on PO-2026-1047, delivered on 12 Oct and billed at the PO price. Approved; the payment run must pay it "
+        "by 26 Nov, the statutory date for a micro enterprise.",
+        "NandiHills_NHP-26-27-0262.pdf"),
 }
 
 STATEMENT_CSV = (
@@ -187,6 +199,8 @@ def write_desk_master(data_dir: Path) -> None:
         for n, (code, desc, hsn, uom, qty, price, basis, received, received_on) in enumerate(lines, 1):
             rows.append([po_number, po_date, vendor, status, "INR", buyer, n, code, desc, hsn, uom, qty, price,
                          f"{q2(G.D(qty) * G.D(price))}", basis, received, received_on])
+    G.write_csv(data_dir / "vendor_terms_desk.csv", ["vendor_id", "discount_pct", "discount_days"],
+                [list(row) for row in VENDOR_TERMS])
     G.write_csv(data_dir / "purchase_orders_desk.csv",
                 ["po_number", "po_date", "vendor_id", "status", "currency", "buyer", "line_no", "item_code",
                  "description", "hsn_sac", "uom", "qty_ordered", "unit_price", "line_amount", "match_basis",

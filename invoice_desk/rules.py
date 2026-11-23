@@ -199,6 +199,20 @@ class ReplyRules(Strict):
     offer: list[Literal["invoice_number", "po_number"]]
 
 
+class PaymentRules(Strict):
+    """The payment-run proposal (round 4): what must be paid, in what order, for a person to approve. Nothing is paid."""
+    enabled: bool
+    horizon_days: int = Field(ge=0)
+    run_weekdays: list[Literal["mon", "tue", "wed", "thu", "fri", "sat", "sun"]] = Field(min_length=1)
+    include_history: bool
+    hurdle_rate_pct: Decimal = Field(ge=0)
+    discount_base: Literal["total", "taxable"]
+    second_approver_above_inr: Decimal = Field(ge=0)
+    block_on_open_bank_change: bool
+    itc_reversal_warn_days: int = Field(gt=0)
+    export_account_digits: int = Field(ge=0, le=6)
+
+
 class Reason(Strict):
     action: Action
     owner: str = ""
@@ -224,6 +238,7 @@ class Rules(Strict):
     value_model: ValueModel
     inbox: InboxRules
     replies: ReplyRules
+    payments: PaymentRules
     reasons: dict[str, Reason]
     sha256: str = ""
 

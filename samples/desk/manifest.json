@@ -28,5 +28,19 @@
       "MISSING_INVOICE_NUMBER"
     ],
     "description": "Cartons on PO-2026-1043, received in full. The invoice number box is empty, so the vendor is asked for it."
+  },
+  {
+    "id": "p1_micro_supplier_due",
+    "file": "desk/p1_micro_supplier_due.pdf",
+    "order": 3,
+    "title": "A micro supplier's invoice, five days from the legal pay-by date",
+    "group": "desk",
+    "tag": "Arrives by email",
+    "received_as": "NandiHills_NHP-26-27-0262.pdf",
+    "scanned": false,
+    "layout": "modern",
+    "expected_verdict": "APPROVE",
+    "expected_reasons": [],
+    "description": "Cartons on PO-2026-1047, delivered on 12 Oct and billed at the PO price. Approved; the payment run must pay it by 26 Nov, the statutory date for a micro enterprise."
   }
 ]

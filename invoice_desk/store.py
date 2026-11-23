@@ -62,9 +62,17 @@ CREATE TABLE IF NOT EXISTS messages (
 CREATE TABLE IF NOT EXISTS goods_receipts (
     id INTEGER PRIMARY KEY AUTOINCREMENT, po_number TEXT, line_no INTEGER, qty TEXT, received_on TEXT,
     recorded_by TEXT, reference TEXT, created_at TEXT);
+CREATE TABLE IF NOT EXISTS payment_runs (
+    run_id TEXT PRIMARY KEY, run_date TEXT, horizon_days INTEGER, cash_limit TEXT, status TEXT, lines_fingerprint TEXT,
+    total TEXT, line_count INTEGER, approved_by TEXT, second_approved_by TEXT DEFAULT '', approved_at TEXT,
+    export_sha256 TEXT, rules_version TEXT, cancelled_by TEXT DEFAULT '', cancelled_at TEXT DEFAULT '',
+    cancel_reason TEXT DEFAULT '');
+CREATE TABLE IF NOT EXISTS payment_run_lines (
+    run_id TEXT, ledger_id TEXT, vendor_id TEXT, group_name TEXT, amount TEXT, discount TEXT, pay_by TEXT, basis TEXT,
+    why TEXT, removed_by TEXT DEFAULT '', removed_reason TEXT DEFAULT '');
 """
 TABLES = ["runs", "ledger", "ledger_lines", "receipts", "reviews", "vendor_overrides", "meta",
-          "cases", "case_events", "messages", "goods_receipts"]
+          "cases", "case_events", "messages", "goods_receipts", "payment_runs", "payment_run_lines"]
 # columns a case may change after it is opened (its id and run never change)
 CASE_FIELDS = {"state", "waiting_on", "owner", "question", "reason_codes", "priority", "due_on", "statutory_due",
                "statutory_basis", "escalated_to", "escalated_on", "resolved_on", "resolution", "proposed_json"}
@@ -205,6 +213,10 @@ class Store:
         outbox = Path(self.path).parent / "outbox"        # approved messages (cases.outbox_dir) go with the records
         if outbox.is_dir():
             for written in outbox.glob("*.eml"):
+                written.unlink(missing_ok=True)
+        exports = Path(self.path).parent / "payments"      # payment-run proposal files (round 4) go with them too
+        if exports.is_dir():
+            for written in exports.glob("*.csv"):
                 written.unlink(missing_ok=True)
         self.seed_history()
 
@@ -607,3 +619,46 @@ class Store:
         with self._conn() as conn:
             conn.execute(f"UPDATE messages SET {', '.join(f'{n} = ?' for n in names)} WHERE message_id = ?",
                          [fields[n] for n in names] + [message_id])
+    # ---------------------------------------------------------------- payment runs (round 4)
+
+    def add_payment_run(self, run: dict, lines: list[dict]) -> None:
+        names = ["run_id", "run_date", "horizon_days", "cash_limit", "status", "lines_fingerprint", "total",
+                 "line_count", "approved_by", "second_approved_by", "approved_at", "export_sha256", "rules_version"]
+        line_names = ["run_id", "ledger_id", "vendor_id", "group_name", "amount", "discount", "pay_by", "basis", "why",
+                      "removed_by", "removed_reason"]
+        with self._conn() as conn:
+            conn.execute(f"INSERT INTO payment_runs ({', '.join(names)}) VALUES ({', '.join('?' for _ in names)})",
+                         [run.get(n, "") if run.get(n) is not None else "" for n in names])
+            for ln in lines:
+                conn.execute(f"INSERT INTO payment_run_lines ({', '.join(line_names)}) VALUES "
+                             f"({', '.join('?' for _ in line_names)})",
+                             [str(ln.get(n, "")) if ln.get(n) is not None else "" for n in line_names])
+
+    def payment_runs(self) -> list[dict]:
+        with self._conn() as conn:
+            return [dict(r) for r in conn.execute("SELECT * FROM payment_runs ORDER BY run_id").fetchall()]
+
+    def payment_run(self, run_id: str) -> Optional[dict]:
+        with self._conn() as conn:
+            row = conn.execute("SELECT * FROM payment_runs WHERE run_id = ?", (run_id,)).fetchone()
+        return dict(row) if row else None
+
+    def payment_run_lines(self, run_id: Optional[str] = None) -> list[dict]:
+        sql, args = "SELECT * FROM payment_run_lines", []
+        if run_id:
+            sql, args = sql + " WHERE run_id = ?", [run_id]
+        with self._conn() as conn:
+            return [dict(r) for r in conn.execute(sql + " ORDER BY rowid", args).fetchall()]
+
+    def locked_for_payment(self) -> dict[str, str]:
+        """Ledger ids on an approved payment run (not taken out), with the run's id."""
+        with self._conn() as conn:
+            rows = conn.execute("SELECT l.ledger_id, l.run_id FROM payment_run_lines l JOIN payment_runs r "
+                                "ON r.run_id = l.run_id WHERE r.status = 'APPROVED' AND l.removed_by = '' "
+                                "AND l.group_name = 'pay'").fetchall()
+        return {r["ledger_id"]: r["run_id"] for r in rows}
+
+    def cancel_payment_run(self, run_id: str, by: str, at: str, reason: str) -> None:
+        with self._conn() as conn:
+            conn.execute("UPDATE payment_runs SET status = 'CANCELLED', cancelled_by = ?, cancelled_at = ?, "
+                         "cancel_reason = ? WHERE run_id = ?", (by, at, reason, run_id))

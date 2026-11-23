@@ -153,6 +153,18 @@ replies:                       # the vendor loop (round 4): a reply to a case's 
   require_sender_match: true   # nothing is offered unless the reply comes from the vendor's address or domain on file
   offer: [invoice_number, po_number]   # values that may be offered to the reviewer. Dates and totals are evidence only
 
+payments:                      # the payment-run proposal (round 4). The desk proposes; a person approves; nothing is paid
+  enabled: true                # false = the Payments page says it is off and nothing is proposed
+  horizon_days: 7              # propose what must be paid within this many days of the run date
+  run_weekdays: [tue, thu]     # shown as "next run" dates. Nothing runs by itself
+  include_history: false       # invoices posted before this tool existed are treated as already settled
+  hurdle_rate_pct: 12.0        # ASSUMPTION: yearly cost of money. A discount is taken only if its yearly return is at least this
+  discount_base: total         # total = a percentage of the invoice total; taxable = of the pre-tax value. A contract term
+  second_approver_above_inr: 200000   # a run above this total needs two different people
+  block_on_open_bank_change: true     # no payment to a vendor whose bank account change is waiting for verification
+  itc_reversal_warn_days: 150  # unpaid this long after the invoice date: warn. Input tax credit is reversed at 180 days
+  export_account_digits: 4     # the export shows only this many last digits of a bank account
+
 # What each finding means for the decision. action: REJECT > HOLD > NOTE.
 # owner: who is asked when the action is HOLD (or who is told, for REJECT).
 reasons:

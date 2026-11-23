@@ -394,3 +394,18 @@ checkpoints 8 and 10 (not in this round), so a PDF inside a reply is listed and 
 same text after quotes are removed, so one recording serves both (n3 is refused by the sender check); the n4 wording
 avoids the exact bank-change phrases so that it reaches the reply reader, as the spec intends; recordings not made
 (no API calls allowed here), so the manual path is what the app shows until they are recorded.
+**Checkpoint 5: the payment run** (23 Nov 2026). `invoice_desk/payments.py`: candidates are POSTED ledger entries of
+origin `run` not on an approved run; due date from the vendor's terms (`decide._due_date`), legal date from the round 3
+`statutory_clock`, discount return d/(1-d) x 365/(N-t) against the hurdle, blocks (vendor not approved, open bank
+change), flags (twins, 180-day credit reversal); groups pay / not due / blocked / on hold, plus deferred for cash and
+taken out; legal-date lines never deferred; removal with name and reason; approval by a named person with release
+authority, two different people above the limit (`review._person`), refused if the fingerprint changed; on approval the
+run and lines are stored, `payments/PR-YYYYMMDD-NN.csv` is written with accounts masked, one audit entry carries the
+export hash; cancel with a reason frees the lines. Ledger status never changes. New tables `payment_runs`,
+`payment_run_lines` (in `TABLES`, reset clears them and the export folder). Page "Payments", `rules.yaml` `payments:`,
+P1 sample and `data/vendor_terms_desk.csv` from the generator, preflight `payment run` line and the page in the page
+check. The worked example of 4.3 comes out as written (37.24%, 9.17%, Rs 1,08,817.24, Rs 2,220.76, Rs 338.76, legal date
+26 Nov first, sample 01 blocked by sample 09, C2 on hold with 24 Nov). Tests 715 (`test_payments.py` 20, UI 2).
+Deviations: the terms file is `data/vendor_terms_desk.csv` (the round's data naming rule) not `data/vendor_terms.csv`;
+"approved for payment in run {id}" is shown on the Payments page only (other pages unchanged); the MSME-1 register rider
+is not built.
