@@ -22,6 +22,7 @@ from . import common as C
 from . import process
 
 STEPS = demo_steps.STEPS
+AFTER = demo_steps.AFTER_HOLD
 
 
 def _samples() -> dict[str, dict]:
@@ -142,6 +143,49 @@ def _settings(store) -> None:
                 st.rerun()
 
 
+def _after_hold(area, store, done: dict) -> None:
+    """Steps 12 and 13: what happens after a hold. Their own list and their own session key
+    ('after_done'), so the first eleven steps and 'Run all remaining' keep their meaning."""
+    after: dict = st.session_state.setdefault("after_done", {})
+    ready = len(done) >= len(STEPS)
+    pending = [s for s in AFTER if s["key"] not in after]
+    nxt = pending[0] if pending else None
+    st.subheader("After the decision: steps 12 and 13")
+    st.caption("A hold is not the end. Each one becomes a case with one owner, one question and a clock, followed on "
+               "the Cases page." + ("" if ready else " These two steps open once the first eleven have run."))
+    label = f"Run step {len(STEPS) + len(after) + 1}" if nxt else "Steps 12 and 13 done"
+    if st.button(label, key="demo_after_next", type="primary", disabled=not ready or nxt is None,
+                 icon=":material/play_arrow:") and nxt is not None:
+        case_manifest = sample_lib.load_case_manifest()
+        sample = demo_steps.sample_of_case(nxt, case_manifest)
+        result = process.run_live(area, C.get_pipeline(store=store), sample_lib.sample_bytes(sample),
+                                  process.sample_name(sample), "sample", process.pace_seconds())
+        if result is not None:
+            ok, want = demo_steps.outcome(nxt, result, after, C.get_rules(), case_manifest)
+            after[nxt["key"]] = {"run_id": result.run_id, "verdict": result.verdict, "ok": ok, "want": want}
+            st.session_state["after_last"] = nxt["key"]
+        st.rerun()
+    for number, step in enumerate(AFTER, len(STEPS) + 1):
+        state = after.get(step["key"])
+        mark = ""
+        if state:
+            mark = f"{state['verdict']}, " + ("as expected" if state["ok"] else "NOT as expected")
+        st.markdown(f"<div class='idk-text'><b>Step {number}: {C.esc(step['title'])}.</b> {C.esc(step['watch'])}"
+                    f"{' <i>' + C.esc(mark) + '</i>' if mark else ''}</div>", unsafe_allow_html=True)
+    last = next((s for s in AFTER if s["key"] == st.session_state.get("after_last")), None)
+    if last is not None and last["key"] in after:
+        state = after[last["key"]]
+        result = store.get_run(state["run_id"])
+        (st.success if state["ok"] else st.error)(
+            f"Step {len(STEPS) + AFTER.index(last) + 1}: decision {state['verdict']}. Expected: {state['want']}. " +
+            ("This is the expected decision." if state["ok"] else "This is NOT the expected decision; start a fresh demo."))
+        if result is not None and result.decision is not None:
+            st.markdown(C.verdict_banner_html(result), unsafe_allow_html=True)
+        if st.button("Open the case", key="demo_open_case", type="primary", icon=":material/assignment_late:"):
+            st.session_state["goto"] = "cases"
+            st.rerun()
+
+
 def _try_your_own(area, store) -> None:
     st.subheader("Try your own invoice")
     st.write("Upload any PDF. It goes through the same nine stages, live. This demo company has a made-up vendor list "
@@ -250,6 +294,8 @@ def page() -> None:
         st.markdown("".join(_step_html(n, each, done.get(each["key"]), each is nxt and not stale)
                             for n, each in enumerate(STEPS, 1)), unsafe_allow_html=True)
 
+    st.divider()
+    _after_hold(area, store, done)
     st.divider()
     _try_your_own(area, store)
     _settings(store)

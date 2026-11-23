@@ -142,7 +142,7 @@ def page() -> None:
         st.subheader("Decided on review")
         by_run = {r["run_id"]: r for r in runs}
         words = {"APPROVE": "approved for payment", "REJECT": "rejected", "HANDLED": "closed, processed manually",
-                 "FIRST_APPROVAL": "first of two approvals"}
+                 "FIRST_APPROVAL": "first of two approvals", "RELEASED": "released by rule (no person needed)"}
         C.table({"Reference": r["run_id"], "Vendor": by_run.get(r["run_id"], {}).get("vendor_name", "-"),
                  "Invoice no.": by_run.get(r["run_id"], {}).get("invoice_no", "-") or "-",
                  "Total": C.money(by_run.get(r["run_id"], {}).get("total")) if by_run.get(r["run_id"], {}).get("total") else "-",

@@ -95,6 +95,10 @@ def check_data(rep: Report) -> None:
     missing = [s["file"] for s in manifest if not (config.SAMPLES_DIR / s["file"]).is_file()]
     rep.line("FAIL" if missing or not manifest else "ok", "sample files",
              f"missing {missing}" if missing else f"{len(manifest)} files")
+    case_manifest = sample_lib.load_case_manifest()
+    missing = [s["file"] for s in case_manifest if not (config.SAMPLES_DIR / s["file"]).is_file()]
+    rep.line("FAIL" if missing or not case_manifest else "ok", "after-hold sample files",
+             f"missing {missing}" if missing else f"{len(case_manifest)} after-hold files")
     try:
         folder = config.runtime_dir()
         rep.line("ok", "runtime folder is writable", str(folder))
@@ -226,6 +230,66 @@ def check_demo(rep: Report) -> None:
         shutil.rmtree(folder, ignore_errors=True)
 
 
+def check_cases(rep: Report) -> None:
+    """Rehearse steps 12 and 13 on a scratch database: the case for an invoice that came before
+    the goods is released by rule once they are received, and a small supplier's case is urgent,
+    escalated, and gets a message approved by a named person into the outbox."""
+    print("\nAfter the decision rehearsal (steps 12 and 13, scratch database)")
+    import email
+    import email.policy
+    from decimal import Decimal
+    from invoice_desk import cases, demo_steps
+    from invoice_desk.llm import LlmAssist
+    from invoice_desk.pipeline import Pipeline
+    from invoice_desk.store import Store
+    folder = Path(tempfile.mkdtemp(prefix="invoice_desk_cases_"))
+    try:
+        today = sample_lib.business_date()
+        pipeline = Pipeline(store=Store(folder / "cases.db"), today=today, llm=LlmAssist(config.llm_config(mode="off")))
+        store, master, rules = pipeline.store, pipeline.master, pipeline.rules
+        case_manifest = sample_lib.load_case_manifest()
+        early, clock = demo_steps.AFTER_HOLD
+        number = len(demo_steps.STEPS) + 1
+
+        sample = demo_steps.sample_of_case(early, case_manifest)
+        run = pipeline.run(sample_lib.sample_bytes(sample), sample_lib.received_name(sample), "preflight")
+        cases.sync(store, master, rules, today)
+        case = store.case_for_run(run.run_id)
+        problems = []
+        if not case or case["waiting_on"] != "Stores":
+            problems.append(f"expected a case waiting on Stores, got {case and case['waiting_on']}")
+        else:
+            cases.record_goods_receipt(store, master, "PO-2026-1041", 2, Decimal("60"), today, "Preflight (Stores)",
+                                       "DN-PREFLIGHT", for_run=run.run_id)
+            cases.sync(store, master, rules, today)
+            if store.run_row(run.run_id)["review_status"] != "RELEASED" or                     store.get_ledger(run.ledger_id)["status"] != "POSTED":
+                problems.append("the goods receipt did not release the invoice")
+        rep.line("FAIL" if problems else "ok", f"case {number} {early['short']}",
+                 "; ".join(problems) or "waiting on Stores, then released by rule and posted")
+
+        sample = demo_steps.sample_of_case(clock, case_manifest)
+        run = pipeline.run(sample_lib.sample_bytes(sample), sample_lib.received_name(sample), "preflight")
+        cases.sync(store, master, rules, today)
+        case = store.case_for_run(run.run_id)
+        problems = []
+        if not case or case["priority"] != "urgent" or case["escalated_to"] != "Finance controller" or                 case["statutory_due"] != "2026-11-24":
+            problems.append(f"expected urgent, escalated, pay-by 2026-11-24; got {case}")
+        else:
+            sent = cases.approve_message(store, master, rules, case["case_id"], "Preflight (AP)", today)
+            mail = email.message_from_bytes(sent["path"].read_bytes(), policy=email.policy.default)
+            if f"[{case['case_id']}]" not in str(mail["Subject"]) or mail["To"] != sent["to"]:
+                problems.append("the outbox file is not the expected email")
+        rep.line("FAIL" if problems else "ok", f"case {number + 1} {clock['short']}",
+                 "; ".join(problems) or "urgent, escalated to Finance controller, pay-by 24 Nov 2026, message in the outbox")
+        chain = store.verify_chain()
+        rep.line("ok" if chain["ok"] else "FAIL", "audit trail after the after-hold steps",
+                 f"{chain['count']} entries verified")
+    except Exception as exc:
+        rep.line("FAIL", "after-hold rehearsal", f"{type(exc).__name__}: {str(exc)[:160]}")
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
 def check_pages(rep: Report) -> None:
     """Open every page of the app without a browser, on a scratch database."""
     print("\nEvery page of the app opens (headless, scratch database)")
@@ -247,7 +311,7 @@ def check_pages(rep: Report) -> None:
     os.environ["INVOICE_DESK_DB"], os.environ["LLM_USAGE_DB"] = str(folder / "pages.db"), str(folder / "usage.db")
     try:
         for key, title in (("demo", "Guided demo"), ("process", "Process invoice"), ("review", "Review queue"),
-                           ("dashboard", "Dashboard"), ("reference", "Rules and data"), ("guide", "How it works")):
+                           ("cases", "Cases"), ("dashboard", "Dashboard"), ("reference", "Rules and data"), ("guide", "How it works")):
             app = AppTest.from_file(str(config.ROOT / "app.py"), default_timeout=120)
             app.session_state["goto"] = key
             app.run()
@@ -282,6 +346,7 @@ def main(argv: list[str] | None = None) -> int:
         check_samples(rep)
     if rep.failed == 0:
         check_demo(rep)
+        check_cases(rep)
         check_pages(rep)
     print()
     if rep.failed:

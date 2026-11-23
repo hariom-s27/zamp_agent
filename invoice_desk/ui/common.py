@@ -18,6 +18,7 @@ from typing import Any, Iterable, Optional
 import pandas as pd
 import streamlit as st
 
+from .. import cases as case_engine
 from .. import config, reader
 from .. import samples as sample_lib
 from .. import textutil as T
@@ -211,14 +212,16 @@ def get_llm() -> LlmAssist:
 
 
 def get_pipeline(rules: Optional[Rules] = None, store: Optional[Store] = None) -> Pipeline:
-    return Pipeline(store=store or get_store(), rules=rules or get_rules(), master=get_master(), llm=get_llm(),
-                    today=business_date())
+    store = store or get_store()
+    master = case_engine.master_with_receipts(get_master(), store)      # the same object while no receipt is recorded
+    return Pipeline(store=store, rules=rules or get_rules(), master=master, llm=get_llm(), today=business_date())
 
 
 def reset_books(store: Store) -> None:
     """Back to the seeded history, and forget what this session was looking at."""
     store.reset()
-    for key in ("current_run", "batch", "dash_run", "wi_result", "demo_done", "demo_last", "demo_auto"):
+    for key in ("current_run", "batch", "dash_run", "wi_result", "demo_done", "demo_last", "demo_auto",
+                "after_done", "after_last"):
         st.session_state.pop(key, None)
 
 
@@ -557,7 +560,9 @@ def render_preview(content: Optional[bytes], sha256: str, result: Optional[RunRe
 # --------------------------------------------------------------------------- one whole run
 
 EVENT = {"decision": "Decision recorded by the system", "review": "Decision by a reviewer",
-         "review_refused": "Approval refused by the system", "resubmission": "Same file received again"}
+         "review_refused": "Approval refused by the system", "resubmission": "Same file received again",
+         "goods_receipt": "Goods receipt recorded", "release": "Released by rule",
+         "message": "Message approved by a person"}
 
 
 def audit_trail(result: RunResult, store: Store) -> None:
@@ -621,7 +626,8 @@ def render_run(result: RunResult, store: Store, key: str) -> None:
 
 
 REVIEW_STATUS = {"PENDING": "waiting for review", "APPROVED": "approved on review", "REJECTED": "rejected on review",
-                 "HANDLED": "closed, processed manually"}
+                 "HANDLED": "closed, processed manually",
+                 "RELEASED": "released by rule once the missing fact arrived"}
 
 
 def run_table_rows(runs: list[dict], rules: Rules) -> list[dict]:

@@ -2,9 +2,9 @@
 
     streamlit run app.py
 
-Six pages: Guided demo (one scenario per click), Process invoice (live stages), Review
-queue (human decisions), Dashboard (history, status, outputs), Rules and data, How it
-works. The pages only display; all the work is done by the `invoice_desk` package, which
+Seven pages: Guided demo (one scenario per click), Process invoice (live stages), Review
+queue (human decisions), Cases (what happens after a hold), Dashboard (history, status,
+outputs), Rules and data, How it works. The pages only display; all the work is done by the `invoice_desk` package, which
 the tests and the command line use too.
 """
 from __future__ import annotations
@@ -12,7 +12,7 @@ from __future__ import annotations
 import streamlit as st
 
 from invoice_desk.ui import common as C
-from invoice_desk.ui import dashboard, demo, guide, process, reference, review
+from invoice_desk.ui import cases, dashboard, demo, guide, process, reference, review
 
 st.set_page_config(page_title=C.APP_NAME, page_icon=":material/receipt_long:", layout="wide",
                    initial_sidebar_state="expanded")
@@ -24,6 +24,7 @@ PAGES = {
     "process": st.Page(process.page, title="Process invoice", icon=":material/play_circle:", url_path="process"),
     "review": st.Page(review.page, title=f"Review queue ({waiting})" if waiting else "Review queue",
                       icon=":material/fact_check:", url_path="review"),
+    "cases": st.Page(cases.page, title="Cases", icon=":material/assignment_late:", url_path="cases"),
     "dashboard": st.Page(dashboard.page, title="Dashboard", icon=":material/monitoring:", url_path="dashboard"),
     "reference": st.Page(reference.page, title="Rules and data", icon=":material/rule:", url_path="rules"),
     "guide": st.Page(guide.page, title="How it works", icon=":material/help:", url_path="guide"),

@@ -111,7 +111,7 @@ def test_preflight_is_ready_without_a_key_and_says_what_is_missing(workspace, ca
     assert rehearsal.count("[ok  ] step") == 11 and "step 10 Sent twice: APPROVE" in rehearsal
     assert "audit trail after the demo: 11 entries verified" in rehearsal
     pages = out.split("Every page of the app opens")[1]
-    for title in ("Guided demo", "Process invoice", "Review queue", "Dashboard", "Rules and data", "How it works"):
+    for title in ("Guided demo", "Process invoice", "Review queue", "Cases", "Dashboard", "Rules and data", "How it works"):
         assert f"[ok  ] {title}" in pages
 
 
@@ -217,3 +217,14 @@ def test_the_case_data_generator_is_repeatable_and_leaves_the_bundled_samples_al
     assert not [n for n in written if not n.endswith(".pdf") and b"\r" in (tmp_path / "a" / n).read_bytes()]  # LF, as git keeps them
     assert hashes(tmp_path / "a", written) == hashes(config.ROOT, written)           # and the committed files are its output
     assert hashes(config.ROOT, bundled) == before and generate_test_data.VENDOR == vendors_before
+
+
+def test_preflight_rehearses_the_after_hold_scenarios(workspace, capsys):
+    assert preflight.main([]) == 0
+    out = capsys.readouterr().out
+    assert "2 after-hold files" in out
+    rehearsal = out.split("After the decision rehearsal")[1].split("Every page of the app opens")[0]
+    assert "[ok  ] case 12 Before goods: waiting on Stores, then released by rule and posted" in rehearsal
+    assert "[ok  ] case 13 Legal clock: urgent, escalated to Finance controller, pay-by 24 Nov 2026, message in the outbox"         in rehearsal
+    assert "[ok  ] audit trail after the after-hold steps" in rehearsal and "[FAIL" not in rehearsal
+    assert out.count("[ok  ] step") == 11

@@ -25,7 +25,7 @@ def _kpis(runs: list[dict]) -> None:
     approved = [r for r in received if r["verdict"] == "APPROVE"]
     held = [r for r in received if r["review_status"] == "PENDING"]
     rejected = [r for r in received if r["verdict"] == "REJECT"]
-    released = approved + [r for r in received if r["review_status"] == "APPROVED"]      # rupee invoices only
+    released = approved + [r for r in received if r["review_status"] in ("APPROVED", "RELEASED")]   # rupee invoices only
     value = lambda rows: sum((T.to_decimal(r["total"]) or 0 for r in rows), 0)   # noqa: E731
     text_times = [float(r["duration_ms"] or 0) for r in received if not r["scanned"]]
     scan_times = [float(r["duration_ms"] or 0) for r in received if r["scanned"]]
@@ -40,11 +40,27 @@ def _kpis(runs: list[dict]) -> None:
     row = st.columns(3)
     row[0].metric("Rejected", len(rejected), "nothing was booked for these", **plain)
     row[1].metric("Released for payment", C.money(value(released)),
-                  f"{len(released)} invoice(s), including approved on review", **plain)
+                  f"{len(released)} invoice(s), including approved on review or released by rule", **plain)
     typical = C.took(statistics.median(text_times)) if text_times else "-"
     row[2].metric("Typical handling time", typical if text_times else (C.took(statistics.median(scan_times)) if scan_times else "-"),
                   (f"scanned pages: {C.took(statistics.median(scan_times))} (OCR)" if scan_times and text_times
                    else "from file received to decision recorded"), **plain)
+
+
+def _case_figures(store) -> None:
+    """One more row once the case desk has opened a case: what happened after the holds."""
+    all_cases = store.list_cases()
+    if not all_cases:
+        return
+    plain = {"delta_color": "off", "delta_arrow": "off", "border": True}
+    by_rule = [c for c in all_cases if c["resolution"] == "released by rule"]
+    pressing = [c for c in all_cases if c["state"] != "RESOLVED" and (c["priority"] == "urgent" or c["escalated_to"])]
+    row = st.columns(3)
+    row[0].metric("Cases opened", len(all_cases), f"{sum(1 for c in all_cases if c['state'] != 'RESOLVED')} still open",
+                  **plain)
+    row[1].metric("Resolved without a person", len(by_rule), "released by rule once the goods were received", **plain)
+    row[2].metric("Urgent or escalated", len(pressing), "open cases past their answer date or near a legal date",
+                  **plain)
 
 
 def _charts(runs: list[dict], rules) -> None:
@@ -119,6 +135,7 @@ def page() -> None:
         return
 
     _kpis(runs)
+    _case_figures(store)
     _charts(runs, rules)
     _chain(store)
 

@@ -1,4 +1,5 @@
-"""The guided demo as data: eleven scenarios in the order they are shown.
+"""The guided demo as data: eleven scenarios in the order they are shown, then the two
+after-hold steps (12 and 13) in a list of their own, so the first eleven never change.
 
 Kept apart from the screen (no Streamlit here) so that the preflight check can rehearse
 exactly the sequence the Guided demo page runs, on the machine the demo will be given on.
@@ -52,6 +53,22 @@ STEPS = [
 ]
 
 
+AFTER_HOLD = [
+    {"key": "early", "short": "Before goods", "sample": "c1_invoice_before_goods", "follow": "cases",
+     "title": "The invoice arrives before the goods are booked in",
+     "watch": "It is held for Stores with one question. Open the case, record the delivery, and the invoice "
+              "releases itself: the same rules that held it now pass, and the audit trail shows both entries."},
+    {"key": "clock", "short": "Legal clock", "sample": "c2_small_supplier_late_invoice", "follow": "cases",
+     "title": "A small supplier's invoice, three days from the legal pay-by date",
+     "watch": "The price is over the PO, so it is held for Procurement. Because the supplier is a registered small "
+              "enterprise the case is urgent and the controller is told at once. A person approves the message to "
+              "the vendor before it goes anywhere."},
+]
+
+
+def sample_of_case(step: dict, case_manifest: Optional[list[dict]] = None) -> dict:
+    """The after-hold sample of one AFTER_HOLD step, from the second manifest."""
+    return next(s for s in (case_manifest or sample_lib.load_case_manifest()) if s["id"] == step["sample"])
 
 
 def sample_of(step: dict, manifest: Optional[list[dict]] = None) -> dict:

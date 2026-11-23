@@ -440,3 +440,17 @@ def test_a_vendor_who_does_not_reply_in_time_escalates_once_to_the_ap_analyst(pi
     assert cases.sync(store, master, rules, date(2026, 11, 30))["escalated"] == 0
     assert [e["kind"] for e in store.case_events(case["case_id"])] == ["opened", "escalated", "message_approved",
                                                                         "escalated"]
+
+
+def test_a_receipt_counts_once_when_the_caller_already_added_the_receipts_to_the_master(pipeline, store, master, rules):
+    """The Cases page passes sync a master with the receipts already on it; release must not count them twice."""
+    run = run_case_sample(pipeline, C1)
+    cases.sync(store, master, rules, TODAY)
+    receive(store, master, run, "30")
+    live = cases.master_with_receipts(master, store)
+    assert cases.master_with_receipts(live, store).pos["PO-2026-1041"].line(2).qty_received == Decimal("30")
+    assert cases.sync(store, live, rules, TODAY)["released"] == 0
+    assert store.get_ledger(run.ledger_id)["status"] == "PENDING"
+    receive(store, master, run, "30", ref="DN-5540")                # recorded after `live` was built: still counted
+    assert cases.master_with_receipts(live, store).pos["PO-2026-1041"].line(2).qty_received == Decimal("60")
+    assert cases.sync(store, live, rules, TODAY)["released"] == 1

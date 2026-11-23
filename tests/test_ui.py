@@ -14,7 +14,8 @@ from invoice_desk.ui import common as C  # noqa: E402
 from invoice_desk.ui import demo  # noqa: E402
 from scripts import generate_test_data as G  # noqa: E402
 
-PAGES = {"demo": "Guided demo", "process": "Process an invoice", "review": "Review queue", "dashboard": "Dashboard",
+PAGES = {"demo": "Guided demo", "process": "Process an invoice", "review": "Review queue", "cases": "Cases",
+         "dashboard": "Dashboard",
          "reference": "Rules and data", "guide": "How it works"}
 ENV = ("LLM_MODE", "ANTHROPIC_API_KEY", "LLM_ALLOW_LIVE", "INVOICE_DESK_SANDBOX", "INVOICE_DESK_TODAY", "INVOICE_DESK_HOME",
        "LLM_MODEL", "RECEIPT_SIGNING_KEY")
@@ -784,3 +785,171 @@ def test_the_letter_invoice_banner_and_stage_3_name_no_model_and_technical_detai
     stored = Store(tmp_path / "ui.db").get_run(run_id)                  # the record itself is unchanged
     assert any(b["title"] == "AI assist (Claude)" for b in stored.stages[2].blocks)
     assert "Claude, checked by code" in stored.model_dump_json() and model in stored.model_dump_json()
+
+
+# ---------------------------------------------------------------- after the decision: the case desk (round 3)
+
+def case_run(at, sample_id: str):
+    """Put one after-hold sample into the app's books, as the guided demo would."""
+    from invoice_desk import samples as sample_lib
+    from invoice_desk.llm import LlmAssist
+    from invoice_desk.masterdata import load_master
+    from invoice_desk.pipeline import Pipeline
+    from invoice_desk.rules import load_rules
+    from .conftest import LLM_OFF, TODAY
+    sample = next(s for s in sample_lib.load_case_manifest() if s["id"] == sample_id)
+    pipeline = Pipeline(store=at.db, rules=load_rules(), master=load_master(), llm=LlmAssist(LLM_OFF), today=TODAY,
+                        ocr_mode="fixture")
+    return pipeline.run(sample_lib.sample_bytes(sample), sample_lib.received_name(sample), "test")
+
+
+def tables(at) -> str:
+    return " ".join(df.value.to_string() for df in at.dataframe)
+
+
+def metric(at, label: str) -> str:
+    return next(m.value for m in at.metric if m.label == label)
+
+
+def test_the_cases_page_opens_on_empty_books_and_writes_nothing(app):
+    assert PAGES["cases"] == "Cases"
+    go(app, "cases")
+    assert any("Every hold becomes a case" in c.value for c in app.caption)
+    assert metric(app, "Open cases") == "0" and app.db.list_cases() == []
+
+
+def test_the_cases_page_says_so_when_cases_are_switched_off(app, monkeypatch):
+    rules = C.get_rules().model_copy(deep=True)
+    rules.cases.enabled = False
+    monkeypatch.setattr(C, "get_rules", lambda: rules)
+    case_run(app, "c1_invoice_before_goods")
+    go(app, "cases")
+    assert any("switched off" in i.value for i in app.info) and app.db.list_cases() == []
+    assert not app.metric
+
+
+def test_the_cases_page_shows_owner_question_clock_and_history_for_a_hold(app):
+    early = case_run(app, "c1_invoice_before_goods")
+    late = case_run(app, "c2_small_supplier_late_invoice")
+    go(app, "cases")
+    assert [c["run_id"] for c in app.db.list_cases()] == [early.run_id, late.run_id]
+    assert (metric(app, "Open cases"), metric(app, "Urgent"), metric(app, "Resolved without a person"),
+            metric(app, "Waiting on the vendor")) == ("2", "1", "0", "0")
+    text = shown(app) + " " + said(app)
+    assert "Kaveri Bearings &amp; Drives Pvt Ltd" in text and "KBD/26-27/1193" in text
+    assert "Waiting on Stores" in text and "Answer due 23 Nov 2026" in text
+    assert C.esc(early.decision.questions[0]) in text and C.esc(late.decision.questions[0]) in text
+    assert "Legal pay-by date 24 Nov 2026, 3 days left" in text
+    assert "counted from the delivery recorded on 10 Oct 2026" in text
+    assert "about ₹45 a day in interest after that date (approximate)" in text
+    assert "Urgent" in text and "Finance controller told" in tables(app)
+    assert "Held for Stores" in tables(app) and "Invoice Desk" in tables(app)       # the history: what, by whom
+    assert "—" not in text                                                   # no em dashes on screen
+    app.selectbox(key="cases_owner").select("Stores").run()
+    assert not app.exception
+    assert "KBD/26-27/1193" in shown(app) and "NHP/26-27/0287" not in shown(app)
+
+
+def test_recording_the_goods_receipt_on_screen_releases_the_invoice(app):
+    run = case_run(app, "c1_invoice_before_goods")
+    go(app, "cases")
+    press(app, "Record goods receipt")                                      # no name: refused, nothing recorded
+    assert any("Enter your name" in e.value for e in app.error) and app.db.goods_receipts() == []
+    app.number_input(key=f"gr_qty_{run.run_id}").set_value(30)
+    app.text_input(key=f"gr_ref_{run.run_id}").set_value("DN-5531")
+    app.text_input(key=f"gr_name_{run.run_id}").set_value("A. Kulkarni")
+    press(app, "Record goods receipt")
+    assert any("30 of 60 received. The invoice still waits for the remaining 30." in s.value for s in app.info)
+    assert app.db.get_ledger(run.ledger_id)["status"] == "PENDING"
+    app.number_input(key=f"gr_qty_{run.run_id}").set_value(30)
+    app.text_input(key=f"gr_name_{run.run_id}").set_value("A. Kulkarni")
+    press(app, "Record goods receipt")
+    assert any("Receipt recorded. Nothing else was holding this invoice, so it has been released and posted for "
+               "payment." in s.value for s in app.success)
+    assert app.db.get_ledger(run.ledger_id)["status"] == "POSTED"
+    assert app.db.run_row(run.run_id)["review_status"] == "RELEASED"
+    assert metric(app, "Open cases") == "0" and metric(app, "Resolved without a person") == "1"
+    assert "released by rule" in tables(app)                               # the resolved cases table
+
+
+def test_approve_and_send_needs_a_name_and_says_where_the_message_went(app):
+    run = case_run(app, "c2_small_supplier_late_invoice")
+    go(app, "cases")
+    assert run.decision.vendor_draft in [c.value for c in app.code]          # the draft, read-only, as written
+    assert any("In this build, send means the email is written to the outbox folder and recorded. No mail server is "
+               "connected." in c.value for c in app.caption)
+    press(app, "Approve and send")
+    assert any("Enter your name" in e.value for e in app.error)
+    case_id = app.db.case_for_run(run.run_id)["case_id"]
+    assert app.db.messages(case_id) == []
+    app.text_input(key=f"msg_name_{run.run_id}").set_value("S. Rao")
+    press(app, "Approve and send")
+    assert any("approved by S. Rao and written to the outbox" in s.value for s in app.success)
+    [message] = app.db.messages(case_id)
+    assert message["approved_by"] == "S. Rao"
+    assert "Email to the vendor (.eml)" in [b.label for b in app.get("download_button")]
+    assert "Approve and send" not in [b.label for b in app.button]           # one message, not two
+    assert metric(app, "Waiting on the vendor") == "1" and "Waiting on the vendor" in shown(app)
+    press(app, "Decide this hold in the review queue")
+    assert [t.value for t in app.title] == ["Review queue"]
+
+
+def test_a_release_by_rule_reads_as_such_on_the_dashboard_review_queue_and_audit_trail(app):
+    from datetime import date
+    from decimal import Decimal
+    from invoice_desk import cases
+    from invoice_desk.masterdata import load_master
+    from invoice_desk.rules import load_rules
+    run = case_run(app, "c1_invoice_before_goods")
+    master, rules = load_master(), load_rules()
+    cases.sync(app.db, master, rules, date(2026, 11, 21))
+    cases.record_goods_receipt(app.db, master, "PO-2026-1041", 2, Decimal("60"), date(2026, 11, 21), "A. Kulkarni",
+                               "DN-5531", for_run=run.run_id)
+    cases.sync(app.db, master, rules, date(2026, 11, 21))
+    go(app, "dashboard")
+    assert "released by rule once the missing fact arrived" in tables(app)
+    assert (metric(app, "Cases opened"), metric(app, "Resolved without a person"), metric(app, "Urgent or escalated")) \
+        == ("1", "1", "0")
+    released = next(m for m in app.metric if m.label == "Released for payment")
+    assert released.value == C.money(app.db.get_ledger(run.ledger_id)["total"]) and "1 invoice(s)" in released.delta
+    go(app, "review")
+    assert "released by rule (no person needed)" in tables(app)
+    assert C.EVENT["goods_receipt"] == "Goods receipt recorded" and C.EVENT["release"] == "Released by rule"
+    assert C.EVENT["message"] == "Message approved by a person"
+    assert C.REVIEW_STATUS["RELEASED"] == "released by rule once the missing fact arrived"
+
+
+def test_the_dashboard_shows_no_case_figures_when_there_are_no_cases(app):
+    process(app, "01")
+    go(app, "dashboard")
+    assert "Cases opened" not in [m.label for m in app.metric]
+
+
+def test_the_after_hold_steps_run_from_the_guided_demo_and_leave_the_first_eleven_alone(app):
+    assert next(b for b in app.button if b.key == "demo_after_next").disabled      # only after the first eleven
+    app.button(key="demo_all").click().run()
+    for _ in range(len(demo.STEPS) + 2):
+        if len(app.session_state["demo_done"]) == len(demo.STEPS) and not app.session_state["demo_auto"]:
+            break
+        app.run()
+    assert "After the decision: steps 12 and 13" in [h.value for h in app.subheader]
+    button = next(b for b in app.button if b.key == "demo_after_next")
+    assert not button.disabled and button.label == "Run step 12"
+    button.click().run()
+    assert not app.exception
+    after = app.session_state["after_done"]
+    assert after["early"]["verdict"] == "HOLD" and after["early"]["ok"] is True
+    assert next(b for b in app.button if b.key == "demo_after_next").label == "Run step 13"
+    app.button(key="demo_after_next").click().run()
+    after = app.session_state["after_done"]
+    assert list(after) == ["early", "clock"] and after["clock"]["ok"] is True
+    assert list(app.session_state["demo_done"]) == [s["key"] for s in demo.STEPS]     # still exactly the eleven
+    assert next(b for b in app.button if b.key == "demo_after_next").label == "Steps 12 and 13 done"
+    app.button(key="demo_open_case").click().run()
+    assert not app.exception and [t.value for t in app.title] == ["Cases"]
+    held = [r for r in app.db.list_runs() if r["verdict"] == "HOLD" and not r.get("resubmission_of")]
+    assert len(app.db.list_cases()) == len(held) and after["clock"]["run_id"] in [c["run_id"] for c in app.db.list_cases()]
+    app.session_state["goto"] = "demo"
+    app.run()
+    app.button(key="demo_fresh").click().run()
+    assert app.session_state["after_done"] == {} and app.db.list_cases() == []

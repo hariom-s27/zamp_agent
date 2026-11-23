@@ -11,6 +11,7 @@ the wall clock, so a rehearsal and the interview give the same answer.
 from __future__ import annotations
 
 import hashlib
+import weakref
 from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from email import policy as email_policy
@@ -107,15 +108,50 @@ def _clock_for_run(store: Store, master: MasterData, rules: Rules, result, today
     return statutory_clock(vendor, lines, invoice_date, total, rules, today)
 
 
+def clock_for_case(store: Store, master: MasterData, rules: Rules, case: dict, today: date) -> Optional[dict]:
+    """The statutory clock of a case as it stands today (days left move with the business date)."""
+    result = store.get_run(case["run_id"])
+    return _clock_for_run(store, master, rules, result, today) if result else None
+
+
+def billed_lines(store: Store, master: MasterData, case: dict) -> list[dict]:
+    """The PO lines a held invoice bills, with what is billed and what has been received so far."""
+    result = store.get_run(case["run_id"])
+    entry = store.get_ledger(result.ledger_id) if result and result.ledger_id else None
+    po = master.pos.get(entry["po_number"]) if entry else None
+    rows = []
+    for ln in (entry or {}).get("lines", []):
+        po_line = po.line(ln["po_line_no"]) if po and ln.get("po_line_no") is not None else None
+        if po_line is None:
+            continue
+        rows.append({"po_number": po.po_number, "line_no": po_line.line_no, "description": po_line.description,
+                     "uom": po_line.uom, "billed": ln.get("qty") or ZERO, "received": po_line.qty_received or ZERO})
+    return rows
+
+
 # ---------------------------------------------------------------- goods receipts and release by rule
+
+_BASE_OF: dict[int, tuple[weakref.ref, MasterData]] = {}     # id(copy with receipts) -> (copy, master it came from)
+
+
+def _base_of(master: MasterData) -> MasterData:
+    """The master a copy with receipts was built from, so receipts are never added twice."""
+    known = _BASE_OF.get(id(master))
+    return known[1] if known is not None and known[0]() is master else master
+
 
 def master_with_receipts(master: MasterData, store: Store) -> MasterData:
     """The master with every goods receipt recorded in this store added to its PO lines. With no
-    receipt recorded it is the very same object, so callers that never record one see no change."""
+    receipt recorded it is the very same object, so callers that never record one see no change.
+    Given a master that already carries receipts, it starts again from the original, so each
+    receipt counts once and one recorded since is included."""
+    master = _base_of(master)
     recorded = store.goods_receipts()
     if not recorded:
         return master
     live = master.model_copy(deep=True)
+    key = id(live)
+    _BASE_OF[key] = (weakref.ref(live, lambda _gone, key=key: _BASE_OF.pop(key, None)), master)
     for receipt in recorded:
         po = live.pos.get(receipt["po_number"])
         line = po.line(int(receipt["line_no"])) if po else None
