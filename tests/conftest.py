@@ -11,6 +11,14 @@ os.environ["LLM_MODE"] = "off"
 os.environ.setdefault("OCR_MODE", "fixture")
 
 from invoice_desk import config  # noqa: E402
+
+# No test may see a real API key or reach the real API (tests/test_isolation.py). .env is read
+# lazily on the first setting asked for, so mark it as read before any test runs and drop a key
+# the shell may carry. Tests that need a key set a fake one with monkeypatch and a fake transport.
+config._ENV_LOADED = True
+os.environ.pop("ANTHROPIC_API_KEY", None)
+os.environ["ANTHROPIC_BASE_URL"] = "http://127.0.0.1:9"   # second guard: a stray real client cannot connect
+
 from invoice_desk.llm import LlmAssist  # noqa: E402
 from invoice_desk.masterdata import load_master  # noqa: E402
 from invoice_desk.pipeline import Pipeline  # noqa: E402
