@@ -845,7 +845,7 @@ def test_the_cases_page_shows_owner_question_clock_and_history_for_a_hold(app):
     assert "Urgent" in text and "Finance controller told" in tables(app)
     assert "Held for Stores" in tables(app) and "Invoice Desk" in tables(app)       # the history: what, by whom
     assert "—" not in text                                                   # no em dashes on screen
-    app.selectbox(key="cases_owner").select("Stores").run()
+    app.button_group(key="cases_waiting").set_value("Stores").run()
     assert not app.exception
     assert "KBD/26-27/1193" in shown(app) and "NHP/26-27/0287" not in shown(app)
 

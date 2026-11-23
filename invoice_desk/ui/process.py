@@ -59,6 +59,16 @@ def plain(text) -> str:
     return out
 
 
+def amount_text(total) -> str:
+    """A stored total for a card: rupees in Indian grouping; anything else (another currency) as written."""
+    if total in (None, ""):
+        return ""
+    try:
+        return K.inr(float(total))
+    except (TypeError, ValueError):
+        return plain(total)
+
+
 def ai_count(result: Optional[RunResult]) -> tuple[int, int]:
     """(values read by rules, values read by AI) on this invoice."""
     inv = result.invoice if result else None

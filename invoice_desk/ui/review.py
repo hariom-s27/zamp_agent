@@ -19,6 +19,8 @@ from .. import config, replies
 from .. import textutil as T
 from ..review import ReviewError, apply_review, po_position, required_checks, review_state
 from . import common as C
+from . import ui_kit as K
+from .process import amount_text, plain
 
 
 def _po_now(result, store) -> None:
@@ -37,6 +39,20 @@ def _po_now(result, store) -> None:
                    ". An approval will be refused. Have Procurement amend the PO, or reject the invoice.")
 
 
+def _approving(result, row: dict, bank: bool, booked: bool) -> str:
+    """Exactly what the signature does, in one sentence: nobody approves what they cannot see."""
+    amount = amount_text(row.get("total")) or "the invoice total"
+    vendor = plain(row.get("vendor_name") or "this vendor")
+    if not booked:
+        return "Closing this document as processed by hand. Nothing is paid from this screen."
+    if bank:
+        account = (result.invoice.get("bank_account") if result.invoice else None) or ""
+        ending = f" ending {plain(str(account)[-4:])}" if account else ""
+        return (f"Change of bank account for {vendor}: from the account on file to the account{ending} on this "
+                f"invoice, and payment of {amount} to it.")
+    return f"Payment of {amount} to {vendor} for invoice {plain(row.get('invoice_no') or '(number missing)')}."
+
+
 def _pending_card(row: dict, store) -> None:
     run_id = row["run_id"]
     result = store.get_run(run_id)
@@ -45,9 +61,24 @@ def _pending_card(row: dict, store) -> None:
     d = result.decision
     codes = {f.code for f in d.reasons}
     first = review_state(store, run_id)["first_approval"]
+    bank = "BANK_DETAILS_CHANGED" in codes
+    booked = bool(result.ledger_id)
     with st.container(border=True):
+        top = st.container(horizontal=True, vertical_alignment="center")
+        top.markdown(f"**{plain(row.get('vendor_name') or 'Unknown vendor')}** · "
+                     f"{plain(row.get('invoice_no') or 'number missing')}"
+                     f"{' · ' + amount_text(row.get('total')) if row.get('total') else ''}")
+        if bank:
+            top.markdown(K.chip_md("due_soon", "Needs two people"))
         st.markdown(C.verdict_banner_html(result), unsafe_allow_html=True)
+        st.markdown("**You are approving**")
+        st.markdown(_approving(result, row, bank, booked))
+        st.markdown("**What the desk found**")
         C.render_findings(d.reasons, with_summary=len(d.reasons) > 1)
+        if bank:
+            st.markdown(f"First approval: {plain(first['reviewer']) + ' · ' + config.to_ist_text(first['decided_at']) if first else 'waiting'}  \n"
+                        f"Second approval: waiting")
+            st.caption("The second person must be different from the first.")
         _po_now(result, store)
         if st.toggle("Show the evidence: all nine stages and the document", key=f"rev_show_{run_id}"):
             left, right = st.columns([0.58, 0.42], gap="large")
@@ -61,7 +92,6 @@ def _pending_card(row: dict, store) -> None:
                     f"Call record: \"{first['note']}\". A second, different person must now approve before the new "
                     f"account is trusted and the invoice becomes payable.", icon=":material/group:")
         needs = required_checks(codes, second=first is not None)
-        booked = bool(result.ledger_id)
         # The second approval is a form of its own, with its own fields. Reusing the first one's would leave the first
         # approver's name and call note typed in for the second person (a browser keeps a field's text by its key).
         stage = "2" if first is not None else ""
@@ -105,6 +135,10 @@ def _pending_card(row: dict, store) -> None:
                      "Approve for payment" if booked else "Close as processed manually")
             approve = b1.form_submit_button(label, type="primary", width="stretch")
             reject = b2.form_submit_button("Reject", width="stretch")
+        if approve and first is not None and reviewer.strip().casefold() == str(first["reviewer"]).strip().casefold():
+            st.session_state["flash_review_error"] = (f"{run_id}: Choose a different person. Two people must agree to a "
+                                                      f"bank change.")
+            st.rerun()
         if approve or reject:
             decision = "REJECT" if reject else ("APPROVE" if booked else "HANDLED")
             proof = (evidence.name, evidence.getvalue()) if (evidence is not None and decision == "APPROVE") else None
@@ -132,8 +166,8 @@ def _pending_card(row: dict, store) -> None:
 def page() -> None:
     store = C.get_store()
     st.title("Review queue")
-    st.caption("A hold is a question for a named owner. The decision made here is recorded against a person, in the "
-               "same audit trail as the system's decisions.")
+    st.caption("Sign-offs only a named person can give. For who is working what, see Cases. Every decision here is "
+               "recorded against a person, in the same audit trail as the system's decisions.")
     flash = st.session_state.pop("flash_review", None)
     if flash:
         st.success(flash)
@@ -143,9 +177,8 @@ def page() -> None:
     runs = store.list_runs()
     pending = [r for r in reversed(runs) if r["review_status"] == "PENDING"]       # oldest first
     if not pending:
-        st.markdown(C.neutral_banner_html("Queue empty", "Nothing is waiting for a person",
-                                          "Invoices that are put on hold appear here with the question that has to be "
-                                          "answered."), unsafe_allow_html=True)
+        st.markdown("**Nothing needs a signature.** Nothing is waiting for a person: invoices put on hold appear here "
+                    "with the question that has to be answered.")
     else:
         st.markdown(f"**{len(pending)} invoice(s) waiting**, oldest first.")
         for row in pending:

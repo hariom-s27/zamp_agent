@@ -21,12 +21,64 @@ from .. import replies
 from ..mailbox import strip_quoted
 from .. import textutil as T
 from . import common as C
+from . import ui_kit as K
+from .process import amount_text, evidence_rows, plain
 
 WAITING_ON = {"vendor": "the vendor"}
+ALL = "All"
+
+# Display only: the question a person can answer in one click, per reason family. The engine's own
+# question stays on the record and is shown in the case.
+PO_FAMILY = {"PO_NOT_FOUND", "NO_PO_FOUND", "PO_CLOSED", "PO_VENDOR_MISMATCH", "LINE_NOT_ON_PO"}
+DUPLICATE_FAMILY = {"DUPLICATE_FILE", "DUPLICATE_INVOICE_NUMBER", "DUPLICATE_CONTENT", "POSSIBLE_DUPLICATE"}
+TAX_FAMILY = {"TAX_RATE_UNUSUAL", "TAX_TYPE_MISMATCH"}
+
+
+def _strip_unit(text: str, word: str) -> str:
+    return (text or "").removesuffix(word).strip()
+
+
+def family_question(f) -> str | None:
+    code = f.code
+    if code == "PRICE_VARIANCE" and f.evidence.get("pct"):
+        pct = f"{float(f.evidence['pct']):.1f}".removesuffix(".0")
+        return f"The price is {pct}% above the PO. Accept the new price, or ask for a corrected invoice?"
+    if code == "GOODS_NOT_RECEIVED":
+        return "The goods receipt is not posted. Have the goods arrived?"
+    if code == "QTY_OVER_PO" and f.observed and f.expected:
+        return (f"The invoice bills {_strip_unit(f.observed, 'billed')}. The PO has {f.expected}. Amend the PO, or ask "
+                f"for a corrected invoice?")
+    if code in PO_FAMILY:
+        return "No open PO matches this invoice. Raise one, or reject the invoice?"
+    if code == "BANK_DETAILS_CHANGED":
+        return "The bank account differs from the one on file. Has the vendor confirmed this on a number we already hold?"
+    if code in DUPLICATE_FAMILY:
+        return "This looks like an invoice we already have. Reject it as a duplicate?"
+    if code in TAX_FAMILY and f.observed and f.expected:
+        return f"GST on the invoice is {f.observed}. We work it out as {f.expected}. Ask for a corrected invoice?"
+    return None
+
+
+def case_question(findings, fallback: str) -> str:
+    """The first reason that has a plain question wins; otherwise the engine's question."""
+    for f in findings:
+        words = family_question(f)
+        if words:
+            return words
+    return fallback
 
 
 def _who(party: str) -> str:
     return WAITING_ON.get(party, party)
+
+
+def _due(case: dict):
+    return case_engine._as_date(case["due_on"])
+
+
+def _overdue(case: dict) -> bool:
+    due = _due(case)
+    return bool(due and due < C.business_date())
 
 
 def _rupees_a_day(amount: int) -> str:
@@ -40,26 +92,35 @@ def _flash() -> None:
         {"success": st.success, "info": st.info, "error": st.error}[kind](text)
 
 
-def _figures(all_cases: list[dict]) -> None:
-    plain = {"delta_color": "off", "delta_arrow": "off", "border": True}
+def _figures(all_cases: list[dict], store) -> None:
+    flat = {"delta_color": "off", "delta_arrow": "off", "border": True}
     open_cases = [c for c in all_cases if c["state"] != "RESOLVED"]
+    today = C.business_date()
+    opened = [d for d in (case_engine._as_date(c["opened_on"]) for c in open_cases) if d]
+    oldest = max(((today - d).days for d in opened), default=0)
+    on_hold = sum(float(T.to_decimal((store.run_row(c["run_id"]) or {}).get("total")) or 0) for c in open_cases)
     row = st.columns(4)
-    row[0].metric("Open cases", len(open_cases), f"{len(all_cases) - len(open_cases)} resolved", **plain)
-    row[1].metric("Urgent", sum(1 for c in open_cases if c["priority"] == "urgent"),
-                  "a legal pay-by date is close", **plain)
-    row[2].metric("Resolved without a person", sum(1 for c in all_cases if c["resolution"] == "released by rule"),
-                  "released by rule once the fact arrived", **plain)
-    row[3].metric("Waiting on the vendor", sum(1 for c in open_cases if c["waiting_on"] == "vendor"),
-                  "a message has been sent", **plain)
+    row[0].metric("Open cases", len(open_cases), f"{len(all_cases) - len(open_cases)} resolved", **flat)
+    row[1].metric("Overdue", sum(1 for c in open_cases if _overdue(c)), "past the answer date", **flat)
+    row[2].metric("Oldest", f"{oldest} day{'s' if oldest != 1 else ''}", "since the hold", **flat)
+    row[3].metric("Money on hold", K.inr_short(on_hold), "invoice totals in open cases", **flat)
+    with st.expander("More figures"):
+        more = st.columns(3)
+        more[0].metric("Urgent", sum(1 for c in open_cases if c["priority"] == "urgent"),
+                       "a legal pay-by date is close", **flat)
+        more[1].metric("Resolved without a person", sum(1 for c in all_cases if c["resolution"] == "released by rule"),
+                       "released by rule once the fact arrived", **flat)
+        more[2].metric("Waiting on the vendor", sum(1 for c in open_cases if c["waiting_on"] == "vendor"),
+                       "a message has been sent", **flat)
 
 
 def _clock_line(clock: dict) -> str:
     left = clock["days_left"]
     when = (f"{left} day{'s' if left != 1 else ''} left" if left > 0 else
             "due today" if left == 0 else f"{-left} day{'s' if left != -1 else ''} overdue")
-    return (f"<div class='idk-text'><b>Legal pay-by date {C.esc(case_engine.day_text(clock['due']))}, {when}.</b> "
-            f"MSMED Act, {C.esc(clock['basis'])}; about {C.esc(_rupees_a_day(clock['interest_per_day']))} a day in "
-            f"interest after that date (approximate).</div>")
+    return (f"**Legal pay-by date {plain(case_engine.day_text(clock['due']))}, {when}.** "
+            f"MSMED Act, {plain(clock['basis'])}; about {plain(_rupees_a_day(clock['interest_per_day']))} a day in "
+            f"interest after that date (approximate).")
 
 
 def _goods_receipt_form(case: dict, store, live) -> None:
@@ -113,9 +174,8 @@ def _message(case: dict, result, store) -> None:
     draft = result.decision.vendor_draft if result.decision else None
     if sent:
         last = sent[-1]
-        st.markdown(f"<div class='idk-small'><b>Message to the vendor</b> approved by {C.esc(last['approved_by'])} and "
-                    f"written to the outbox on {C.esc(config.to_ist_text(last['created_at']))}, to "
-                    f"{C.esc(last['recipient'])}.</div>", unsafe_allow_html=True)
+        st.markdown(f"**Message to the vendor** approved by {plain(last['approved_by'])} and written to the outbox on "
+                    f"{plain(config.to_ist_text(last['created_at']))}, to {plain(last['recipient'])}.")
         path = case_engine.outbox_dir(store) / f"{last['message_id']}.eml"
         if path.is_file():
             st.download_button("Download the email (.eml)", data=path.read_bytes(), file_name=path.name,
@@ -150,40 +210,62 @@ def _card(case: dict, store, live, rules) -> None:
     row = store.run_row(run_id) or {}
     if result is None:
         return
-    with st.container(border=True):
+    reasons = result.decision.reasons if result.decision else []
+    clock = case_engine.clock_for_case(store, live, rules, case, C.business_date())
+    due = _due(case)
+    with st.container(border=True, key=f"case_{case['case_id']}"):
         vendor = row.get("vendor_name") or "Unknown vendor"
         number = row.get("invoice_no")
-        num_str = f"invoice {C.esc(number)}" if number else "invoice (number missing)"
-        amount = C.money(row["total"]) if row.get("total") else ""
-        st.markdown(f"<div class='idk-text'><b>{C.esc(vendor)}</b>, {num_str}"
-                    f"{', ' + C.esc(amount) if amount else ''} <span class='idk-small'>({C.esc(run_id)})</span></div>",
-                    unsafe_allow_html=True)
-        state = (f"Waiting on {_who(case['waiting_on'])}" if case["state"] == "WAITING" else
-                 "Answered, ready for a person to decide")
-        due = case_engine._as_date(case["due_on"])
-        urgent = "Urgent. " if case["priority"] == "urgent" else ""
-        escalated = (f" Escalated to {case['escalated_to']} on {case_engine.day_text(case_engine._as_date(case['escalated_on']))}."
-                     if case["escalated_to"] else "")
-        st.markdown(f"<div class='idk-text'><b>{C.esc(urgent)}{C.esc(state)}.</b> Answer due "
-                    f"{C.esc(case_engine.day_text(due)) if due else '-'}. Owner: {C.esc(case['owner'])}."
-                    f"{C.esc(escalated)}</div>", unsafe_allow_html=True)
-        clock = case_engine.clock_for_case(store, live, rules, case, C.business_date())
+        num_str = f"invoice {plain(number)}" if number else "invoice (number missing)"
+        amount = amount_text(row.get("total"))
+        top = st.container(horizontal=True, vertical_alignment="center")
+        top.markdown(f"**{plain(vendor)}** · {num_str}{' · ' + amount if amount else ''} :gray[({plain(run_id)})]")
+        if due:
+            top.markdown(K.chip_md(*K.due_label(due, C.business_date())))
+        st.markdown(f"#### {plain(case_question(reasons, case['question']))}")
+        chips = [f":gray-badge[:material/assignment_ind: Waiting on {plain(_who(case['waiting_on']))}]"]
+        if case["priority"] == "urgent":
+            chips.append(K.chip_md("overdue", "Urgent"))
         if clock:
-            st.markdown(_clock_line(clock), unsafe_allow_html=True)
-        st.markdown(f"<div class='idk-text'><b>The question.</b> {C.esc(case['question'])}</div>",
-                    unsafe_allow_html=True)
-        st.markdown("**What has happened**")
-        C.table({"When": config.to_ist_text(e["at"]), "What": e["summary"], "By": e["actor"]}
-                for e in store.case_events(case["case_id"]))
-        with st.expander("Why it was held"):
-            C.render_findings(result.decision.reasons if result.decision else [])
-        if "GOODS_NOT_RECEIVED" in case["reason_codes"].split(","):
-            _goods_receipt_form(case, store, live)
-        _replies(case, store)
-        _message(case, result, store)
-        if st.button("Decide this hold in the review queue", key=f"case_review_{run_id}", icon=":material/fact_check:"):
-            st.session_state["goto"] = "review"
-            st.rerun()
+            chips.append(f":gray-badge[:material/gavel: Small supplier · legal date {case_engine.day_text(clock['due'])}]")
+        if case["escalated_to"]:
+            chips.append(f":gray-badge[:material/trending_up: Escalated to {plain(case['escalated_to'])} on "
+                         f"{case_engine.day_text(case_engine._as_date(case['escalated_on']))}]")
+        st.markdown(" ".join(chips))
+        with st.expander("Open case", icon=":material/folder_open:"):
+            state = (f"Waiting on {_who(case['waiting_on'])}" if case["state"] == "WAITING" else
+                     "Answered, ready for a person to decide")
+            urgent = "Urgent. " if case["priority"] == "urgent" else ""
+            escalated = (f" Escalated to {case['escalated_to']} on "
+                         f"{case_engine.day_text(case_engine._as_date(case['escalated_on']))}." if case["escalated_to"] else "")
+            st.markdown(f"**{plain(urgent)}{plain(state)}.** Answer due "
+                        f"{plain(case_engine.day_text(due)) if due else '-'}. Owner: {plain(case['owner'])}.{plain(escalated)}")
+            if clock:
+                st.markdown(_clock_line(clock))
+            st.markdown(f"**The question for the owner.** {plain(case['question'])}")
+            st.markdown("**What the desk found**")
+            rows = [r for r in evidence_rows(result) if not r["ok"]]
+            if rows:
+                K.evidence_panel(rows)
+            st.markdown("\n".join(f"- {plain(f.title or f.code)}: {plain(C.screen_words(f.summary))}" for f in reasons))
+            st.markdown("**Timeline**")
+            C.table({"When": config.to_ist_text(e["at"]), "Actor": _actor(e["actor"]), "What": e["summary"],
+                     "By": e["actor"]} for e in store.case_events(case["case_id"]))
+            if "GOODS_NOT_RECEIVED" in case["reason_codes"].split(","):
+                _goods_receipt_form(case, store, live)
+            _replies(case, store)
+            _message(case, result, store)
+            if st.button("Decide this hold in the review queue", key=f"case_review_{run_id}",
+                         icon=":material/fact_check:"):
+                st.session_state["goto"] = "review"
+                st.rerun()
+
+
+def _actor(name: str) -> str:
+    """Who did it, as a kind: the rules, the AI, or a named person."""
+    if (name or "") == "Invoice Desk":
+        return "Rules"
+    return "AI" if "AI" in (name or "").split() else "Person"
 
 
 def _replies(case: dict, store) -> None:
@@ -194,8 +276,8 @@ def _replies(case: dict, store) -> None:
         if m["direction"] != "in":
             continue
         day = case_engine._as_date(m.get("received_at") or "")
-        st.markdown(f"**Reply received from {C.esc(m['sender'] or 'an unknown sender')} on "
-                    f"{C.esc(case_engine.day_text(day)) if day else '-'}.**", unsafe_allow_html=True)
+        st.markdown(f"**Reply received from {plain(m['sender'] or 'an unknown sender')} on "
+                    f"{plain(case_engine.day_text(day)) if day else '-'}.**")
         sender_chk = mailbox.check_sender(m.get("sender") or "", master, rules)
         if sender_chk.result == "lookalike":
             dom = mailbox._domain(m.get("sender") or "")
@@ -227,7 +309,7 @@ def page() -> None:
     store = C.get_store()
     rules = C.get_rules()
     st.title("Cases")
-    st.caption("Every hold becomes a case with one owner, one question and a clock. The desk follows it until it is "
+    st.caption("Every hold becomes a case: one question, one owner, one due date. The desk follows it until it is "
                "resolved or a person has a clear decision to make.")
     if not rules.cases.enabled:
         st.info("The case desk is switched off in rules.yaml (cases.enabled: false). Holds wait in the review queue "
@@ -237,18 +319,26 @@ def page() -> None:
     case_engine.sync(store, live, rules, C.business_date())
     _flash()
     all_cases = store.list_cases()
-    _figures(all_cases)
+    _figures(all_cases, store)
 
-    owners = ["All"] + list(rules.cases.reply_due_days)
-    chosen = st.selectbox("Show cases for", owners, key="cases_owner", format_func=lambda o: _who(o).capitalize()
-                          if o == "vendor" else o)
-    open_cases = [c for c in all_cases if c["state"] != "RESOLVED"
-                  and (chosen == "All" or chosen in (c["owner"], c["waiting_on"]))]
-    open_cases.sort(key=lambda c: (c["priority"] != "urgent", c["due_on"]))
-    if not open_cases:
-        st.markdown(C.neutral_banner_html("No open cases", "Nothing is waiting" + ("" if chosen == "All" else f" on {chosen}"),
-                                          "When an invoice is put on hold, its case appears here with its owner, its "
-                                          "question and its answer date."), unsafe_allow_html=True)
+    every_open = [c for c in all_cases if c["state"] != "RESOLVED"]
+
+    def waiting(party: str) -> list[dict]:
+        return [c for c in every_open if party == ALL or party in (c["owner"], c["waiting_on"])]
+
+    parties = [ALL] + list(rules.cases.reply_due_days)
+    chosen = st.pills("Waiting on", parties, default=ALL, key="cases_waiting",
+                      format_func=lambda p: f"{_who(p).capitalize() if p == 'vendor' else p} ({len(waiting(p))})")
+    chosen = chosen or ALL
+    open_cases = waiting(chosen)
+    open_cases.sort(key=lambda c: (not _overdue(c), c["priority"] != "urgent", c["due_on"]))   # overdue, then urgent, then nearest
+    if not every_open:
+        st.info("No open cases. Every invoice so far has cleared or been closed.", icon=":material/task_alt:")
+        if st.button("Run a held invoice", key="cases_run_held", icon=":material/play_circle:"):
+            st.session_state["goto"] = "process"
+            st.rerun()
+    elif not open_cases:
+        st.info(f"Nothing is waiting on {_who(chosen)}.", icon=":material/filter_alt_off:")
     for case in open_cases:
         _card(case, store, live, rules)
 
