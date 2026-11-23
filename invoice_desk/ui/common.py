@@ -47,6 +47,37 @@ STATUS = {  # stage status -> (symbol, label, css class)
 DECIDE_LABEL = {"ok": "approve", "attention": "hold", "blocked": "reject"}
 ACTION_CLASS = {"REJECT": "f-reject", "HOLD": "f-hold", "NOTE": "f-note"}
 
+STAGE_DISPLAY_INFO = {
+    "intake": ("Received", "Is this a PDF we can open, from a sender we know?"),
+    "read": ("Read the page", "Text is read directly. Scans are read with OCR."),
+    "extract": ("Picked out the details", "Vendor, numbers, dates, lines, tax, bank account. AI reads only what the rules cannot, and each value must match a quote from the page."),
+    "validate": ("Checked the maths and tax", "Do the lines add up? Is GST right for the two GSTINs?"),
+    "vendor": ("Checked the vendor", "Is this vendor in our records, and is the bank account the one on file?"),
+    "po_match": ("Matched to the PO and goods receipt", "Price, quantity and receipt against what was ordered."),
+    "duplicates": ("Looked for duplicates", "Have we seen this invoice before?"),
+    "decide": ("Decided", "The rules weigh every reason: clear, hold or reject."),
+    "post": ("Filed", "Recorded in the ledger and the audit trail. A hold becomes a case."),
+}
+
+
+def stage_display_title(key: str) -> str:
+    return STAGE_DISPLAY_INFO.get(key, (dict(STAGES).get(key, key), ""))[0]
+
+
+def stage_display_help(key: str) -> str:
+    return STAGE_DISPLAY_INFO.get(key, ("", STAGE_HELP.get(key, "")))[1]
+
+
+VERDICT_DISPLAY = {
+    "APPROVE": "Cleared",
+    "HOLD": "On hold",
+    "REJECT": "Rejected",
+}
+
+
+def verdict_display_label(verdict: str) -> str:
+    return VERDICT_DISPLAY.get((verdict or "").upper(), (verdict or "").capitalize())
+
 CSS = """
 <style>
 .block-container {padding-top: 2.2rem; padding-bottom: 3rem; max-width: 1500px;}
