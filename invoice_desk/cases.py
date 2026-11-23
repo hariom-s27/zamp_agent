@@ -10,10 +10,16 @@ the wall clock, so a rehearsal and the interview give the same answer.
 """
 from __future__ import annotations
 
+import hashlib
 from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
+from email import policy as email_policy
+from email.message import EmailMessage
+from email.utils import format_datetime, make_msgid
+from pathlib import Path
 from typing import Any, Optional
 
+from . import config
 from . import textutil as T
 from .masterdata import MasterData, PoLine, Vendor
 from .review import po_position
@@ -227,6 +233,84 @@ def try_resume(store: Store, master: MasterData, rules: Rules, case: dict, today
     return {"released": True, "why": note}
 
 
+# ---------------------------------------------------------------- approve and send (DECISIONS.md D67)
+
+def outbox_dir(store: Store) -> Path:
+    """Where approved messages are written: a folder beside the database, so each sandbox has its own."""
+    folder = Path(store.path).parent / "outbox"
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder
+
+
+def _split_draft(draft: str) -> tuple[str, str]:
+    """The drafted note starts with its own 'Subject: ...' line; the rest is the body, unchanged."""
+    first, _, rest = draft.partition("\n")
+    if not first.startswith("Subject: ") or not first[len("Subject: "):].strip():
+        raise CaseError("The drafted note has no subject line, so it cannot be sent as an email.")
+    return first[len("Subject: "):].strip(), rest.lstrip("\n")
+
+
+def approve_message(store: Store, master: MasterData, rules: Rules, case_id: str, approver: str, today: date) -> dict:
+    """A named person approves the drafted note to the vendor. In this build "send" means the email is
+    written to the outbox folder and recorded; no mail server is connected. The text is the draft as
+    the rules wrote it: the approver approves it or does not send it."""
+    case = store.get_case(case_id)
+    if case is None:
+        raise CaseError(f"There is no case {case_id}.")
+    approver = (approver or "").strip()
+    if not approver:
+        raise CaseError("Enter your name: nothing is sent to a vendor without a named person approving it.")
+    if case["state"] == "RESOLVED":
+        raise CaseError(f"{case_id} is resolved ({case['resolution']}); there is nothing to send.")
+    if case["waiting_on"] == "vendor" and any(m["direction"] == "out" for m in store.messages(case_id)):
+        raise CaseError("This message was already approved and written to the outbox; the case is waiting on the vendor.")
+    result = store.get_run(case["run_id"])
+    draft = (result.decision.vendor_draft if result and result.decision else None) or ""
+    if not draft.strip():
+        raise CaseError("This hold has no message for the vendor: the vendor has nothing to do.")
+    vendor = master.vendors.get((result.vendor or {}).get("vendor_id") or "")
+    recipient = (vendor.email if vendor else "").strip()
+    if not recipient:
+        raise CaseError("There is no email for this vendor on file, so the message cannot be addressed.")
+    own_subject, body = _split_draft(draft)
+    sender = rules.company.ap_email
+    subject = f"[{case_id}] {own_subject}"
+
+    mail = EmailMessage()
+    mail["From"], mail["To"], mail["Subject"] = sender, recipient, subject
+    mail["Date"] = format_datetime(config.now_utc())
+    mail["Message-ID"] = make_msgid(domain=sender.rpartition("@")[2] or None)
+    mail.set_content(body)
+    data = mail.as_bytes(policy=email_policy.default)
+    digest = hashlib.sha256(data).hexdigest()
+
+    n = len([m for m in store.messages(case_id) if m["direction"] == "out"]) + 1
+    message_id = f"{case_id}-{n:02d}"
+    path = outbox_dir(store) / f"{message_id}.eml"
+    with path.open("xb") as handle:                          # never overwrite a message already written
+        handle.write(data)
+    due = today + timedelta(days=rules.cases.reply_due_days["vendor"])
+    try:
+        with store.transaction():
+            store.add_message({"message_id": message_id, "case_id": case_id, "direction": "out", "status": "written",
+                               "approved_by": approver, "sender": sender, "recipient": recipient, "subject": subject,
+                               "body": body, "eml_sha256": digest})
+            store.add_case_event(case_id, "message_approved", approver,
+                                 f"Message to the vendor approved by {approver} and written to the outbox. "
+                                 f"Reply due {day_text(due)}.",
+                                 {"message_id": message_id, "to": recipient, "subject": subject})
+            store.append_receipt("message", case["run_id"], {
+                "actor": "human", "reviewer": approver, "decision": "message approved and written to the outbox",
+                "note": subject, "to": recipient, "message_id": message_id, "eml_sha256": digest})
+            store.update_case(case_id, state=move(case["state"], "message_sent"), waiting_on="vendor",
+                              due_on=_iso(due))
+    except Exception:
+        path.unlink(missing_ok=True)                         # no record, no file
+        raise
+    return {"message_id": message_id, "path": path, "to": recipient, "subject": subject, "eml_sha256": digest,
+            "due_on": due}
+
+
 # ---------------------------------------------------------------- the reconciler
 
 def _free_case_id(store: Store, file_sha256: str) -> str:
@@ -244,6 +328,12 @@ def _escalate(store: Store, case: dict, rules: Rules, today: date, summary: str)
     store.update_case(case["case_id"], escalated_to=target, escalated_on=_iso(today))
     store.add_case_event(case["case_id"], "escalated", DESK, summary.format(target=target),
                          {"to": target, "waiting_on": case["waiting_on"]})
+
+
+def _escalated_at(store: Store, case: dict) -> bool:
+    """Escalation is once per level: has the case already been escalated while waiting on this party?"""
+    return any(e["kind"] == "escalated" and e["detail"].get("waiting_on") == case["waiting_on"]
+               for e in store.case_events(case["case_id"]))
 
 
 def _open(store: Store, master: MasterData, rules: Rules, run_id: str, today: date) -> tuple[int, int]:
@@ -311,7 +401,7 @@ def sync(store: Store, master: MasterData, rules: Rules, today: date) -> dict:
             counts["released"] += int(try_resume(store, master, rules, case, today)["released"])
     for case in store.list_cases(open_only=True):
         due = _as_date(case["due_on"])
-        if due and today > due and not case["escalated_to"]:
+        if due and today > due and not _escalated_at(store, case):
             _escalate(store, case, rules, today,
                       f"No answer from {case['waiting_on']} by {day_text(due)}. {{target}} told.")
             counts["escalated"] += 1

@@ -332,3 +332,111 @@ def test_auto_resume_can_be_switched_off_in_the_rules(pipeline, store, master, r
     assert store.get_ledger(run.ledger_id)["status"] == "PENDING"
     assert cases.try_resume(store, master, never, store.case_for_run(run.run_id), TODAY)["released"] is False
     assert store.case_for_run(run.run_id)["state"] == "WAITING"
+
+
+# ---------------------------------------------------------------- approve and send to the outbox (checkpoint 4)
+
+def c2_case(pipeline, store, master, rules):
+    run = run_case_sample(pipeline, C2)
+    cases.sync(store, master, rules, TODAY)
+    return run, store.case_for_run(run.run_id)
+
+
+def read_eml(path):
+    import email
+    import email.policy
+    return email.message_from_bytes(path.read_bytes(), policy=email.policy.default)
+
+
+def test_the_outbox_is_a_folder_beside_the_database_so_each_sandbox_has_its_own(tmp_path):
+    one, two = Store(tmp_path / "a" / "x.db"), Store(tmp_path / "b" / "x.db")
+    assert cases.outbox_dir(one) == tmp_path / "a" / "outbox" and cases.outbox_dir(one).is_dir()
+    assert cases.outbox_dir(two) == tmp_path / "b" / "outbox"
+
+
+def test_no_message_is_written_without_a_named_approver(pipeline, store, master, rules):
+    run, case = c2_case(pipeline, store, master, rules)
+    receipts = len(store.receipts())
+    for nobody in ("", "   "):
+        with pytest.raises(cases.CaseError, match="name"):
+            cases.approve_message(store, master, rules, case["case_id"], nobody, TODAY)
+    assert list(cases.outbox_dir(store).iterdir()) == [] and store.messages(case["case_id"]) == []
+    assert len(store.receipts()) == receipts and store.case_for_run(run.run_id) == case
+
+
+def test_a_message_needs_a_drafted_note_and_a_vendor_email_on_file(pipeline, store, master, rules):
+    run = run_case_sample(pipeline, C1)                       # goods not received: the vendor has nothing to do
+    cases.sync(store, master, rules, TODAY)
+    assert run.decision.vendor_draft is None
+    with pytest.raises(cases.CaseError, match="no message"):
+        cases.approve_message(store, master, rules, store.case_for_run(run.run_id)["case_id"], "S. Rao", TODAY)
+    _, case = c2_case(pipeline, store, master, rules)
+    no_email = master.model_copy(deep=True)
+    no_email.vendors["V102"].email = ""
+    with pytest.raises(cases.CaseError, match="email"):
+        cases.approve_message(store, no_email, rules, case["case_id"], "S. Rao", TODAY)
+    with pytest.raises(cases.CaseError):
+        cases.approve_message(store, master, rules, "CASE-NOTTHERE", "S. Rao", TODAY)
+    assert list(cases.outbox_dir(store).iterdir()) == [] and store.messages(case["case_id"]) == []
+
+
+def test_an_approved_message_is_a_valid_email_in_the_outbox_with_the_token_and_one_receipt(pipeline, store, master,
+                                                                                         rules):
+    import hashlib
+    run, case = c2_case(pipeline, store, master, rules)
+    draft = run.decision.vendor_draft
+    assert draft and draft.startswith("Subject: ")            # the engine drafts a note for a price variance
+    own_subject, body = draft.split("\n", 1)[0][len("Subject: "):], draft.split("\n", 1)[1].lstrip("\n")
+    sent = cases.approve_message(store, master, rules, case["case_id"], "  S. Rao  ", TODAY)
+
+    path = cases.outbox_dir(store) / f"{case['case_id']}-01.eml"
+    assert sent["path"] == path and list(cases.outbox_dir(store).iterdir()) == [path]
+    mail = read_eml(path)
+    assert mail["From"] == "ap@nilgiri-precision.example" and mail["To"] == "billing@nandihillspack.example"
+    assert mail["Subject"] == f"[{case['case_id']}] {own_subject}"
+    assert mail.get_body(("plain",)).get_content().strip() == body.strip()       # the drafted text, unchanged
+    assert sent["eml_sha256"] == hashlib.sha256(path.read_bytes()).hexdigest()
+
+    [message] = store.messages(case["case_id"])
+    assert (message["message_id"], message["direction"], message["status"]) == (f"{case['case_id']}-01", "out", "written")
+    assert (message["approved_by"], message["sender"], message["recipient"]) == (
+        "S. Rao", "ap@nilgiri-precision.example", "billing@nandihillspack.example")
+    assert message["subject"] == mail["Subject"] and message["eml_sha256"] == sent["eml_sha256"]
+
+    assert [r["kind"] for r in store.receipts(run.run_id)] == ["decision", "message"]
+    receipt = store.receipts(run.run_id)[-1]["body"]
+    assert receipt["reviewer"] == "S. Rao" and receipt["decision"] == "message approved and written to the outbox"
+    assert receipt["note"] == mail["Subject"] and receipt["to"] == "billing@nandihillspack.example"
+    assert receipt["eml_sha256"] == sent["eml_sha256"] and store.verify_chain()["ok"]
+
+    after = store.case_for_run(run.run_id)
+    assert (after["state"], after["waiting_on"], after["owner"]) == ("WAITING", "vendor", "Procurement")
+    assert after["due_on"] == "2026-11-24"                     # a vendor has 3 days in rules.yaml
+    last = store.case_events(case["case_id"])[-1]
+    assert last["kind"] == "message_approved" and last["actor"] == "S. Rao"
+    assert store.run_row(run.run_id)["review_status"] == "PENDING"     # a message decides nothing
+
+
+def test_the_same_message_is_not_approved_twice_and_a_resolved_case_sends_nothing(pipeline, store, master, rules):
+    run, case = c2_case(pipeline, store, master, rules)
+    cases.approve_message(store, master, rules, case["case_id"], "S. Rao", TODAY)
+    with pytest.raises(cases.CaseError, match="already"):
+        cases.approve_message(store, master, rules, case["case_id"], "S. Rao", TODAY)
+    assert len(store.messages(case["case_id"])) == 1 and len(list(cases.outbox_dir(store).iterdir())) == 1
+    apply_review(store, run.run_id, "REJECT", "R. Iyer", "Re-issue at the PO price", master=master, rules=rules)
+    cases.sync(store, master, rules, TODAY)
+    with pytest.raises(cases.CaseError, match="resolved"):
+        cases.approve_message(store, master, rules, case["case_id"], "S. Rao", TODAY)
+    assert [r["kind"] for r in store.receipts(run.run_id)].count("message") == 1
+
+
+def test_a_vendor_who_does_not_reply_in_time_escalates_once_to_the_ap_analyst(pipeline, store, master, rules):
+    run, case = c2_case(pipeline, store, master, rules)       # already escalated once: the legal clock
+    cases.approve_message(store, master, rules, case["case_id"], "S. Rao", TODAY)
+    assert cases.sync(store, master, rules, date(2026, 11, 24))["escalated"] == 0       # vendor's reply due today
+    assert cases.sync(store, master, rules, date(2026, 11, 25))["escalated"] == 1
+    after = store.case_for_run(run.run_id)
+    assert (after["escalated_to"], after["escalated_on"]) == ("AP analyst", "2026-11-25")
+    assert cases.sync(store, master, rules, date(2026, 11, 30))["escalated"] == 0
+    assert [e["kind"] for e in store.case_events(case["case_id"])] == ["opened", "escalated", "message_approved",
+                                                                        "escalated"]
