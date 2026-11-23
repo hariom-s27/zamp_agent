@@ -14,9 +14,13 @@ from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any, Optional
 
+from . import textutil as T
 from .masterdata import MasterData, PoLine, Vendor
+from .review import po_position
 from .rules import Rules
 from .store import Store
+
+ZERO = Decimal("0")
 
 STATES = ("WAITING", "ANSWERED", "RESOLVED")
 MOVES = {("WAITING", "fact"): "ANSWERED", ("WAITING", "reply"): "ANSWERED",
@@ -97,6 +101,132 @@ def _clock_for_run(store: Store, master: MasterData, rules: Rules, result, today
     return statutory_clock(vendor, lines, invoice_date, total, rules, today)
 
 
+# ---------------------------------------------------------------- goods receipts and release by rule
+
+def master_with_receipts(master: MasterData, store: Store) -> MasterData:
+    """The master with every goods receipt recorded in this store added to its PO lines. With no
+    receipt recorded it is the very same object, so callers that never record one see no change."""
+    recorded = store.goods_receipts()
+    if not recorded:
+        return master
+    live = master.model_copy(deep=True)
+    for receipt in recorded:
+        po = live.pos.get(receipt["po_number"])
+        line = po.line(int(receipt["line_no"])) if po else None
+        if line is None:
+            continue
+        line.qty_received = (line.qty_received or ZERO) + (receipt["qty"] or ZERO)
+        day = _as_date(receipt["received_on"])
+        if day and (line.received_on is None or day > line.received_on):
+            line.received_on = day
+    return live
+
+
+def record_goods_receipt(store: Store, master: MasterData, po_number: str, line_no: int, qty: Decimal,
+                         received_on: date | str, recorded_by: str, reference: str, for_run: str = "") -> dict:
+    """Stores record a delivery against a PO line. It joins the audit chain, and the case of `for_run`."""
+    po = master.pos.get(po_number)
+    line = po.line(int(line_no)) if po else None
+    if line is None:
+        raise CaseError(f"{po_number} has no line {line_no}.")
+    qty = Decimal(str(qty))
+    if qty <= 0:
+        raise CaseError("Enter the quantity received: it must be more than zero.")
+    recorded_by, reference = (recorded_by or "").strip(), (reference or "").strip()
+    if not recorded_by:
+        raise CaseError("Enter your name: every goods receipt is recorded against a person.")
+    day = received_on if isinstance(received_on, date) else _as_date(received_on)
+    if day is None:
+        raise CaseError("Enter the date the goods were received.")
+    amount = f"{T.fmt_num(qty)} {line.uom}".strip()
+    note = f"{amount} of line {line.line_no} ({line.description}) on {po_number}" + \
+           (f", delivery note {reference}" if reference else "")
+    case = store.case_for_run(for_run) if for_run else None
+    with store.transaction():
+        receipt_id = store.add_goods_receipt(po_number, line.line_no, qty, _iso(day), recorded_by, reference)
+        if case is not None:
+            store.add_case_event(case["case_id"], "goods_receipt", recorded_by, f"Goods receipt recorded: {note}.",
+                                 {"po_number": po_number, "line_no": line.line_no, "qty": str(qty), "reference": reference})
+        store.append_receipt("goods_receipt", for_run, {
+            "actor": "human", "reviewer": recorded_by, "decision": "goods receipt recorded", "note": note,
+            "po_number": po_number, "line_no": line.line_no, "qty": str(qty), "received_on": _iso(day),
+            "reference": reference})
+    return {"id": receipt_id, "po_number": po_number, "line_no": line.line_no, "qty": qty, "received_on": day}
+
+
+def _say_once(store: Store, case: dict, kind: str, summary: str) -> None:
+    """A refusal is written to the timeline once per distinct reason, not on every sync."""
+    if not any(e["kind"] == kind and e["summary"] == summary for e in store.case_events(case["case_id"])):
+        store.add_case_event(case["case_id"], kind, DESK, summary)
+
+
+def try_resume(store: Store, master: MasterData, rules: Rules, case: dict, today: date) -> dict:
+    """Release a held invoice by rule once the fact it waited for is on record (DECISIONS.md D66).
+
+    Every condition must hold: the run is still a pending hold with a pending ledger entry; every
+    reason on it is in rules.yaml cases.auto_resume; the goods received now cover what is billed;
+    and the purchase order re-check a person's approval gets passes. Recorded as RELEASED, never
+    as APPROVED, in one transaction."""
+    run_id = case["run_id"]
+    row = store.run_row(run_id)
+    result = store.get_run(run_id)
+    entry = store.get_ledger(result.ledger_id) if result and result.ledger_id else None
+    if not row or row["verdict"] != "HOLD" or row["review_status"] != "PENDING" or not entry \
+            or entry["status"] != "PENDING":
+        return {"released": False, "why": "the invoice is no longer waiting on hold"}
+    codes = [f.code for f in result.decision.reasons]
+    allowed = set(rules.cases.auto_resume)
+    if not codes or not set(codes) <= allowed:
+        others = sorted(set(codes) - allowed)
+        why = ("release by rule is switched off in rules.yaml (cases.auto_resume)" if not allowed else
+               f"other reasons are on the hold and need a person: {', '.join(others)}")
+        return {"released": False, "why": why}
+
+    live = master_with_receipts(master, store)
+    po = live.pos.get(entry["po_number"])
+    recorded_lines = {(r["po_number"], int(r["line_no"])) for r in store.goods_receipts(entry["po_number"])}
+    for ln in entry["lines"]:
+        po_line = po.line(ln["po_line_no"]) if po and ln.get("po_line_no") is not None else None
+        if po_line is None or po_line.match_basis != "QTY" or po_line.qty_received is None or ln.get("qty") is None:
+            continue
+        posted_by_others = sum((other_ln["qty"] or ZERO
+                                for other in store.ledger_entries(po_number=po.po_number, statuses=("POSTED",))
+                                if other["ledger_id"] != entry["ledger_id"]
+                                for other_ln in other["lines"] if other_ln["po_line_no"] == po_line.line_no), ZERO)
+        available = po_line.qty_received - posted_by_others
+        if available < ln["qty"]:
+            have = max(available, ZERO)
+            why = (f"{T.fmt_num(have)} of {T.fmt_num(ln['qty'])} received. The invoice still waits for the remaining "
+                   f"{T.fmt_num(ln['qty'] - have)}.")
+            if (po.po_number, po_line.line_no) in recorded_lines:    # nothing to say until a delivery is recorded
+                _say_once(store, case, "partial_receipt", why)
+            return {"released": False, "why": why}
+
+    position = po_position(store, live, rules, entry)
+    if position["problems"]:
+        why = (f"The goods are received, but releasing the invoice now would overbill {position['po_number']}: "
+               + "; ".join(p["text"] for p in position["problems"]) + ". A person must decide it in the review queue.")
+        _say_once(store, case, "resume_refused", why)
+        return {"released": False, "why": why}
+
+    note = "The goods receipt on record now covers every billed line, and the purchase order re-check passed."
+    checks = {"goods_received": True, "po_recheck": "passed", "reasons_cleared": codes}
+    with store.transaction():
+        store.set_ledger_status(entry["ledger_id"], "POSTED", "released by rule: goods received")
+        store.set_review_status(run_id, "RELEASED")
+        store.add_review(run_id, "RELEASED", "Invoice Desk (rule)", note, checks)
+        store.append_receipt("release", run_id, {
+            "actor": "rule", "decision": "RELEASED", "note": note, "reasons_cleared": codes,
+            "ledger": {"ledger_id": entry["ledger_id"], "status": "POSTED"},
+            "reviews_receipt": (result.receipt or {}).get("hash")})
+        store.update_case(case["case_id"], state=move(case["state"], "resolve"), resolved_on=_iso(today),
+                          resolution=RESOLUTION["RELEASED"])
+        store.add_case_event(case["case_id"], "released_by_rule", DESK,
+                             "Released by rule and posted for payment: nothing else was holding this invoice.",
+                             {"ledger_id": entry["ledger_id"]})
+    return {"released": True, "why": note}
+
+
 # ---------------------------------------------------------------- the reconciler
 
 def _free_case_id(store: Store, file_sha256: str) -> str:
@@ -174,6 +304,11 @@ def sync(store: Store, master: MasterData, rules: Rules, today: date) -> dict:
         counts["escalated"] += escalated
     for case in store.list_cases(open_only=True):
         counts["closed"] += _close_if_decided(store, case, today)
+    allowed = set(rules.cases.auto_resume)
+    for case in store.list_cases(open_only=True):
+        codes = set(filter(None, case["reason_codes"].split(",")))
+        if allowed and codes and codes <= allowed:
+            counts["released"] += int(try_resume(store, master, rules, case, today)["released"])
     for case in store.list_cases(open_only=True):
         due = _as_date(case["due_on"])
         if due and today > due and not case["escalated_to"]:

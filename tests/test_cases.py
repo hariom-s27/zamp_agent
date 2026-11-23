@@ -222,3 +222,113 @@ def test_the_eighteen_samples_give_the_same_decisions_and_receipts_with_cases_on
         return seen
 
     assert run_all("on", True) == run_all("off", False)
+
+
+# ---------------------------------------------------------------- goods receipts and release by rule (checkpoint 3)
+
+def receive(store, master, run, qty, line=2, name="A. Kulkarni", ref="DN-5531"):
+    return cases.record_goods_receipt(store, master, "PO-2026-1041", line, Decimal(qty), date(2026, 11, 21), name, ref,
+                                      for_run=run.run_id)
+
+
+def test_with_no_receipt_recorded_the_master_is_the_same_object(store, master):
+    assert cases.master_with_receipts(master, store) is master
+
+
+def test_a_goods_receipt_needs_a_known_po_line_a_positive_quantity_and_a_name(pipeline, store, master):
+    run = run_case_sample(pipeline, C1)
+    for po, line, qty, name in (("PO-2026-9999", 1, "1", "A"), ("PO-2026-1041", 9, "1", "A"),
+                                ("PO-2026-1041", 2, "0", "A"), ("PO-2026-1041", 2, "-5", "A"), ("PO-2026-1041", 2, "5", "  ")):
+        with pytest.raises(cases.CaseError):
+            cases.record_goods_receipt(store, master, po, line, Decimal(qty), TODAY, name, "DN-1", for_run=run.run_id)
+    assert store.goods_receipts() == [] and [r["kind"] for r in store.receipts(run.run_id)] == ["decision"]
+
+
+def test_a_full_goods_receipt_releases_the_invoice_by_rule_and_posts_it(pipeline, store, master, rules):
+    run = run_case_sample(pipeline, C1)
+    cases.sync(store, master, rules, TODAY)
+    receive(store, master, run, "60")
+    live = cases.master_with_receipts(master, store)
+    assert live is not master and live.pos["PO-2026-1041"].line(2).qty_received == Decimal("60")
+    assert live.pos["PO-2026-1041"].line(2).received_on == TODAY and master.pos["PO-2026-1041"].line(2).qty_received == 0
+    assert cases.sync(store, master, rules, TODAY)["released"] == 1
+    assert store.get_ledger(run.ledger_id)["status"] == "POSTED"
+    assert store.run_row(run.run_id)["review_status"] == "RELEASED"
+    assert [r["kind"] for r in store.receipts(run.run_id)] == ["decision", "goods_receipt", "release"]
+    release = store.receipts(run.run_id)[-1]["body"]
+    assert release["actor"] == "rule" and release["decision"] == "RELEASED"
+    assert release["reasons_cleared"] == ["GOODS_NOT_RECEIVED"] and release["reviews_receipt"] == run.receipt["hash"]
+    assert release["ledger"] == {"ledger_id": run.ledger_id, "status": "POSTED"}
+    assert store.reviews(run.run_id)[-1]["reviewer"] == "Invoice Desk (rule)" and store.verify_chain()["ok"]
+    case = store.case_for_run(run.run_id)
+    assert (case["state"], case["resolution"], case["resolved_on"]) == ("RESOLVED", "released by rule", "2026-11-21")
+    assert [e["kind"] for e in store.case_events(case["case_id"])] == ["opened", "goods_receipt", "released_by_rule"]
+    with pytest.raises(Exception, match="not waiting for review"):          # nothing left for a person to decide
+        apply_review(store, run.run_id, "REJECT", "R. Iyer", "late", master=master, rules=rules)
+    assert cases.sync(store, master, rules, TODAY) == {"opened": 0, "closed": 0, "released": 0, "escalated": 0}
+
+
+def test_a_partial_goods_receipt_keeps_the_invoice_waiting_and_says_how_much_is_missing(pipeline, store, master, rules):
+    run = run_case_sample(pipeline, C1)
+    cases.sync(store, master, rules, TODAY)
+    receive(store, master, run, "30")
+    assert cases.sync(store, master, rules, TODAY)["released"] == 0
+    case = store.case_for_run(run.run_id)
+    assert case["state"] == "WAITING" and case["waiting_on"] == "Stores"
+    assert store.get_ledger(run.ledger_id)["status"] == "PENDING" and store.run_row(run.run_id)["review_status"] == "PENDING"
+    events = store.case_events(case["case_id"])
+    assert [e["kind"] for e in events] == ["opened", "goods_receipt", "partial_receipt"]
+    assert events[-1]["summary"] == "30 of 60 received. The invoice still waits for the remaining 30."
+    assert cases.try_resume(store, master, rules, case, TODAY) == {
+        "released": False, "why": "30 of 60 received. The invoice still waits for the remaining 30."}
+    cases.sync(store, master, rules, TODAY)
+    assert len(store.case_events(case["case_id"])) == 3                       # said once, not on every sync
+    receive(store, master, run, "30", ref="DN-5540")
+    assert cases.sync(store, master, rules, TODAY)["released"] == 1
+
+
+def test_release_by_rule_never_happens_when_any_other_reason_is_on_the_hold(pipeline, store, master, rules):
+    from invoice_desk.models import Finding
+    run = run_case_sample(pipeline, C1)
+    extra = Finding(code="PRICE_VARIANCE", stage="po_match", summary="price over the PO", action="HOLD",
+                    owner="Procurement", title="Price is above the PO beyond tolerance")
+    run.decision.reasons.append(extra)
+    store.replace_run_record(run)
+    cases.sync(store, master, rules, TODAY)
+    case = store.case_for_run(run.run_id)
+    assert case["reason_codes"] == "GOODS_NOT_RECEIVED,PRICE_VARIANCE"
+    receive(store, master, run, "60")
+    assert cases.sync(store, master, rules, TODAY)["released"] == 0
+    outcome = cases.try_resume(store, master, rules, store.case_for_run(run.run_id), TODAY)
+    assert outcome["released"] is False and "PRICE_VARIANCE" in outcome["why"]
+    assert store.get_ledger(run.ledger_id)["status"] == "PENDING" and "release" not in [
+        r["kind"] for r in store.receipts(run.run_id)]
+
+
+def test_release_by_rule_rechecks_the_po_like_a_human_approval(pipeline, store, master, rules):
+    run = run_case_sample(pipeline, C1)
+    cases.sync(store, master, rules, TODAY)
+    store.add_ledger({"ledger_id": "L-OTHER", "run_id": "", "vendor_id": "V101", "invoice_no": "KBD/26-27/1180",
+                      "invoice_date": "2026-11-20", "po_number": "PO-2026-1041", "taxable": "37200.00",
+                      "tax": "6696.00", "total": "43896.00", "status": "POSTED"},
+                     [{"po_line_no": 2, "description": "Timing belt HTD 8M-1200", "qty": "30",
+                       "unit_price": "1240.00", "amount": "37200.00"}])     # another invoice took 30 belts first
+    receive(store, master, run, "90")                                        # 90 delivered: the receipt covers both ...
+    assert cases.sync(store, master, rules, TODAY)["released"] == 0          # ... but the PO has room for 60 only
+    case = store.case_for_run(run.run_id)
+    refusals = [e for e in store.case_events(case["case_id"]) if e["kind"] == "resume_refused"]
+    assert len(refusals) == 1 and "overbill" in refusals[0]["summary"] and "PO-2026-1041" in refusals[0]["summary"]
+    cases.sync(store, master, rules, TODAY)
+    assert len([e for e in store.case_events(case["case_id"]) if e["kind"] == "resume_refused"]) == 1
+    assert store.get_ledger(run.ledger_id)["status"] == "PENDING" and case["state"] == "WAITING"
+
+
+def test_auto_resume_can_be_switched_off_in_the_rules(pipeline, store, master, rules):
+    never = rules_with(rules, auto_resume=[])
+    run = run_case_sample(pipeline, C1)
+    cases.sync(store, master, never, TODAY)
+    receive(store, master, run, "60")
+    assert cases.sync(store, master, never, TODAY)["released"] == 0
+    assert store.get_ledger(run.ledger_id)["status"] == "PENDING"
+    assert cases.try_resume(store, master, never, store.case_for_run(run.run_id), TODAY)["released"] is False
+    assert store.case_for_run(run.run_id)["state"] == "WAITING"
