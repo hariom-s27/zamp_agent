@@ -117,13 +117,14 @@ def write_case_samples(samples_dir: Path) -> None:
     manifest = []
     for order, inv in enumerate(CASE_SAMPLES, 1):
         (folder / f"{inv['id']}.pdf").write_bytes(G.build_sample(inv))
-        (folder / "truth" / f"{inv['id']}.json").write_text(json.dumps(G.truth_for(inv), indent=2), encoding="utf-8")
+        (folder / "truth" / f"{inv['id']}.json").write_text(json.dumps(G.truth_for(inv), indent=2), encoding="utf-8",
+                                                           newline="\n")   # LF on every machine, as git keeps it
         title, verdict, reasons, description, received_as = CASE_META[inv["id"]]
         manifest.append({"id": inv["id"], "file": f"cases/{inv['id']}.pdf", "order": order, "title": title,
                          "group": "after_hold", "tag": "After the decision", "received_as": received_as,
                          "scanned": inv["scanned"], "layout": inv["layout"], "expected_verdict": verdict,
                          "expected_reasons": reasons, "description": description})
-    (folder / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    (folder / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8", newline="\n")
 
 
 def write_case_data(data_dir: Path, samples_dir: Path) -> None:

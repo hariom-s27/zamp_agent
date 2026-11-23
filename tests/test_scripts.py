@@ -214,5 +214,6 @@ def test_the_case_data_generator_is_repeatable_and_leaves_the_bundled_samples_al
                        "samples/cases/manifest.json", "samples/cases/truth/c1_invoice_before_goods.json",
                        "samples/cases/truth/c2_small_supplier_late_invoice.json"]
     assert hashes(tmp_path / "a", written) == hashes(tmp_path / "b", written)        # byte-identical on a re-run
+    assert not [n for n in written if not n.endswith(".pdf") and b"\r" in (tmp_path / "a" / n).read_bytes()]  # LF, as git keeps them
     assert hashes(tmp_path / "a", written) == hashes(config.ROOT, written)           # and the committed files are its output
     assert hashes(config.ROOT, bundled) == before and generate_test_data.VENDOR == vendors_before
