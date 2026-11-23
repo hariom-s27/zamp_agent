@@ -4,8 +4,8 @@
 Analyst case study.
 
 A vendor invoice goes in as a PDF: typed, scanned or photographed. A decision comes out:
-**approve** for payment, **hold** for a named person with one specific question, or
-**reject**. Every step in between is on screen with the evidence it used, and every
+**Cleared** for payment, **On hold** for a named person with one specific question, or
+**Rejected**. Every step in between is on screen with the evidence it used, and every
 decision leaves an entry in an audit trail that cannot be edited afterwards without it
 showing.
 
@@ -25,15 +25,15 @@ py -3.11 -m venv .venv
 .venv\Scripts\python -m streamlit run app.py
 ```
 
-Then open <http://localhost:8501>. The first page is the **Guided demo**: press "Run
-step 1". On macOS or Linux use `.venv/bin/python`. The full Windows walkthrough (tests,
+Then open <http://localhost:8501>. The first page is the **Guided demo**: press "Watch one
+invoice go from PDF to decision", or "Run step 1". On macOS or Linux use `.venv/bin/python`. The full Windows walkthrough (tests,
 the OCR engine, the Claude key, recording, free public hosting, the demo-day checklist)
 is in [SETUP_WINDOWS.md](SETUP_WINDOWS.md).
 
 Four commands worth knowing:
 
 ```powershell
-.venv\Scripts\python -m pytest                              # 625 tests
+.venv\Scripts\python -m pytest -q -p no:cacheprovider        # the full suite (count in PROGRESS.md)
 .venv\Scripts\python -m scripts.preflight                   # is this machine ready for the demo?
 .venv\Scripts\python -m invoice_desk.run --all              # every sample from the command line
 .venv\Scripts\python -m invoice_desk.run --cases            # the two after-hold samples (steps 12 and 13)
@@ -88,7 +88,13 @@ flowchart LR
 
 ## What is on screen
 
-Six pages.
+Eleven pages in four groups in the sidebar: **See it work** (Guided demo, Process invoice),
+**Work the desk** (Inbox, Cases, Review queue, Payments), **Results** (Dashboard, Business
+case) and **Reference** (Rules and data, Procedure, How it works). Every screen uses the
+same words: Cleared, On hold, Rejected; the same nine step names; ₹ for money; and one
+date format (21-Nov-2026, with the time as 21-Nov-2026 14:05). The business date is
+21-Nov-2026 with the real time of day. Reason codes appear only under "Reason code (for
+auditors)", and no screen names the AI model (it stays in the stored record).
 
 - **Guided demo.** Eleven scenarios, one button each: a clean invoice, a scan, the four
   edge cases, the bank-change control, the AI assist, the same file sent twice, and
@@ -104,13 +110,21 @@ Six pages.
   purchase order as it stands now. A named person approves or rejects. An approval that
   would overbill the PO is refused with the numbers. A changed bank account takes two
   different people.
-- **Dashboard.** Documents received, straight-through rate, value waiting, value
-  released, reasons for holds, the audit-trail check, the history with filters, and the
-  full record of any invoice.
-- **Rules and data.** The decision table, the tolerances, a what-if sandbox that reruns
-  a sample with different thresholds, the POs with what has been billed against each,
-  the vendor master and the ledger.
-- **How it works.** The process and its limits on one page.
+- **Dashboard.** Five numbers (cleared with no person, on hold now, days to clear a hold,
+  money stopped, legal dates at risk), three charts, what needs attention, the audit-trail
+  check, and every invoice with its full record.
+- **Inbox, Cases, Payments, Procedure.** The day's mail sorted with an owner for each
+  message (one row per email); every hold as a case with one question and a due date; the
+  payment-run proposal with one or two named approvals depending on the amount; and rule
+  changes tested against past invoices before anyone approves them.
+- **Business case.** One sentence, three numbers, the assumptions with where each comes
+  from, two bars and what is not counted. Its invoice, on-hold and per-owner counts come
+  from the same query as the Dashboard.
+- **Rules and data.** The limits as sentences, the reasons (codes behind an auditors'
+  expander), vendors and POs, "Try a change" (one sample both ways, or all samples
+  replayed), and the ledger.
+- **How it works.** AI reads, rules decide, people approve; the nine steps; how well it
+  reads; what it does not do.
 
 | Guided demo: three steps done | A run in progress |
 |---|---|
@@ -138,8 +152,8 @@ escalated once to the role named in `cases.escalate_to`.
   small enterprise, so the MSMED Act gives at most 45 days from acceptance of the goods.
   The case shows that date, the days left and a rough interest figure, is marked urgent
   and escalated to the Finance controller at once. The drafted message to the vendor goes
-  nowhere until a named person approves it. In this build "send" means the email is
-  written to an outbox folder and recorded; no mail server is connected.
+  nowhere until a named person approves it. "Send" means the email is written to an
+  outbox folder and recorded; no mail server is connected.
 
 Opening, closing and escalating a case are bookkeeping and stay out of the audit chain,
 so the first eleven steps give exactly the same receipts as before. `cases.enabled: false`
@@ -152,7 +166,7 @@ untouched, money stopped as duplicates or held for overbilling or a bank change,
 owner, AI cost per invoice), then a calculator. Every input of the calculator is an
 assumption kept in `rules.yaml` (`value_model`) and shown with its source; the formula is
 printed under the result. With the defaults handling drops from 17.0 to 6.56 minutes an
-invoice, about 104 hours and Rs 46,980 a month, before the cost of running the desk. Time
+invoice, about 104 hours and ₹46,980 a month, before the cost of running the desk. Time
 spent chasing exceptions is left the same before and after, because that is not measured.
 
 ## Rolling it out

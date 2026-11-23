@@ -1,5 +1,11 @@
 # Demo script
 
+> **Round 5:** the 5-minute recorded video now follows [VIDEO_SCRIPT.md](VIDEO_SCRIPT.md)
+> (happy path, overbilling, bank-change guard, the AI letter read, Dashboard, Cases and
+> Payments). This file keeps the guided-demo run order for the live interview. Screens now
+> say Cleared / On hold / Rejected (not APPROVE / HOLD / REJECT) and use the Process step
+> names (Received, Read the page, Picked out the details, ...).
+
 Two things are here: the narration for the 5-minute video, and the run order for the
 live interview, including when to show a live Claude call. Both use the **Guided demo**
 page and the same scenarios in the same order, so one rehearsal serves both.
@@ -15,10 +21,10 @@ reader is a non-technical buyer. So the words below are about money and risk, no
    step 6 first, or use the alternative words for step 9 below.
 2. Start the app. Browser at 100% zoom, full screen.
 3. On **Guided demo**, scroll to the bottom and open **Demo settings and admin**. AI
-   assist mode: **FIXTURE**. "Process on the demo date": **on**. Close the panel.
+   assist mode: **Recorded answers: replay stored readings, no live calls**. "Process on
+   the demo date": **on**. Close the panel.
 4. Press **Start a fresh demo**.
-5. **Pace of the live view**: **Normal** for the video, **Presentation** for the
-   interview, where there is more time to talk over each stage.
+5. **Pace of the live view**: **Reading speed** for the video and the interview.
 6. Have a timer where you can see it. Do one full dry run first.
 
 The two scanned steps (2 and 5) take about five seconds at the Read stage when the OCR

@@ -1,5 +1,47 @@
 # Changelog
 
+## Round 5 finishing (24 Nov 2026)
+
+What a first visit and a finance buyer see, fixed after the Edge browser test.
+
+- **First visit.** "Watch one invoice" no longer locks the guided demo (its run counts as
+  step 1, or is cleared when step 1 starts). A first run on Process invoice shows its
+  steps; a real repeat stops at step 1 ("Duplicate file") and links to the original. The
+  caption that read "Already received as AP-2026-0001" right after a first run now says
+  "Processed in this session as ...".
+- **One business clock.** Every stamp a person sees is 21-Nov-2026 with the real time of
+  day (`config.now_utc`); the next morning's mail is stamped 22-Nov-2026. One date format
+  on screen and in messages: 21-Nov-2026 (CSV files keep ISO dates).
+- **Sidebar** says "AI reading: recorded answers (no live calls)"; no model name or mode
+  name on any screen. The stored record keeps the exact model.
+- **Payments.** "One approval is enough" below the limit from the rules, two slots above
+  it. The CSV is UTF-8 with a BOM (₹ shows in Excel); the banner calls it a review copy
+  with masked accounts. The example loader never sends a file into the books twice, and a
+  vendor whose bank change two people approved is not blocked.
+- **Inbox** lists each email once (a second item from the same email sits inside it);
+  "Received" equals the rows; attachments show their real size.
+- **Cases.** A reply that gave the invoice number gets a thank-you draft and the case reads
+  "Ready to process"; pill counts add up to All; AI rows read "AI (checked by the desk)";
+  the original invoice email is no longer shown as a "corrected invoice".
+- **What was checked** has one row per check that ran (vendor, PO as quoted on the
+  invoice, prices, quantities, tax, duplicates, bank details) with the page or line it was
+  read from. The PO row read the wrong field before (`po_number` instead of
+  `po_reference`).
+- **Payment-status answers**: a capital letter and a full stop on every line, and
+  "Scheduled for payment on 18-Dec-2026 (not in this week's run)".
+- **Business case and Dashboard** share one query (`dashboard.book_figures`). Business
+  case and Rules and data rewritten per UX sections 3.6 and 3.7; How it works per 3.8;
+  Inbox, Payments and Procedure restyled with the UI kit.
+- **Words.** Cleared / On hold / Rejected everywhere, the Process step names everywhere,
+  reason codes only under "Reason code (for auditors)", ₹ everywhere, plain units and
+  plurals, no developer words. Engine text is reworded at display time
+  (`ui/common.screen_words`); the frozen engine modules are unchanged.
+- **Procedure replay** shows "Checking invoice 7 of 18" and counts a repeated file once.
+- **New files:** FINAL_AUDIT.md, VIDEO_SCRIPT.md, `tests/test_round5_first_visit.py`,
+  `tests/test_round5_correctness.py`, `tests/test_round5_screens.py` (every page on a fresh
+  session and on filled books, with a list of forbidden words).
+- **rules.yaml:** `display.usd_to_inr` (shows a recorded AI cost in rupees).
+
 ## Round 3 (23 Nov 2026)
 
 What happens after a hold, a business case, and how sure the numbers are.
