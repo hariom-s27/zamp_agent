@@ -5,7 +5,33 @@ import streamlit as st
 
 from .. import samples as sample_lib
 from ..pipeline import STAGE_HELP, STAGES
+from .. import config
 from . import common as C
+
+RESULTS = config.ROOT / "robustness" / "results.json"
+ROBUST_LABELS = [("approved-correct", "Cleared correctly"), ("held-correct", "Held correctly"),
+                 ("misread-held", "Misread, held for a person"), ("misread-approved", "Misread and cleared")]
+
+
+def robustness_numbers(path=None) -> dict | None:
+    """The four measured outcomes on the 49-document test, read from the results file; None if it is missing."""
+    import json
+    try:
+        summary = json.loads((path or RESULTS).read_text(encoding="utf-8"))["summary"]["All documents"]
+        return {"documents": int(summary["documents"]), **{k: int(summary[k]) for k, _ in ROBUST_LABELS}}
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+
+
+def robustness_figures(path=None) -> None:
+    numbers = robustness_numbers(path)
+    if numbers is None:
+        st.caption("The robustness results file is not present, so no measured figures are shown.")
+        return
+    st.markdown(f"**Measured on {numbers['documents']} difficult documents made with other tools than the samples**")
+    cols = st.columns(4)
+    for col, (key, label) in zip(cols, ROBUST_LABELS):
+        col.metric(label, numbers[key], border=True)
 
 FLOW = """
 digraph G {
@@ -56,6 +82,7 @@ def page() -> None:
             "The model's own confidence can lower trust and never raise it. Modes: recorded answers (the default, no "
             "network), live with a cache and cost caps, or off.\n"
             "- **Every decision**, by the system or by a person, is written to a tamper-evident audit trail.")
+        robustness_figures()
         st.subheader("Limits, stated plainly")
         st.markdown(
             "- Built for Indian GST tax invoices in English, one purchase order per invoice. Credit notes, pro-forma "

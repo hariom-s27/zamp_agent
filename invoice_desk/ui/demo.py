@@ -202,9 +202,60 @@ def _try_your_own(area, store) -> None:
         st.rerun()
 
 
+PROMISE = ("Every supplier invoice PDF is read, checked against the PO, the goods receipt and the vendor record, and "
+           "decided in seconds. Clean invoices clear themselves. The rest go to a named person with one clear question.")
+START_HERE = [("clean", "A clean invoice from a known vendor", "Cleared"),
+              ("outside", "A price above the purchase order", "On hold, a person decides"),
+              ("bank", "A changed bank account", "Stopped, two people must agree")]
+
+
+def _open_on_process(sample_id: str) -> None:
+    """Open Process invoice with this sample chosen and the run started there."""
+    st.session_state.update({"proc_source": process.SAMPLE, "proc_sample": sample_id, "proc_live": "sample",
+                             "goto": "process"})
+    st.rerun()
+
+
+def _landing(store) -> None:
+    """What this is, who does what, the numbers when there are any, and one thing to press."""
+    from . import ui_kit as K
+    from .dashboard import _cards
+    from .guide import robustness_numbers
+    st.markdown(PROMISE)
+    st.markdown(" ".join([K.actor_chip("ai", "AI reads the page"), K.actor_chip("rules", "Rules make the decision"),
+                          K.actor_chip("person", "A named person approves what leaves")]))
+    runs = store.list_runs()
+    if runs:
+        _cards(store, runs, C.get_rules())
+        st.caption("These numbers are this session's books, read from the stored records.")
+    by_key = {s["key"]: s for s in STEPS}
+    row = st.container(horizontal=True, vertical_alignment="center")
+    if row.button("Watch one invoice go from PDF to decision", type="primary", key="demo_watch",
+                  icon=":material/play_circle:"):
+        _open_on_process(by_key["clean"]["sample"])
+    if row.button("Deliver today's mail", key="demo_mail", icon=":material/mail:"):
+        st.session_state["goto"] = "inbox"
+        st.rerun()
+    row.caption("About 20 seconds. Nothing is sent anywhere.")
+    with st.container(border=True):
+        st.markdown("**Start here: three invoices, three outcomes**")
+        for number, (key, title, ends) in enumerate(START_HERE, 1):
+            line = st.container(horizontal=True, vertical_alignment="center")
+            line.markdown(f"{number}. {title} → **{ends}**")
+            if line.button("Run", key=f"start_{key}"):
+                _open_on_process(by_key[key]["sample"])
+    numbers = robustness_numbers()
+    if numbers:
+        wrong = numbers["misread-approved"]
+        st.caption(f"Tested on {numbers['documents']} difficult documents: "
+                   f"{'none was' if wrong == 0 else f'{wrong} were'} misread and approved. "
+                   f"{numbers['misread-held']} were misread and held for a person. How we tested: the How it works page.")
+
+
 def page() -> None:
     store = C.get_store()
     st.title("Guided demo")
+    _landing(store)
     st.caption("Eleven scenarios, one button each: a clean invoice, each edge case, the fraud control, the AI assist "
                "and bad input. Every step is a real run through the pipeline, stored and auditable like any other.")
     flash = st.session_state.pop("flash_demo", None)
