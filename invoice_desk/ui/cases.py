@@ -22,7 +22,7 @@ from ..mailbox import strip_quoted
 from .. import textutil as T
 from . import common as C
 from . import ui_kit as K
-from .process import amount_text, evidence_rows, plain
+from .process import amount_text, evidence_rows, plain, tidy
 
 WAITING_ON = {"vendor": "the vendor"}
 ALL = "All"
@@ -46,8 +46,8 @@ def family_question(f) -> str | None:
     if code == "GOODS_NOT_RECEIVED":
         return "The goods receipt is not posted. Have the goods arrived?"
     if code == "QTY_OVER_PO" and f.observed and f.expected:
-        return (f"The invoice bills {_strip_unit(f.observed, 'billed')}. The PO has {f.expected}. Amend the PO, or ask "
-                f"for a corrected invoice?")
+        return (f"The invoice bills {tidy(_strip_unit(f.observed, 'billed'))}. The PO has {tidy(f.expected)}. Amend the "
+                f"PO, or ask for a corrected invoice?")
     if code in PO_FAMILY:
         return "No open PO matches this invoice. Raise one, or reject the invoice?"
     if code == "BANK_DETAILS_CHANGED":
@@ -171,8 +171,11 @@ def _goods_receipt_form(case: dict, store, live) -> None:
 def _message(case: dict, result, store) -> None:
     run_id = case["run_id"]
     sent = [m for m in store.messages(case["case_id"]) if m["direction"] == "out"]
-    draft = result.decision.vendor_draft if result.decision else None
-    if sent:
+    vendor = C.get_master().vendors.get((result.vendor or {}).get("vendor_id") or "")
+    draft, thanks = case_engine.next_draft(case, result, C.get_rules(), vendor.legal_name if vendor else "")
+    thank_sent = [m for m in sent if "Thank you" in (m["subject"] or "")]
+    if (sent and not thanks) or thank_sent:
+        sent = thank_sent or sent
         last = sent[-1]
         st.markdown(f"**Message to the vendor** approved by {plain(last['approved_by'])} and written to the outbox on "
                     f"{plain(config.to_ist_text(last['created_at']))}, to {plain(last['recipient'])}.")
@@ -184,13 +187,16 @@ def _message(case: dict, result, store) -> None:
         return
     if not draft or case["state"] == "RESOLVED":
         return
-    st.markdown("**Message to the vendor** (drafted by the rules; nothing leaves until a person approves it)")
+    if thanks:
+        st.markdown("**Thank-you note to the vendor** (the reply already gave what was asked, so nothing is asked "
+                    "again; nothing leaves until a person approves it)")
+    else:
+        st.markdown("**Message to the vendor** (drafted by the rules; nothing leaves until a person approves it)")
     st.code(draft, language=None, wrap_lines=True)
     with st.form(key=f"msg_form_{run_id}", border=False):
         name = st.text_input("Your name (recorded as the approver)", key=f"msg_name_{run_id}")
         send = st.form_submit_button("Approve and send", type="primary")
-    st.caption("In this build, send means the email is written to the outbox folder and recorded. No mail server is "
-               "connected.")
+    st.caption("Send means the email is written to the outbox and recorded. No mail server is connected.")
     if send:
         try:
             out = case_engine.approve_message(store, C.get_master(), C.get_rules(), case["case_id"], name,
@@ -199,7 +205,9 @@ def _message(case: dict, result, store) -> None:
             st.session_state["flash_cases"] = ("error", str(exc))
         else:
             st.session_state["flash_cases"] = (
-                "success", f"Message approved by {name.strip()} and written to the outbox, to {out['to']}. The case "
+                "success", f"Thank-you note approved by {name.strip()} and written to the outbox, to {out['to']}. The "
+                           f"case is ready to process." if out.get("thanks") else
+                           f"Message approved by {name.strip()} and written to the outbox, to {out['to']}. The case "
                            f"now waits on the vendor, reply due {case_engine.day_text(out['due_on'])}.")
         st.rerun()
 
@@ -214,7 +222,7 @@ def _card(case: dict, store, live, rules) -> None:
     clock = case_engine.clock_for_case(store, live, rules, case, C.business_date())
     due = _due(case)
     with st.container(border=True, key=f"case_{case['case_id']}"):
-        vendor = row.get("vendor_name") or "Unknown vendor"
+        vendor = C.vendor_case(row.get("vendor_name")) or "Unknown vendor"
         number = row.get("invoice_no")
         num_str = f"invoice {plain(number)}" if number else "invoice (number missing)"
         amount = amount_text(row.get("total"))
@@ -222,8 +230,14 @@ def _card(case: dict, store, live, rules) -> None:
         top.markdown(f"**{plain(vendor)}** · {num_str}{' · ' + amount if amount else ''} :gray[({plain(run_id)})]")
         if due:
             top.markdown(K.chip_md(*K.due_label(due, C.business_date())))
-        st.markdown(f"#### {plain(case_question(reasons, case['question']))}")
-        chips = [f":gray-badge[:material/assignment_ind: Waiting on {plain(_who(case['waiting_on']))}]"]
+        offered = case_engine.offered_values(case)
+        if offered and case["state"] == "ANSWERED":
+            stated = " and ".join(f"{case_engine.VALUE_WORDS.get(k, k)} {v['value']}" for k, v in offered.items())
+            st.markdown(f"#### {plain(f'The vendor gave the {stated}. Confirm it and process the invoice.')}")
+        else:
+            st.markdown(f"#### {plain(case_question(reasons, case['question']))}")
+        chips = [K.chip_md("resolved", "Ready to process") if ready(case) else
+                 f":gray-badge[:material/assignment_ind: Waiting on {plain(_who(case['waiting_on']))}]"]
         if case["priority"] == "urgent":
             chips.append(K.chip_md("overdue", "Urgent"))
         if clock:
@@ -233,8 +247,7 @@ def _card(case: dict, store, live, rules) -> None:
                          f"{case_engine.day_text(case_engine._as_date(case['escalated_on']))}]")
         st.markdown(" ".join(chips))
         with st.expander("Open case", icon=":material/folder_open:"):
-            state = (f"Waiting on {_who(case['waiting_on'])}" if case["state"] == "WAITING" else
-                     "Answered, ready for a person to decide")
+            state = state_words(case)
             urgent = "Urgent. " if case["priority"] == "urgent" else ""
             escalated = (f" Escalated to {case['escalated_to']} on "
                          f"{case_engine.day_text(case_engine._as_date(case['escalated_on']))}." if case["escalated_to"] else "")
@@ -249,8 +262,9 @@ def _card(case: dict, store, live, rules) -> None:
                 K.evidence_panel(rows)
             st.markdown("\n".join(f"- {plain(f.title or f.code)}: {plain(C.screen_words(f.summary))}" for f in reasons))
             st.markdown("**Timeline**")
-            C.table({"When": config.to_ist_text(e["at"]), "Actor": _actor(e["actor"]), "What": e["summary"],
-                     "By": e["actor"]} for e in store.case_events(case["case_id"]))
+            C.table({"When": config.to_ist_text(e["at"]), "Actor": _actor(e["actor"]), "What": C.screen_words(e["summary"]),
+                     "By": "AI (checked by the desk)" if _actor(e["actor"]).startswith("AI") else e["actor"]}
+                    for e in store.case_events(case["case_id"]))
             if "GOODS_NOT_RECEIVED" in case["reason_codes"].split(","):
                 _goods_receipt_form(case, store, live)
             _replies(case, store)
@@ -262,10 +276,23 @@ def _card(case: dict, store, live, rules) -> None:
 
 
 def _actor(name: str) -> str:
-    """Who did it, as a kind: the rules, the AI, or a named person."""
+    """Who did it, as a kind: the rules, the AI (whose reading the desk checks), or a named person."""
     if (name or "") == "Invoice Desk":
         return "Rules"
-    return "AI" if "AI" in (name or "").split() else "Person"
+    return "AI (checked by the desk)" if "AI" in (name or "").split() else "Person"
+
+
+def ready(case: dict) -> bool:
+    """The vendor's reply gave what was asked and nothing else is awaited: a person can process the invoice."""
+    return case["state"] == "ANSWERED" and bool(case_engine.offered_values(case))
+
+
+def state_words(case: dict) -> str:
+    if case["state"] == "WAITING":
+        return f"Waiting on {_who(case['waiting_on'])}"
+    if ready(case):
+        return "Ready to process"
+    return "Answered, ready for a person to decide"
 
 
 def _replies(case: dict, store) -> None:
@@ -273,11 +300,11 @@ def _replies(case: dict, store) -> None:
     master = C.get_master()
     rules = C.get_rules()
     for m in store.messages(case["case_id"]):
-        if m["direction"] != "in":
-            continue
-        day = case_engine._as_date(m.get("received_at") or "")
+        if m["direction"] != "in" or m.get("kind") != "reply" or m["message_id"].endswith("-VM"):
+            continue                              # the original invoice email is not a reply
         st.markdown(f"**Reply received from {plain(m['sender'] or 'an unknown sender')} on "
-                    f"{plain(case_engine.day_text(day)) if day else '-'}.**")
+                    f"{plain(config.to_ist_text(m.get('received_at') or ''))}.**")
+        st.caption(f"Subject: {m.get('subject') or '(no subject)'}")
         sender_chk = mailbox.check_sender(m.get("sender") or "", master, rules)
         if sender_chk.result == "lookalike":
             dom = mailbox._domain(m.get("sender") or "")
@@ -287,7 +314,8 @@ def _replies(case: dict, store) -> None:
         attachments = json.loads(m.get("attachments_json") or "[]")
         pdf_atts = [a for a in attachments if (a.get("name") or "").lower().endswith(".pdf") or a.get("mime") == "application/pdf"]
         for a in pdf_atts:
-            st.info(f"A corrected invoice is attached. Replacing the original is done by a person in this build. ({a['name']})")
+            st.info(f"The vendor's reply has a corrected invoice attached: {a['name']}. A person compares it with the "
+                    f"original and replaces it.", icon=":material/attach_file:")
         st.text(strip_quoted(m["body"] or "")[0].strip() or "(no text)")
         report = json.loads(m.get("read_json") or "{}")
         offered = report.get("offered") or {}
@@ -312,8 +340,7 @@ def page() -> None:
     st.caption("Every hold becomes a case: one question, one owner, one due date. The desk follows it until it is "
                "resolved or a person has a clear decision to make.")
     if not rules.cases.enabled:
-        st.info("The case desk is switched off in rules.yaml (cases.enabled: false). Holds wait in the review queue "
-                "as before.")
+        st.info("The case desk is switched off in the desk rules. Holds wait in the review queue as before.")
         return
     live = case_engine.master_with_receipts(C.get_master(), store)
     case_engine.sync(store, live, rules, C.business_date())
@@ -324,9 +351,10 @@ def page() -> None:
     every_open = [c for c in all_cases if c["state"] != "RESOLVED"]
 
     def waiting(party: str) -> list[dict]:
-        return [c for c in every_open if party == ALL or party in (c["owner"], c["waiting_on"])]
+        return [c for c in every_open if party == ALL or c["waiting_on"] == party]
 
-    parties = [ALL] + list(rules.cases.reply_due_days)
+    present = list(dict.fromkeys(c["waiting_on"] for c in every_open))      # every case is in exactly one pill
+    parties = [ALL] + list(rules.cases.reply_due_days) + [p for p in present if p not in rules.cases.reply_due_days]
     chosen = st.pills("Waiting on", parties, default=ALL, key="cases_waiting",
                       format_func=lambda p: f"{_who(p).capitalize() if p == 'vendor' else p} ({len(waiting(p))})")
     chosen = chosen or ALL
@@ -349,7 +377,7 @@ def page() -> None:
         for c in reversed(resolved):
             run = store.run_row(c["run_id"]) or {}
             day = case_engine._as_date(c["resolved_on"])
-            rows.append({"Reference": c["run_id"], "Vendor": run.get("vendor_name") or "-",
+            rows.append({"Reference": c["run_id"], "Vendor": C.vendor_case(run.get("vendor_name")) or "-",
                          "Invoice no.": run.get("invoice_no") or "-", "Owner": c["owner"],
                          "Outcome": c["resolution"], "Resolved on": case_engine.day_text(day) if day else "-"})
         C.table(rows)

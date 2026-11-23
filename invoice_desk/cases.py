@@ -11,6 +11,7 @@ the wall clock, so a rehearsal and the interview give the same answer.
 from __future__ import annotations
 
 import hashlib
+import json
 import weakref
 from datetime import date, datetime, timedelta, timezone
 from decimal import ROUND_HALF_UP, Decimal
@@ -55,7 +56,8 @@ def case_id_for(file_sha256: str) -> str:
 
 
 def day_text(d: date) -> str:
-    return f"{d.day} {d:%b %Y}"
+    """The one date format on screen and in messages: 21-Nov-2026."""
+    return d.strftime("%d-%b-%Y")
 
 
 def _iso(d: Optional[date]) -> str:
@@ -286,6 +288,38 @@ def _split_draft(draft: str) -> tuple[str, str]:
     return first[len("Subject: "):].strip(), rest.lstrip("\n")
 
 
+VALUE_WORDS = {"invoice_number": "invoice number", "po_number": "PO number", "invoice_date": "invoice date"}
+
+
+def offered_values(case: dict) -> dict:
+    """What the vendor's reply stated, read and checked: {name: {value, quote}}, or {}."""
+    try:
+        data = json.loads(case.get("proposed_json") or "{}")
+    except ValueError:
+        return {}
+    return {k: v for k, v in data.items() if isinstance(v, dict) and v.get("value") and v.get("quote")}
+
+
+def next_draft(case: dict, result, rules: Rules, vendor_name: str = "") -> tuple[str, bool]:
+    """The next message to the vendor and whether it is an acknowledgement. Once the vendor's reply has given
+    what was asked (an answered case with checked values), the next message thanks them and never asks again."""
+    offered = offered_values(case)
+    if offered and case["state"] == "ANSWERED":
+        stated = " and ".join(f"{VALUE_WORDS.get(k, k.replace('_', ' '))} {v['value']}" for k, v in offered.items())
+        inv = result.invoice if result is not None else None
+        dated = inv.get("invoice_date") if inv is not None else None
+        dated = day_text(dated) if isinstance(dated, date) else (day_text(_as_date(dated)) if _as_date(dated) else None)
+        po = inv.get("po_number") if inv is not None else None
+        about = "your invoice" + (f" dated {dated}" if dated else "") + (f" against {po}" if po else "")
+        body = (f"Dear {vendor_name or 'Sir or Madam'},\n\n"
+                f"Thank you for your reply. We have noted {stated} for {about}. You do not need to send anything "
+                f"more: the invoice now goes on for processing, and we will write again only if something else is "
+                f"needed.\n\nRegards,\nAccounts Payable\n{rules.company.name}")
+        first = next(iter(offered.values()))["value"]
+        return f"Subject: Thank you: {first} noted\n\n{body}", True
+    return ((result.decision.vendor_draft if result is not None and result.decision else None) or ""), False
+
+
 def approve_message(store: Store, master: MasterData, rules: Rules, case_id: str, approver: str, today: date) -> dict:
     """A named person approves the drafted note to the vendor. In this build "send" means the email is
     written to the outbox folder and recorded; no mail server is connected. The text is the draft as
@@ -301,10 +335,10 @@ def approve_message(store: Store, master: MasterData, rules: Rules, case_id: str
     if case["waiting_on"] == "vendor" and any(m["direction"] == "out" for m in store.messages(case_id)):
         raise CaseError("This message was already approved and written to the outbox; the case is waiting on the vendor.")
     result = store.get_run(case["run_id"])
-    draft = (result.decision.vendor_draft if result and result.decision else None) or ""
+    vendor = master.vendors.get(((result.vendor or {}).get("vendor_id") or "") if result else "")
+    draft, thanks = next_draft(case, result, rules, vendor.legal_name if vendor else "")
     if not draft.strip():
         raise CaseError("This hold has no message for the vendor: the vendor has nothing to do.")
-    vendor = master.vendors.get((result.vendor or {}).get("vendor_id") or "")
     recipient = (vendor.email if vendor else "").strip()
     if not recipient:
         raise CaseError("There is no email for this vendor on file, so the message cannot be addressed.")
@@ -335,19 +369,22 @@ def approve_message(store: Store, master: MasterData, rules: Rules, case_id: str
                                "approved_by": approver, "sender": sender, "recipient": recipient, "subject": subject,
                                "body": body, "eml_sha256": digest})
             store.add_case_event(case_id, "message_approved", approver,
-                                 f"Message to the vendor approved by {approver} and written to the outbox. "
-                                 f"Reply due {day_text(due)}.",
+                                 (f"Thank-you note to the vendor approved by {approver} and written to the outbox. "
+                                  f"Nothing more is asked of the vendor." if thanks else
+                                  f"Message to the vendor approved by {approver} and written to the outbox. "
+                                  f"Reply due {day_text(due)}."),
                                  {"message_id": message_id, "to": recipient, "subject": subject})
             store.append_receipt("message", case["run_id"], {
                 "actor": "human", "reviewer": approver, "decision": "message approved and written to the outbox",
                 "note": subject, "to": recipient, "message_id": message_id, "eml_sha256": digest})
-            store.update_case(case_id, state=move(case["state"], "message_sent"), waiting_on="vendor",
-                              due_on=_iso(due))
+            if not thanks:                               # a thank-you asks nothing: the case stays ready to process
+                store.update_case(case_id, state=move(case["state"], "message_sent"), waiting_on="vendor",
+                                  due_on=_iso(due))
     except Exception:
         path.unlink(missing_ok=True)                         # no record, no file
         raise
     return {"message_id": message_id, "path": path, "to": recipient, "subject": subject, "eml_sha256": digest,
-            "due_on": due}
+            "due_on": due, "thanks": thanks}
 
 
 # ---------------------------------------------------------------- the reconciler

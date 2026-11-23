@@ -226,7 +226,7 @@ def test_preflight_rehearses_the_after_hold_scenarios(workspace, capsys):
     assert "2 after-hold files" in out
     rehearsal = out.split("After the decision rehearsal")[1].split("Every page of the app opens")[0]
     assert "[ok  ] case 12 Before goods: waiting on Stores, then released by rule and posted" in rehearsal
-    assert "[ok  ] case 13 Legal clock: urgent, escalated to Finance controller, pay-by 24 Nov 2026, message in the outbox"         in rehearsal
+    assert "[ok  ] case 13 Legal clock: urgent, escalated to Finance controller, pay-by 24-Nov-2026, message in the outbox"         in rehearsal
     assert "[ok  ] audit trail after the after-hold steps" in rehearsal and "[FAIL" not in rehearsal
     assert out.count("[ok  ] step") == 11
 

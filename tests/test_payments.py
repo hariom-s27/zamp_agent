@@ -84,8 +84,8 @@ def test_legal_date_beats_due_date_in_order(books, master, rules):
     assert pay.index(ledger["p1_micro_supplier_due"]) < pay.index(ledger["07_E4a_tax_inclusive_within_tolerance"])
     p1 = _propose(store, master, rules)["pay"][0]
     assert p1["basis"] == "legal" and p1["pay_by"] == date(2026, 11, 26)
-    assert p1["why"].startswith("Legal pay-by date for a micro supplier: 26 Nov 2026, 5 days left. Counted from the "
-                                "delivery recorded on 12 Oct 2026. After that date interest runs at about Rs ")
+    assert p1["why"].startswith("Legal pay-by date for a micro supplier: 26-Nov-2026, 5 days left. Counted from the "
+                                "delivery recorded on 12-Oct-2026. After that date interest runs at about ₹")
     assert p1["why"].endswith(" a day (approximate).")
 
 
@@ -96,9 +96,9 @@ def test_horizon_splits_pay_now_and_not_due(books, master, rules):
                                                        "07_E4a_tax_inclusive_within_tolerance")}
     not_due = {ln["ledger_id"]: ln for ln in p["not_due"]}
     assert ledger["10_ai_assist_letter_invoice"] in not_due and ledger["03_monthly_service_instalment"] in not_due
-    assert not_due[ledger["10_ai_assist_letter_invoice"]]["why"] == "Due on 29 Dec 2026 (45-day terms)."
+    assert not_due[ledger["10_ai_assist_letter_invoice"]]["why"] == "Due on 29-Dec-2026 (45-day terms)."
     seven = next(ln for ln in p["pay"] if ln["ledger_id"] == ledger["07_E4a_tax_inclusive_within_tolerance"])
-    assert seven["why"] == "Due on 28 Nov 2026 (15-day terms)." and seven["amount"] == Decimal("60992.00")
+    assert seven["why"] == "Due on 28-Nov-2026 (15-day terms)." and seven["amount"] == Decimal("60992.00")
 
 
 def test_discount_return_formula():
@@ -114,7 +114,7 @@ def test_discount_taken_only_at_or_above_hurdle(books, master, rules):
     assert two["basis"] == "discount" and two["pay_by"] == date(2026, 11, 24)
     assert "Worth 37.2% a year against a 12% hurdle, so it is taken." in two["why"]
     assert three["discount"] == 0 and three["why"] == ("Early-payment discount of 0.5% is worth 9.2% a year, below the "
-                                                       "12% hurdle. Left to its due date, 15 Dec 2026.")
+                                                       "12% hurdle. Left to its due date, 15-Dec-2026.")
     high = rules.model_copy(update={"payments": rules.payments.model_copy(update={"hurdle_rate_pct": Decimal("40")})})
     assert next(ln for ln in _propose(store, master, high)["not_due"]
                 if ln["ledger_id"] == ledger["02_scanned_clean_safety"])["discount"] == 0
@@ -144,9 +144,9 @@ def test_held_small_supplier_shown_but_never_payable(books, master, rules):
     held = {ln["run_id"]: ln for ln in p["on_hold"]}
     c2 = held[run_ids["c2_small_supplier_late_invoice"]]
     case = store.case_for_run(run_ids["c2_small_supplier_late_invoice"])
-    assert c2["why"] == f"Cannot be paid: held for Procurement (case {case['case_id']}). Legal pay-by date 24 Nov 2026, 3 days left."
+    assert c2["why"] == f"Cannot be paid: held for Procurement (case {case['case_id']}). Legal pay-by date 24-Nov-2026, 3 days left."
     two = payments.approve(store, master, rules, TODAY, p["fingerprint"], ["N. Rao", "S. Iyer"], True, TODAY)
-    text = two["path"].read_text(encoding="utf-8")
+    text = two["path"].read_text(encoding="utf-8-sig")
     assert "NHP/26-27/0287" not in text
 
 
@@ -221,11 +221,11 @@ def test_export_masks_bank_account(books, master, rules):
     store, ledger, _ = books
     p = _propose(store, master, rules)
     done = payments.approve(store, master, rules, TODAY, p["fingerprint"], ["N. Rao", "S. Iyer"], True, TODAY)
-    rows = list(csv.DictReader(io.StringIO(done["path"].read_text(encoding="utf-8"))))
+    rows = list(csv.DictReader(io.StringIO(done["path"].read_text(encoding="utf-8-sig"))))
     assert len(rows) == 3
     for row in rows:
         account = master.vendors[row["vendor_id"]].bank_account
-        assert account not in done["path"].read_text(encoding="utf-8")
+        assert account not in done["path"].read_text(encoding="utf-8-sig")
         assert row["bank_account"] == "XXXX" + account[-4:] and row["ifsc"]
 
 

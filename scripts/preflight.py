@@ -281,7 +281,7 @@ def check_cases(rep: Report) -> None:
             if f"[{case['case_id']}]" not in str(mail["Subject"]) or mail["To"] != sent["to"]:
                 problems.append("the outbox file is not the expected email")
         rep.line("FAIL" if problems else "ok", f"case {number + 1} {clock['short']}",
-                 "; ".join(problems) or "urgent, escalated to Finance controller, pay-by 24 Nov 2026, message in the outbox")
+                 "; ".join(problems) or "urgent, escalated to Finance controller, pay-by 24-Nov-2026, message in the outbox")
         chain = store.verify_chain()
         rep.line("ok" if chain["ok"] else "FAIL", "audit trail after the after-hold steps",
                  f"{chain['count']} entries verified")
@@ -318,7 +318,7 @@ def check_desk(rep: Report) -> None:
         from invoice_desk import answers
         question = next(i for i in store.inbox() if i["kind"] == "status_query")
         d = answers.draft(store, master, rules, question, today)
-        want_lines = ("Approved. Due for payment on 18 Dec 2026.", "We have no record of receiving invoice DQI/26-27/1193.")
+        want_lines = ("Approved. Scheduled for payment on 18-Dec-2026 (not in this week's run).", "We have no record of receiving invoice DQI/26-27/1193.")
         missing = [w for w in want_lines if w not in d.get("text", "")]
         rep.line("FAIL" if missing else "ok", "payment question",
                  f"draft is missing: {'; '.join(missing)}" if missing else

@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import sys
 import tempfile
+import threading
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -134,19 +135,41 @@ def today() -> date:
     return datetime.now(IST).date()
 
 
+DEMO_TODAY = date(2026, 11, 21)      # the business day the bundled samples were written for
+_CLOCK = threading.local()
+
+
+def use_real_date(real: bool) -> None:
+    """The screen's switch: process on today's real date instead of the demo date (this thread only)."""
+    _CLOCK.real = bool(real)
+
+
+def business_today() -> date:
+    """The business date: INVOICE_DESK_TODAY when set, the real date when the screen asked for it,
+    otherwise the demo date."""
+    if env("INVOICE_DESK_TODAY") or getattr(_CLOCK, "real", False):
+        return today()
+    return DEMO_TODAY
+
+
 def now_utc() -> datetime:
-    return datetime.now(timezone.utc).replace(microsecond=0)
+    """One business clock for every stamp a person sees: the business date with the real time of day (IST)."""
+    real = datetime.now(IST).replace(microsecond=0)
+    return datetime.combine(business_today(), real.timetz()).astimezone(timezone.utc)
+
+
+DATE_FORMAT, DATETIME_FORMAT = "%d-%b-%Y", "%d-%b-%Y %H:%M"
 
 
 def to_ist_text(iso_utc: str) -> str:
-    """'2026-11-21T16:05:00+00:00' -> '21-Nov-2026 21:35 IST'."""
+    """'2026-11-21T08:35:00+00:00' -> '21-Nov-2026 14:05' (IST, the one format used on screen)."""
     try:
         moment = datetime.fromisoformat(iso_utc)
     except (TypeError, ValueError):
         return str(iso_utc or "-")
     if moment.tzinfo is None:
         moment = moment.replace(tzinfo=timezone.utc)
-    return moment.astimezone(IST).strftime("%d-%b-%Y %H:%M IST")
+    return moment.astimezone(IST).strftime(DATETIME_FORMAT)
 
 
 LLM_MODES = ("fixture", "cached-live", "off")

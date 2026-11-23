@@ -10,18 +10,27 @@ import streamlit as st
 from .. import cases as case_engine
 from .. import payments as pay
 from .. import samples
+from .. import textutil as T
 from . import common as C
+from . import ui_kit as K
 
 
-def load_payment_example(store, master, rules, pipeline, today: date) -> None:
+def load_payment_example(store, master, rules, pipeline, today: date) -> int:
     by_id = {s["id"]: s for s in samples.load_manifest() + samples.load_case_manifest() + samples.load_desk_manifest()}
     order = ["p1_micro_supplier_due", "02_scanned_clean_safety", "07_E4a_tax_inclusive_within_tolerance",
              "03_monthly_service_instalment", "10_ai_assist_letter_invoice", "01_happy_path_furniture",
              "09_fraud_guard_bank_change", "c2_small_supplier_late_invoice"]
+    from ..reader import sha256_of
+    loaded = 0
     for sid in order:
         s = by_id[sid]
-        pipeline.run(samples.sample_bytes(s), samples.received_name(s), source="cli")
+        content = samples.sample_bytes(s)
+        if store.original_run_for_file(sha256_of(content)) is not None:
+            continue                                   # already in the books: never sent in a second time
+        pipeline.run(content, samples.received_name(s), source="cli")
+        loaded += 1
     case_engine.sync(store, master, rules, today)
+    return loaded
 
 
 def _rows(lines: list[dict], with_run: bool = False) -> list[dict]:
@@ -49,11 +58,16 @@ def _approve_form(proposal: dict, rules, store, run_date, cash, removed) -> None
     if first and first.get("fingerprint") != proposal["fingerprint"]:
         st.session_state.pop("pay_first", None)
         first = None
+    limit = T.fmt_inr(rules.payments.second_approver_above_inr, decimals=0)
     with st.form(key="pay_approve_form"):
         st.markdown("**Approve the run**")
         if proposal["needs_second"]:
-            st.caption(f"This run is above {C.money(rules.payments.second_approver_above_inr)}. A second, different "
-                       f"person must approve.")
+            st.caption(f"This run is above {limit}. A second, different person must approve.")
+            st.markdown(f"First approval: {first['name'] if first else 'waiting'}  \nSecond approval: waiting")
+            st.caption("The second person must be different from the first.")
+        else:
+            st.info(f"One approval is enough: this run is {C.money(proposal['total'])}, below the {limit} limit for a "
+                    f"second approver.", icon=":material/person:")
         if first:
             st.info(f"First approval: {first['name']}. A second, different person approves now.")
         name = st.text_input("Your name", key="pay_name_2" if first else "pay_name")
@@ -100,9 +114,10 @@ def page() -> None:
             st.error("The cash available must be a number.")
     removed = st.session_state.setdefault("pay_removed", {})
     proposal = pay.propose(store, C.get_master(), rules, run_date, cash, removed)
-    runs = ", ".join(case_engine.day_text(d) for d in proposal["next_runs"])
+    days = list(dict.fromkeys(f"{d:%A}" for d in proposal["next_runs"]))
+    runs = " and ".join([", ".join(days[:-1]), days[-1]] if len(days) > 1 else days) or "none set"
     C.text_block(f"Proposal for {case_engine.day_text(run_date)}. It covers what must be paid by "
-                 f"{case_engine.day_text(proposal['end'])}. Next run days: {runs}.")
+                 f"{case_engine.day_text(proposal['end'])}. Payment runs are made every {runs}.")
     for warning in proposal["warnings"]:
         st.error(warning)
     if not proposal["pay"]:
@@ -110,16 +125,34 @@ def page() -> None:
                 "Process invoices or load the payment-run example to see legal-date priority, early discounts, "
                 "blocked vendors and held small-supplier cases.")
         if st.button("Load the payment-run example", key="pay_load_example", type="primary", icon=":material/play_circle:"):
-            load_payment_example(store, C.get_master(), rules, C.get_pipeline(store=store), C.business_date())
-            st.session_state["flash_pay"] = ("success", "Payment-run example loaded (P1, 02, 07, 03, 10, 01, 09 and C2).")
+            loaded = load_payment_example(store, C.get_master(), rules, C.get_pipeline(store=store), C.business_date())
+            st.session_state["flash_pay"] = ("success", f"Payment-run example loaded: {T.plural(loaded, 'invoice')} "
+                                                        f"added to the books. Invoices already in the books were not "
+                                                        f"sent in again.")
             st.rerun()
-    st.subheader(pay.GROUPS["pay"])
+    cards = st.columns(4)
+    with cards[0]:
+        K.kpi_card("To pay in this run", K.inr_short(float(proposal["total"])), T.plural(proposal["count"], "invoice"),
+                   help="The approved invoice amounts in this run, less any early-payment discount shown.")
+    with cards[1]:
+        K.kpi_card("Vendors", str(proposal["vendors"]), "paid in this run", help="Vendors with at least one line.")
+    with cards[2]:
+        stopped = len(proposal["blocked"]) + len(proposal["on_hold"])
+        K.kpi_card("Not payable now", str(stopped), "blocked or on hold",
+                   help="Lines the desk will not put in a run: a bank change waiting for two people, or a hold.")
+    with cards[3]:
+        K.kpi_card("Not due yet", str(len(proposal["not_due"])), "proposed in a later run",
+                   help="Approved invoices whose pay-by date is after this run covers.")
+    st.markdown(f"#### {pay.GROUPS['pay']} " + K.chip_md("cleared", "Pays"))
     C.table(_rows(proposal["pay"]), key="pay_tbl_pay")
-    C.text_block(f"Total to pay: {C.money(proposal['total'])} across {proposal['count']} invoices to "
-                 f"{proposal['vendors']} vendors.")
+    C.text_block(f"Total to pay: {C.money(proposal['total'])} across {T.plural(proposal['count'], 'invoice')} to "
+                 f"{T.plural(proposal['vendors'], 'vendor')}.")
     for key in ("deferred", "removed", "not_due", "blocked", "on_hold"):
         if proposal[key]:
-            st.subheader(pay.GROUPS[key])
+            chip = {"blocked": K.chip_md("rejected", "Blocked"), "on_hold": K.chip_md("hold", "On hold"),
+                    "deferred": K.chip_md("due_soon", "Deferred"), "removed": K.chip_md("skipped", "Taken out"),
+                    "not_due": K.chip_md("on_track", "Later")}.get(key, "")
+            st.markdown(f"#### {pay.GROUPS[key]} {chip}")
             C.table(_rows(proposal[key], with_run=key == "not_due"), key=f"pay_tbl_{key}")
     with st.expander("What this proposal does not do", expanded=False):
         C.text_block(pay.DOES_NOT)
@@ -143,11 +176,13 @@ def page() -> None:
         path = Path(last["path"])
         if path.is_file():
             st.download_button("Download the proposal (CSV)", data=path.read_bytes(), file_name=path.name,
-                               mime="text/csv", key="pay_download")
+                               mime="text/csv", key="pay_download", icon=":material/download:")
+            st.caption("A review copy with masked bank accounts. The real bank file is prepared from the bank portal "
+                       "after approval.")
     approved = [r for r in store.payment_runs()]
     if approved:
-        st.subheader("Approved runs")
-        C.table({"Run": r["run_id"], "Run date": r["run_date"], "Total": C.money(r["total"]),
+        st.markdown("#### Approved runs " + K.chip_md("resolved", "Nothing paid from here"))
+        C.table({"Run": r["run_id"], "Run date": T.fmt_date(r["run_date"]), "Total": C.money(r["total"]),
                  "Invoices": r["line_count"], "Approved by": " and ".join(filter(None, [r["approved_by"],
                                                                                       r["second_approved_by"]])),
                  "Status": "approved, nothing paid" if r["status"] == "APPROVED" else

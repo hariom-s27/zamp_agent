@@ -18,6 +18,7 @@ from invoice_desk.ui import cases, dashboard, demo, guide, inbox, payments, proc
 st.set_page_config(page_title=C.APP_NAME, page_icon=":material/receipt_long:", layout="wide",
                    initial_sidebar_state="expanded")
 
+C.business_date()          # sets the one business clock for this run: every stamp uses it
 store = C.get_store()
 waiting = sum(1 for r in store.list_runs() if r["review_status"] == "PENDING")
 PAGES = {

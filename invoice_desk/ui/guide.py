@@ -4,9 +4,10 @@ from __future__ import annotations
 import streamlit as st
 
 from .. import samples as sample_lib
-from ..pipeline import STAGE_HELP, STAGES
+from ..pipeline import STAGES
 from .. import config
 from . import common as C
+from . import ui_kit as K
 
 RESULTS = config.ROOT / "robustness" / "results.json"
 ROBUST_LABELS = [("approved-correct", "Cleared correctly"), ("held-correct", "Held correctly"),
@@ -26,29 +27,33 @@ def robustness_numbers(path=None) -> dict | None:
 def robustness_figures(path=None) -> None:
     numbers = robustness_numbers(path)
     if numbers is None:
-        st.caption("The robustness results file is not present, so no measured figures are shown.")
+        st.caption("Test results are not available.")
         return
     st.markdown(f"**Measured on {numbers['documents']} difficult documents made with other tools than the samples**")
     cols = st.columns(4)
     for col, (key, label) in zip(cols, ROBUST_LABELS):
         col.metric(label, numbers[key], border=True)
 
-FLOW = """
-digraph G {
+def _flow() -> str:
+    """The nine steps under the same names as the Process invoice timeline."""
+    from ..pipeline import STAGES as KEYS
+    ai = ', fillcolor="#efe7fb", color="#7c3aed"'
+    nodes = " ".join(f's{n} [label="{n} {C.stage_display_title(k)}"{ai if k == "extract" else ""}];'
+                     for n, (k, _) in enumerate(KEYS, 1))
+    chain = " -> ".join(f"s{n}" for n in range(1, len(KEYS) + 1))
+    return f"""
+digraph G {{
   rankdir=LR; nodesep=0.25; ranksep=0.35;
   node [shape=box, style="rounded,filled", fillcolor="#f2f4f7", color="#7b8794", fontname="Helvetica", fontsize=11];
   edge [color="#7b8794", arrowsize=0.7];
   pdf [label="Invoice PDF\\n(text or scan)", shape=note, fillcolor="#ffffff"];
-  s1 [label="1 Intake"]; s2 [label="2 Read"]; s3 [label="3 Extract"]; s4 [label="4 Validate"]; s5 [label="5 Vendor"];
-  s6 [label="6 PO match"]; s7 [label="7 Duplicates"];
-  s8 [label="8 Decide\\n(rules.yaml)", fillcolor="#e7f0fb", color="#5b9be6"];
-  s9 [label="9 Post and verify"];
-  a [label="APPROVE\\nposted for payment", fillcolor="#e6f4ec", color="#1a8a52"];
-  h [label="HOLD\\nreview queue, named owner", fillcolor="#fff3d1", color="#d99a00"];
-  r [label="REJECT\\nnothing booked", fillcolor="#fdeaea", color="#c9343d"];
-  pdf -> s1 -> s2 -> s3 -> s4 -> s5 -> s6 -> s7 -> s8 -> s9;
-  s9 -> a; s9 -> h; s9 -> r;
-}
+  {nodes}
+  a [label="Cleared\\nposted for payment", fillcolor="#e6f4ec", color="#1a8a52"];
+  h [label="On hold\\na named person, one question", fillcolor="#fff3d1", color="#d99a00"];
+  r [label="Rejected\\nnothing booked", fillcolor="#fdeaea", color="#c9343d"];
+  pdf -> {chain};
+  s{len(KEYS)} -> a; s{len(KEYS)} -> h; s{len(KEYS)} -> r;
+}}
 """
 
 
@@ -56,45 +61,71 @@ def page() -> None:
     st.title("How it works")
     st.caption("An accounts payable desk for a fictional buyer, Nilgiri Precision Components Pvt Ltd. All vendors, "
                "purchase orders and invoices are synthetic test data.")
-    st.graphviz_chart(FLOW, width="stretch")
+    cols = st.columns(3, gap="large")
+    with cols[0]:
+        with st.container(border=True, height="stretch"):
+            st.markdown(K.actor_chip("ai", "AI reads"))
+            st.markdown("Only where the layout defeats the rules, such as an invoice written as a letter. Every value "
+                        "must match a quote from the page, and the invoice's own arithmetic, before it is used.")
+    with cols[1]:
+        with st.container(border=True, height="stretch"):
+            st.markdown(K.actor_chip("rules", "Rules decide"))
+            st.markdown(f"{len(C.get_rules().reasons)} written reasons, every limit in one rule book. The same "
+                        f"invoice gets the same answer, every time.")
+    with cols[2]:
+        with st.container(border=True, height="stretch"):
+            st.markdown(K.actor_chip("person", "People approve"))
+            st.markdown("Anything that leaves, any bank change, any payment run. By name, on the record.")
+    st.caption("AI never makes the payment decision.")
+
+    st.subheader("The nine steps")
+    st.graphviz_chart(_flow(), width="stretch")
+    C.table({"Step": f"{n} {C.stage_display_title(key)}", "What it does": C.stage_display_help(key)}
+            for n, (key, _) in enumerate(STAGES, 1))
     left, right = st.columns(2, gap="large")
     with left:
         st.subheader("Three outcomes")
         st.markdown(
-            "- **APPROVE**: everything matched inside tolerance. The invoice is posted to the ledger and uses PO balance.\n"
-            "- **HOLD**: something needs a person. The hold names the owner and asks one specific question. Clearing "
-            "it is controlled too: the PO is checked again at approval, and a changed bank account takes two people.\n"
-            "- **REJECT**: nothing can be owed on this document (a duplicate, a blocked vendor, not an invoice). The "
-            "message to the vendor is drafted.")
-        st.subheader("The nine stages")
-        C.table({"Stage": f"{n} {title}", "What it does": STAGE_HELP[key]} for n, (key, title) in enumerate(STAGES, 1))
-    with right:
+            "- **Cleared**: everything matched inside the limits. The invoice is posted for payment and uses PO "
+            "balance.\n"
+            "- **On hold**: something needs a person. The hold names the owner and asks one specific question. "
+            "Clearing it is controlled too: the PO is checked again at approval, and a changed bank account takes "
+            "two people.\n"
+            "- **Rejected**: nothing can be owed on this document (a duplicate, a blocked vendor, not an invoice). "
+            "The message to the vendor is drafted for a person to send.")
         st.subheader("What decides")
         st.markdown(
-            "- **The decision** is a function of what was found and of `rules.yaml`, nothing else. No model takes "
-            "part in it. The same file and the same rules give the same answer every time.\n"
-            "- **Reading** is done by rules: label vocabulary, page geometry and arithmetic.\n"
-            "- **Scans and photographs** are straightened and read twice with Tesseract OCR. A figure is trusted "
-            "when the arithmetic confirms it; an invoice number or a date, which no arithmetic can confirm, only "
-            "when both reads agree.\n"
-            "- **AI assist** is used where rules cannot read: an invoice written as a letter. The model "
-            "copies text; code checks that each value is on the page, parses it, and checks the invoice's arithmetic. "
-            "The model's own confidence can lower trust and never raise it. Modes: recorded answers (the default, no "
-            "network), live with a cache and cost caps, or off.\n"
-            "- **Every decision**, by the system or by a person, is written to a tamper-evident audit trail.")
-        robustness_figures()
-        st.subheader("Limits, stated plainly")
+            "- **The decision** comes from what was found and from the rule book, nothing else. No AI takes part "
+            "in it.\n"
+            "- **Reading** is done by rules: the words on the page, where they sit, and the arithmetic.\n"
+            "- **Scans and photographs** are straightened and read twice. A figure is trusted when the arithmetic "
+            "confirms it; an invoice number or a date, which no arithmetic can confirm, only when both reads agree.\n"
+            "- **AI assist** is used where rules cannot read: an invoice written as a letter. The AI copies text; "
+            "the desk checks that each value is on the page, and checks the invoice's arithmetic. The AI's own "
+            "confidence can lower trust and never raise it.\n"
+            "- **Every decision**, by the desk or by a person, is written to an audit trail that shows any later "
+            "change.")
+    with right:
+        st.subheader("How well it reads")
+        numbers = robustness_numbers()
+        if numbers is None:
+            st.caption("Test results are not available.")
+        else:
+            robustness_figures()
+            st.markdown(f"With a test this size, the true rate of \"misread and cleared\" could be up to 7%. Every "
+                        f"misread so far was held for a person: {numbers['misread-held']} of {numbers['documents']}, "
+                        f"all photographs.")
+        st.subheader("What it does not do")
         st.markdown(
-            "- Built for Indian GST tax invoices in English, one purchase order per invoice. Credit notes, pro-forma "
-            "and foreign-currency invoices are recognised and routed to a person, not processed.\n"
-            "- Measured on 49 invoices made with other tools than the samples (docs/robustness_report.md): 45 "
-            "reached the right answer. The other 4, all photographs, were held for a person because a value could "
-            "not be read with certainty. None was approved wrongly.\n"
-            "- Photograph quality matters. What cannot be confirmed is held, not guessed.\n"
-            "- Vendor and PO data come from CSV files that stand in for an ERP. Reviewer names are typed, where a "
-            "real deployment would take them from the company login.")
+            "- Pay anyone, or change a bank account.\n"
+            "- Send an email without a named person approving it.\n"
+            "- Read a live mailbox or a live ERP in this demo: vendor and PO records come from files.\n"
+            "- Process credit notes, pro-forma or foreign-currency invoices: they are recognised and sent to a "
+            "person.\n"
+            "- Guess. What cannot be confirmed is held.")
     st.subheader("The sample inbox")
     C.table({"#": f"{s['order']:02d}", "Scenario": s["title"], "Kind": s.get("tag", ""),
-             "Expected decision": sample_lib.expected(s)[0] + (
-                 f" by the rules alone, {s['with_llm']['expected_verdict']} with AI assist" if "with_llm" in s else ""),
-             "What it shows": s["description"]} for s in C.manifest())
+             "Expected": C.verdict_display_label(sample_lib.expected(s)[0]) + (
+                 f" by the rules alone, {C.verdict_display_label(s['with_llm']['expected_verdict'])} with AI assist"
+                 if "with_llm" in s else ""),
+             "What it shows": C.screen_words(s["description"])} for s in C.manifest())

@@ -189,6 +189,7 @@ display:                       # how the screens show work. Display only: no num
   stage_pause_seconds: 0.6     # how long each step stays on screen in the live view at reading speed. The real times are always shown; "Fast" shows no pause
   attention_days: 7            # Dashboard: a small-supplier legal date this many days away or nearer counts as at risk
   attention_max: 5             # Dashboard: how many open cases "Needs attention" lists
+  usd_to_inr: 84               # Business case: an AI cost is priced in dollars; it is shown in rupees at this rate (assumption)
 
 # What each finding means for the decision. action: REJECT > HOLD > NOTE.
 # owner: who is asked when the action is HOLD (or who is told, for REJECT).

@@ -28,9 +28,8 @@ from .textutil import fmt_inr, invoice_no_key
 SENDER_OK = ("on_file", "same_domain")
 REFUSED = "Sender is not on file for any vendor. No invoice details are shared."
 REFUSED_LONG = REFUSED + " If this needs an answer, call the vendor on the number on file."
-OFF = "Answers are switched off in rules.yaml (answers.enabled); the AP analyst replies by hand."
-SEND_NOTE = ("In this build, send means the email is written to the outbox folder and recorded. No mail server is "
-             "connected.")
+OFF = "Answers are switched off in the desk rules; the AP analyst replies by hand."
+SEND_NOTE = "Send means the email is written to the outbox and recorded. No mail server is connected."
 INTERNAL_ONLY = {"BANK_DETAILS_CHANGED"}       # a fraud check is never named to the vendor
 
 
@@ -47,7 +46,16 @@ def _d(value: Any) -> Optional[date]:
 
 def _when(value: Any) -> str:
     day = _d(value)
-    return day.strftime("%d %b %Y") if day else ""
+    return day.strftime("%d-%b-%Y") if day else ""
+
+
+def _sentence(text: str) -> str:
+    """Every line of an answer reads as a sentence: a capital letter first and a full stop at the end."""
+    text = (text or "").strip()
+    if not text:
+        return text
+    text = text[0].upper() + text[1:]
+    return text if text[-1] in ".!?)" or text.endswith(").") else text + "."
 
 
 def _records(store: Store, vendor_id: str) -> dict[str, dict]:
@@ -88,8 +96,10 @@ def _sentence_for(store: Store, master: MasterData, rules: Rules, vendor_id: str
                                   "will contact you on the phone number we hold for you."))
             return fact
         line = payments._line(store, case_engine.master_with_receipts(master, store), rules, entry, {}, today, today)
+        in_run = entry["ledger_id"] in {ln["ledger_id"] for ln in (proposal or {}).get("pay", [])}
         fact.update(record=f"ledger {entry['ledger_id']}", says="posted for payment",
-                    sentence=f"Approved. Due for payment on {_when(line['pay_by'])}.")
+                    sentence=(f"Approved. Due for payment on {_when(line['pay_by'])}, in this week's run." if in_run else
+                              f"Approved. Scheduled for payment on {_when(line['pay_by'])} (not in this week's run)."))
         if line["pay_by"] < today:
             fact["overdue"] = {"pay_by": line["pay_by"], "legal": line["basis"] == "legal" or bool(
                 case_engine.statutory_clock(master.vendors.get(vendor_id), [], _d(inv_date), total, rules, today))}
@@ -105,12 +115,12 @@ def _sentence_for(store: Store, master: MasterData, rules: Rules, vendor_id: str
         received = _when(case["opened_on"]) if case else _when(today)
         fact.update(record=f"case {ref}", says="on hold" + (" (internal check)" if internal else " (vendor to act)"),
                     sentence=(f"Received on {received} and being checked. Reference {ref}." if internal else
-                              f"On hold. {issue.strip().rstrip('.')}. Reference {ref}."))
+                              f"On hold. {_sentence(issue.strip())} Reference {ref}."))
         return fact
     if verdict == "REJECT" or status == "REJECTED" or review == "REJECTED":
         why = (issue or (reasons[0].title if reasons else "")).strip()
         fact.update(record=f"run {run_row['run_id']}" if run_row else f"ledger {entry['ledger_id']}",
-                    says="not accepted", sentence=f"Not accepted. {why}".strip())
+                    says="not accepted", sentence=("Not accepted. " + _sentence(why)).strip())
         return fact
     fact.update(record=f"run {run_row['run_id']}" if run_row else "-", says="received",
                 sentence=f"Received on {_when(inv_date) or _when(today)} and being checked.")
@@ -175,10 +185,10 @@ def draft(store: Store, master: MasterData, rules: Rules, item: dict, today: dat
     for f in facts:
         head = f["invoice_no"]
         if f["invoice_date"]:
-            head += f" dated {f['invoice_date'].strftime('%d %b %Y')}"
+            head += f" dated {f['invoice_date'].strftime('%d-%b-%Y')}"
         if f["total"]:
-            head += f" for {fmt_inr(f['total'], symbol='Rs ')}"
-        lines.append(f"{head}: {f['sentence']}")
+            head += f" for {fmt_inr(f['total'])}"
+        lines.append(f"{head}: {_sentence(f['sentence'])}")
     if not lines:
         lines.append("We have no open invoices from you in our records.")
     subject = item["subject"] if item["subject"].upper().startswith("RE:") else f"RE: {item['subject'] or 'Payment status'}"

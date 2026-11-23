@@ -32,10 +32,10 @@ STEPS = [
               "never posted on a guess."},
     {"key": "inside", "short": "Inside tolerance", "sample": "07_E4a_tax_inclusive_within_tolerance", "title": "Edge case 4: prices include GST, just inside tolerance",
      "watch": "The invoice prints prices with tax in them. Stage 6 converts them to pre-tax and compares with the PO: "
-              "0.95% and Rs 488 above, inside both limits (1% and Rs 500 a line), so it is approved with a note."},
+              "0.95% and ₹488 above, inside both limits (1% and ₹500 a line), so it is approved with a note."},
     {"key": "outside", "short": "Outside tolerance", "sample": "08_E4b_tax_inclusive_over_tolerance", "title": "Edge case 4: two rupees more, just outside tolerance",
-     "watch": "The same invoice two rupees a unit dearer: 1.01% and Rs 515 above the PO. Held for the price alone, "
-              "with the credit note amount worked out for the PO owner. The limits are numbers in rules.yaml."},
+     "watch": "The same invoice two rupees a unit dearer: 1.01% and ₹515 above the PO. Held for the price alone, "
+              "with the credit note amount worked out for the PO owner. The limits are numbers in the rule book."},
     {"key": "bank", "short": "Bank change", "sample": "09_fraud_guard_bank_change", "title": "Fraud control: the bank account has changed",
      "watch": "Everything on this invoice matches except the account to pay. It is held whatever else is true. In the "
               "review queue it takes a recorded call-back to the number on file and then a second, different person "

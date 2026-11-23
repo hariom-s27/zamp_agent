@@ -18,7 +18,7 @@ def F(code: str, **kw) -> Finding:
      "The price is 3.2% above the PO. Accept the new price, or ask for a corrected invoice?"),
     (F("GOODS_NOT_RECEIVED"), "The goods receipt is not posted. Have the goods arrived?"),
     (F("QTY_OVER_PO", observed="40 Nos billed", expected="at most 30 Nos still open"),
-     "The invoice bills 40 Nos. The PO has at most 30 Nos still open. Amend the PO, or ask for a corrected invoice?"),
+     "The invoice bills 40 units. The PO has at most 30 units still open. Amend the PO, or ask for a corrected invoice?"),
     (F("NO_PO_FOUND"), "No open PO matches this invoice. Raise one, or reject the invoice?"),
     (F("BANK_DETAILS_CHANGED"),
      "The bank account differs from the one on file. Has the vendor confirmed this on a number we already hold?"),

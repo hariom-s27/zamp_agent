@@ -28,10 +28,10 @@ def test_the_guided_demo_is_still_the_opening_page(app):
 
 def test_inbox_delivers_todays_mail_and_shows_who_has_the_next_step(app):
     go(app, "inbox", "Inbox")
-    assert "No mailbox is connected in this build. Messages are files." in said(app)
+    assert "No mailbox is connected yet. Messages arrive as files." in said(app)
     app.button(key="ib_deliver").click().run()
     assert not app.exception, [str(e.value) for e in app.exception]
-    assert "7 message(s) received and sorted." in said(app)
+    assert "7 messages received and sorted." in said(app)
     assert len(app.db.inbox()) == 7 and len(app.db.list_runs()) == 2
     table = app.dataframe[0].value
     assert len(table) == 7 and set(table.columns) == {"When", "From", "Subject", "What it is", "What the desk did",
@@ -42,7 +42,7 @@ def test_inbox_delivers_todays_mail_and_shows_who_has_the_next_step(app):
     assert "looks like tungabhadra-furnishings.example and is not the same" in said(app)
     assert "The desk has changed nothing." in shown(app)
     app.button(key="ib_deliver").click().run()                     # the same mail again changes nothing
-    assert "0 message(s) received and sorted; 7 had already been received and changed nothing." in said(app)
+    assert "0 messages received and sorted. 7 messages had already been received and changed nothing." in said(app)
     assert len(app.db.inbox()) == 7
 
 
@@ -67,6 +67,8 @@ def test_next_morning_replies_show_on_the_case_and_the_manual_path_without_a_rec
     assert not app.exception, [str(e.value) for e in app.exception]
     replies_in = [i for i in app.db.inbox() if i["kind"] == "reply"]
     assert len(replies_in) == 3
+    assert len(app.dataframe[0].value) == 10                      # exactly 3 rows added, one per reply
+    assert next(m.value for m in app.metric if m.label == "Received") == "10"
     go(app, "cases", "Cases")
     text = " ".join(m.value for m in app.markdown)
     assert "Reply received from billing@nandihillspack.example" in text
@@ -91,7 +93,7 @@ def test_review_form_is_prefilled_from_an_offered_value(app):
 def test_payments_page_opens_and_says_nothing_is_paid(app):
     go(app, "payments", "Payments")
     assert "Nothing is paid from here." in said(app)
-    assert "Proposal for 21 Nov 2026. It covers what must be paid by 28 Nov 2026." in shown(app)
+    assert "Proposal for 21-Nov-2026. It covers what must be paid by 28-Nov-2026." in shown(app)
 
 
 def test_payments_two_people_approve_and_nothing_is_paid(app, tmp_path):
@@ -147,7 +149,7 @@ def test_procedure_replays_and_saves_without_changing_anything(app):
     for sid in ("01_happy_path_furniture", "07_E4a_tax_inclusive_within_tolerance", "08_E4b_tax_inclusive_over_tolerance"):
         pipe.run(samples.sample_bytes(by_id[sid]), samples.received_name(by_id[sid]), source="cli")
     go(app, "procedure", "Procedure")
-    assert "A saved request changes nothing." in said(app)
+    assert "Saving a request changes nothing." in said(app)
     app.selectbox(key="cr_key_0").select("tolerances.unit_price.pct").run()
     app.text_input(key="cr_val_0").input("1.1").run()
     app.selectbox(key="cr_key_1").select("tolerances.unit_price.abs_inr").run()

@@ -17,15 +17,46 @@ from ..store import Store
 from . import common as C
 
 
+ACTION_WORDS = {"REJECT": "\u2715 Rejected", "HOLD": "\u23f8 On hold", "NOTE": "Noted, no effect"}
+
+
 def _decision_table(rules) -> None:
-    st.write("Every finding a stage can raise has one row here. The decision stage looks the code up and the "
-             "strictest action wins: REJECT, then HOLD, otherwise APPROVE. A code that is not in the table is held.")
-    action = st.radio("Show", ["All", "REJECT", "HOLD", "NOTE"], horizontal=True, key="ref_action")
-    rows = [{"Code": code, "Meaning": r.title, "Action": r.action, "Owner": r.owner or "-"}
-            for code, r in rules.reasons.items() if action in ("All", r.action)]
+    st.write("Every reason the desk can give has one row here. The strictest wins: a rejection, then a hold, "
+             "otherwise the invoice is cleared. A reason the rule book does not list is held for a person.")
+    action = st.pills("Show", ["All", "REJECT", "HOLD", "NOTE"], default="All", key="ref_action",
+                      format_func=lambda a: {"All": "All", "REJECT": "Rejected", "HOLD": "On hold",
+                                             "NOTE": "Noted"}[a]) or "All"
+    rows = [{"Reason": r.title, "What the desk does": ACTION_WORDS.get(r.action, r.action),
+             "Waiting on": r.owner or "-"} for code, r in rules.reasons.items() if action in ("All", r.action)]
     C.table(rows, height=min(36 * len(rows) + 40, 640))
-    st.caption(f"{len(rules.reasons)} codes in rules.yaml version {rules.version}. To change policy, edit the file: "
-               f"no code changes, and the file's hash is written into every receipt.")
+    with st.expander("Reason codes (for auditors)"):
+        C.table([{"Reason code": code, "Reason": r.title, "Action": ACTION_WORDS.get(r.action, r.action)}
+                 for code, r in rules.reasons.items()], height=min(36 * len(rules.reasons) + 40, 640))
+    st.caption(f"{len(rules.reasons)} reasons in rule book version {rules.version}. Changing a rule changes no "
+               f"program code, and the rule book's fingerprint is written into every audit entry.")
+
+
+def _limits(rules) -> None:
+    """The rules as sentences first; the file behind them on request."""
+    t = rules.tolerances
+    lines = [
+        ("Price", f"may differ from the PO by up to {T.fmt_num(t.unit_price.pct)}% and "
+                  f"{T.fmt_inr(t.unit_price.abs_inr, decimals=0)} a line. Both limits must hold."),
+        ("Quantity", f"may not exceed what was ordered by more than {T.fmt_num(t.quantity_over_pct)}%, nor what "
+                     f"Stores received."),
+        ("PO value", f"the running total may exceed the PO by up to {T.fmt_num(t.po_total.pct)}% and "
+                     f"{T.fmt_inr(t.po_total.abs_inr, decimals=0)}."),
+        ("Clearing alone", f"an invoice above {T.fmt_inr(rules.auto_approve.max_invoice_total_inr, decimals=0)} "
+                           f"always goes to a person."),
+        ("Bank change", "needs a call-back to the number on file and two different people."),
+        ("Duplicates", f"the same lines and total within {rules.duplicates.window_days} days is a duplicate unless "
+                       f"a second delivery is on record."),
+        ("Rounding", f"up to {T.fmt_inr(t.rounding_inr)} is allowed in the invoice arithmetic."),
+    ]
+    st.markdown("\n".join(f"- **{name}** {text}" for name, text in lines))
+    st.download_button("Download the rule book (YAML)", data=config.RULES_PATH.read_bytes(), file_name="rules.yaml",
+                       mime="text/yaml", key="ref_yaml", icon=":material/download:", on_click="ignore")
+    st.caption(f"Rule book fingerprint {rules.sha256[:16]}. Every decision records which version it used.")
 
 
 def _policy(rules) -> None:
@@ -46,9 +77,6 @@ def _policy(rules) -> None:
                    "and never auto-accepted", delta_color="off", border=True)
     cols[3].metric("GST slabs accepted", ", ".join(T.fmt_num(r) for r in rules.gst.rates_current) + "%",
                    "since 22-Sep-2025", delta_color="off", border=True)
-    with st.expander("rules.yaml as loaded"):
-        st.caption(f"File hash {rules.sha256}")
-        st.code(config.RULES_PATH.read_text(encoding="utf-8"), language="yaml")
 
 
 def _dry_run(sample: dict, rules) -> tuple[str, list[str]]:
@@ -64,10 +92,30 @@ def _dry_run(sample: dict, rules) -> tuple[str, list[str]]:
         shutil.rmtree(folder, ignore_errors=True)
 
 
+def _replay_all(rules, trial) -> list[tuple[str, str, str]]:
+    """Every sample in order on two fresh copies of the starting books: (title, now, with the change)."""
+    samples = [s for s in C.manifest() if s["group"] != "bad_input"]
+    out: dict[str, list[str]] = {}
+    with st.status(f"Replaying {len(samples)} samples", expanded=False) as box:
+        for name, used in (("now", rules), ("change", trial)):
+            folder = Path(tempfile.mkdtemp(prefix="invoice_desk_whatif_"))
+            try:
+                pipeline = Pipeline(store=Store(folder / "whatif.db"), rules=used, master=C.get_master(),
+                                    llm=C.get_llm(), today=C.business_date())
+                for i, sample in enumerate(samples, 1):
+                    box.update(label=f"Replaying {len(samples)} samples: invoice {i} of {len(samples)}")
+                    result = pipeline.run(sample_lib.sample_bytes(sample), sample_lib.received_name(sample), "what-if")
+                    out.setdefault(sample["title"], []).append(result.verdict)
+            finally:
+                shutil.rmtree(folder, ignore_errors=True)
+        box.update(label="Done", state="complete")
+    return [(title, v[0], v[1]) for title, v in out.items()]
+
+
 def _sandbox(rules) -> None:
-    st.write("Policy is data, not code. Change a number below and the chosen sample is processed twice on a scratch "
-             "copy of the seeded books: once with rules.yaml as it is and once with your numbers. Nothing here "
-             "touches the real history or the rules file.")
+    st.write("Change a number and see what would have happened. The chosen sample is processed twice on a copy of "
+             "the starting books: once with the rule book as it is and once with your numbers. Nothing is saved "
+             "from here.")
     samples = [s for s in C.manifest() if s["group"] != "bad_input"]
     by_id = {s["id"]: s for s in samples}
     default = next((i for i, s in enumerate(samples) if s["id"].startswith("07")), 0)
@@ -83,27 +131,39 @@ def _sandbox(rules) -> None:
     ceiling = c3.number_input("Auto-approval ceiling, rupees", min_value=1000, max_value=100000000,
                               value=int(rules.auto_approve.max_invoice_total_inr), step=50000, key="wi_ceiling")
     window = c3.slider("Duplicate window, days", 0, 60, int(rules.duplicates.window_days), 1, key="wi_window")
-    st.caption("Ideas: sample 07 (0.95% above the PO price) with the price tolerance at 0.90%; sample 08 (1.01%, "
-               "Rs 515 on the line) with the price tolerance at 1.10% and 550 rupees; sample 01 with the ceiling at "
-               "4,00,000.")
-    if st.button("Run both ways", type="primary", key="wi_go"):
-        trial = rules.model_copy(deep=True)
-        trial.tolerances.unit_price.pct, trial.tolerances.unit_price.abs_inr = Decimal(str(price_pct)), Decimal(price_abs)
-        trial.tolerances.po_total.pct, trial.tolerances.po_total.abs_inr = Decimal(str(po_pct)), Decimal(po_abs)
-        trial.auto_approve.max_invoice_total_inr = Decimal(int(ceiling))
-        trial.duplicates.window_days = int(window)
+    st.caption("Ideas: the invoice just inside tolerance (0.95% above the PO price) with the price limit at 0.90%; "
+               "the one two rupees dearer (1.01%, ₹515 on the line) with the limit at 1.10% and ₹550; the clean "
+               "invoice with the ceiling at ₹4,00,000.")
+    trial = rules.model_copy(deep=True)
+    trial.tolerances.unit_price.pct, trial.tolerances.unit_price.abs_inr = Decimal(str(price_pct)), Decimal(price_abs)
+    trial.tolerances.po_total.pct, trial.tolerances.po_total.abs_inr = Decimal(str(po_pct)), Decimal(po_abs)
+    trial.auto_approve.max_invoice_total_inr = Decimal(int(ceiling))
+    trial.duplicates.window_days = int(window)
+    buttons = st.container(horizontal=True)
+    every = buttons.button("Replay all samples", key="wi_all", icon=":material/replay:")
+    if buttons.button("Run this sample both ways", type="primary", key="wi_go"):
         with st.spinner("Processing the sample twice"):
             st.session_state["wi_result"] = {"sample": chosen, "base": _dry_run(by_id[chosen], rules),
                                              "trial": _dry_run(by_id[chosen], trial)}
+    if every:
+        changed = [(t, a, b) for t, a, b in _replay_all(rules, trial) if a != b]
+        total = len([s for s in C.manifest() if s["group"] != "bad_input"])
+        if not changed:
+            st.info("Nothing would change with these limits.")
+        else:
+            st.info(f"{len(changed)} of {total} samples would change: " + "; ".join(
+                f"\u201c{t}\u201d goes from {C.verdict_display_label(a)} to {C.verdict_display_label(b)}"
+                for t, a, b in changed) + ".")
+        st.caption("Nothing is saved from here. This shows what would have happened.")
     outcome = st.session_state.get("wi_result")
     if outcome and outcome["sample"] == chosen:
         left, right = st.columns(2, gap="large")
-        for column, title, (verdict, reasons) in ((left, "With rules.yaml as it is", outcome["base"]),
+        for column, title, (verdict, reasons) in ((left, "With the rule book as it is", outcome["base"]),
                                                    (right, "With the numbers above", outcome["trial"])):
             label, colour, background, border = C.VERDICT[verdict]
             column.markdown(
                 f"<div class='idk-banner' style='color:{colour};background:{background};border-color:{border}'>"
-                f"<div class='tag'>{C.esc(title)}</div><div class='headline'>{C.esc(verdict)}</div>"
+                f"<div class='tag'>{C.esc(title)}</div><div class='headline'>{C.esc(label)}</div>"
                 f"<div class='why'>{'<br>'.join(C.esc(r) for r in reasons)}</div></div>", unsafe_allow_html=True)
         if outcome["base"][0] != outcome["trial"][0]:
             st.info("The decision changed, and the only thing that changed was a number in the rules.")
@@ -133,8 +193,11 @@ def _purchase_orders(store, master) -> None:
              "Matched on": "quantity and price" if ln.match_basis == "QTY" else "amount (service)"} for ln in po.lines)
     st.markdown("**Invoices against this PO**")
     C.table({"Invoice": e["invoice_no"] or "(no number)", "Date": T.fmt_date(e["invoice_date"]),
-             "Taxable value": C.money(e["taxable"]), "Status": e["status"],
+             "Taxable value": C.money(e["taxable"]), "Status": LEDGER_WORDS.get(e["status"], e["status"].lower()),
              "From": "prior history" if e["origin"] == "history" else e["run_id"]} for e in usage["invoices"])
+
+
+LEDGER_WORDS = {"POSTED": "posted for payment", "PENDING": "waiting for review", "REJECTED": "rejected"}
 
 
 def _vendors(store, master) -> None:
@@ -155,26 +218,32 @@ def _ledger(store, master) -> None:
     C.table({"Ledger ID": e["ledger_id"], "Invoice": e["invoice_no"] or "(no number)", "Date": T.fmt_date(e["invoice_date"]),
              "Vendor": master.vendors[e["vendor_id"]].legal_name if e["vendor_id"] in master.vendors else (e["vendor_id"] or "-"),
              "PO": e["po_number"] or "-", "Taxable value": C.money(e["taxable"]), "Total": C.money(e["total"]),
-             "Status": e["status"], "From": "prior history" if e["origin"] == "history" else e["run_id"],
-             "Note": e["note"] or ""} for e in reversed(entries))
-    st.caption("POSTED entries count against PO balances and are payable. PENDING entries wait in the review queue "
-               "and do not use PO balance. REJECTED entries are kept for the record and never paid.")
+             "Status": LEDGER_WORDS.get(e["status"], e["status"].lower()),
+             "From": "prior history" if e["origin"] == "history" else e["run_id"],
+             "Note": C.screen_words(e["note"] or "")} for e in reversed(entries))
+    st.caption("Posted entries count against PO balances and are payable. Entries waiting for review do not use PO "
+               "balance. Rejected entries are kept for the record and never paid.")
 
 
 def page() -> None:
     store, rules, master = C.get_store(), C.get_rules(), C.get_master()
-    st.title("Rules and data")
-    st.caption("What the pipeline decides with, and what it checks invoices against.")
-    tabs = st.tabs(["Decision table", "Tolerances and policy", "What-if sandbox", "Purchase orders", "Vendors", "Ledger"])
+    head = st.container(horizontal=True, vertical_alignment="center")
+    head.title("Rules and data")
+    head.badge(f"Rule book {rules.version}", icon=":material/rule:", color="gray")
+    st.caption("Every number the desk uses is here. Nothing is hidden in code.")
+    tabs = st.tabs(["Limits", f"Reasons ({len(rules.reasons)})", "Vendors and POs", "Try a change", "Ledger"])
     with tabs[0]:
-        _decision_table(rules)
+        _limits(rules)
+        with st.expander("All limits as figures"):
+            _policy(rules)
     with tabs[1]:
-        _policy(rules)
+        _decision_table(rules)
     with tabs[2]:
-        _sandbox(rules)
-    with tabs[3]:
+        st.markdown("**Purchase orders**")
         _purchase_orders(store, master)
-    with tabs[4]:
+        st.markdown("**Vendors**")
         _vendors(store, master)
-    with tabs[5]:
+    with tabs[3]:
+        _sandbox(rules)
+    with tabs[4]:
         _ledger(store, master)

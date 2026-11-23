@@ -101,11 +101,12 @@ def test_every_page_loads_on_empty_books(app):
 
 def test_the_sidebar_says_one_thing_and_keeps_the_build_details_behind_a_click(app):
     side = " ".join(m.value for m in app.sidebar.markdown)
-    assert "Ready." in side and "AI assist: off (rules only)" in side
+    assert "Ready." in side and "AI reading: off" in side
     assert not app.sidebar.slider and not app.sidebar.button           # no slow-down dial and no reset beside the work
     details = next(e for e in app.sidebar.expander if e.label == "Technical details")
     text = " ".join(m.value for m in details.markdown)
-    assert "Business date" in text and "21-Nov-2026 (pinned for the demo)" in text and "OCR engine" in text
+    assert "Business date" in text and "21-Nov-2026 (the demo&#x27;s business day" in text and "Page reader (OCR)" in text
+    assert "FIXTURE" not in text and "claude" not in text.lower()
     assert "shared on this machine" in text
 
 
@@ -118,10 +119,10 @@ def test_the_guided_demo_runs_one_scenario_per_click(app):
     done = app.session_state["demo_done"]
     assert done["clean"] == {"run_id": "AP-2026-0001", "verdict": "APPROVE", "ok": True, "want": "APPROVE"}
     page = shown(app)
-    assert "APPROVE: pay ₹4,49,934.00 to Tungabhadra Office Furnishings Pvt Ltd" in page and "idk-rail" in page
+    assert "Cleared: pay ₹4,49,934.00 to Tungabhadra Office Furnishings Pvt Ltd" in page and "idk-rail" in page
     assert "What to notice." in page and "AP-2026-0001" in page and "as expected" in page
     assert any("This is the expected decision" in s.value for s in app.success)
-    assert next(b for b in app.button if b.key == "demo_next").label.startswith("Run step 2: A scanned invoice")
+    assert next(b for b in app.button if b.key == "demo_next").label == "Run step 2: Scanned"
     assert [r["verdict"] for r in app.db.list_runs()] == ["APPROVE"]
 
 
@@ -170,26 +171,26 @@ def test_your_own_file_goes_through_the_same_stages_in_the_demo(app):
     app.file_uploader(key="demo_upload").set_value(("my notes.txt", b"not a pdf at all", "text/plain")).run()
     app.button(key="demo_upload_go").click().run()
     assert not app.exception
-    assert "REJECT: file cannot be opened" in shown(app) and app.db.list_runs()[0]["verdict"] == "REJECT"
+    assert "Rejected: file cannot be opened" in shown(app) and app.db.list_runs()[0]["verdict"] == "REJECT"
 
 
 def test_the_ai_mode_on_screen_never_offers_live_calls_without_a_key(app):
     picker = app.selectbox(key="ai_mode_pick")
-    assert list(picker.options) == ["FIXTURE: replay recorded answers (no network, no key)", "OFF: rules only"]
+    assert list(picker.options) == ["Recorded answers: replay stored readings, no live calls", "Off: fixed rules only"]
     assert picker.value == "off"
     assert "no API key is configured" in said(app)
     picker.select("fixture").run()
     assert not app.exception and app.session_state["ai_mode"] == "fixture"
     go(app, "dashboard")                                   # the choice holds on a page that does not show the control
-    assert "AI assist: recorded answers (no network)" in " ".join(m.value for m in app.sidebar.markdown)
+    assert "AI reading: recorded answers (no live calls)" in " ".join(m.value for m in app.sidebar.markdown)
 
 
 def test_a_key_makes_live_calls_available_but_does_not_switch_them_on(tmp_path, monkeypatch):
     at = start(tmp_path, monkeypatch, ANTHROPIC_API_KEY="sk-test-not-a-real-key", LLM_MODE="fixture")
     picker = at.selectbox(key="ai_mode_pick")
-    assert picker.value == "fixture" and any("CACHED-LIVE" in str(o) for o in picker.options)
+    assert picker.value == "fixture" and any(str(o).startswith("Live:") for o in picker.options)
     assert "sk-test-not-a-real-key" not in shown(at) + said(at) + " ".join(m.value for m in at.sidebar.markdown)
-    assert "Cost caps: $0.05 per invoice, $1.00 per day" in said(at)
+    assert "Cost caps: ₹4.20 an invoice, ₹84.00 a day" in said(at)
 
 
 def test_the_expected_decision_of_the_letter_follows_the_ai_set_up(tmp_path, monkeypatch):
@@ -212,8 +213,8 @@ def test_the_expected_decision_of_the_letter_follows_the_ai_set_up(tmp_path, mon
     home = str(tmp_path / "home")
 
     text = picked(start(tmp_path, monkeypatch, LLM_MODE="fixture", INVOICE_DESK_HOME=home))
-    assert "Expected decision: HOLD (" in text and "No AI answer is recorded for this file yet" in text
-    assert "With a recorded answer: APPROVE" in text
+    assert "Expected decision: On hold (" in text and "No AI answer is recorded for this file yet" in text
+    assert "With a recorded answer: Cleared" in text
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")              # record once, through the stand-in service
     monkeypatch.setattr(record_llm_fixtures, "HTTP_CLIENT", client(Service()))
@@ -221,15 +222,15 @@ def test_the_expected_decision_of_the_letter_follows_the_ai_set_up(tmp_path, mon
 
     at = start(tmp_path, monkeypatch, LLM_MODE="fixture", INVOICE_DESK_HOME=home)
     text = picked(at)
-    assert "Expected decision: APPROVE" in text and "stored and will be replayed" in text
-    assert "By the rules alone: HOLD (" in text and "Expected decision: HOLD" not in text
+    assert "Expected decision: Cleared" in text and "stored and will be replayed" in text
+    assert "By the rules alone: On hold (" in text and "Expected decision: On hold" not in text
     at.button(key="proc_go").click().run()
-    assert not at.exception and "APPROVE: pay" in shown(at)
-    assert "Expected decision: APPROVE (no exception). This is that decision." in said(at)
+    assert not at.exception and "Cleared: pay" in shown(at)
+    assert "Expected: Cleared (no exception). This is that decision." in said(at)
     assert "Purple boxes: values read by AI." in said(at)
 
     text = picked(start(tmp_path, monkeypatch, LLM_MODE="off", INVOICE_DESK_HOME=home))
-    assert "Expected decision: HOLD (" in text and "because AI assist is off" in text and "With AI assist: APPROVE" in text
+    assert "Expected decision: On hold (" in text and "because AI assist is off" in text and "With AI assist: Cleared" in text
 
 
 def test_a_live_call_is_made_only_when_asked_for_and_can_be_shown_on_purpose(tmp_path, monkeypatch):
@@ -251,14 +252,14 @@ def test_a_live_call_is_made_only_when_asked_for_and_can_be_shown_on_purpose(tmp
 
     assert not [t for t in at.toggle if t.key == "ai_fresh_pick"]     # nothing to switch while answers are only replayed
     process(at, "10")
-    assert service.calls == 0 and "HOLD:" in shown(at)                # a key alone: no call, the rules decide
+    assert service.calls == 0 and "On hold:" in shown(at)                # a key alone: no call, the rules decide
 
     go(at, "demo")
     at.selectbox(key="ai_mode_pick").select("cached-live").run()
     assert "sk-ant-test" not in shown(at) + said(at)
     press(at, "Start a fresh demo")
     process(at, "10")
-    assert service.calls == 1 and "APPROVE: pay" in shown(at) and source_of_latest() == "live"
+    assert service.calls == 1 and "Cleared: pay" in shown(at) and source_of_latest() == "live"
 
     go(at, "demo")
     press(at, "Start a fresh demo")
@@ -270,7 +271,7 @@ def test_a_live_call_is_made_only_when_asked_for_and_can_be_shown_on_purpose(tmp
     assert "fresh answer on every run" in " ".join(m.value for m in at.sidebar.markdown)
     press(at, "Start a fresh demo")
     process(at, "10")
-    assert service.calls == 2 and "APPROVE: pay" in shown(at) and source_of_latest() == "live"
+    assert service.calls == 2 and "Cleared: pay" in shown(at) and source_of_latest() == "live"
     assert not list((fixtures / "llm").glob("*.json"))                # the screen never writes into the recordings
 
 
@@ -300,11 +301,11 @@ def test_a_public_demo_gives_each_visitor_private_books_and_no_live_calls_unless
     odd.run()
     assert not odd.exception and C.SANDBOX_ID.fullmatch(odd.session_state["sandbox_id"])
     # a key in the host's secrets is not an invitation to spend it
-    assert not any("CACHED-LIVE" in str(o) for o in first.selectbox(key="ai_mode_pick").options)
-    assert "LLM_ALLOW_LIVE is not set" in said(first)
+    assert not any(str(o).startswith("Live:") for o in first.selectbox(key="ai_mode_pick").options)
+    assert "live calls have not been allowed by the host" in said(first)
     monkeypatch.setenv("LLM_ALLOW_LIVE", "1")
     allowed = AppTest.from_file(str(config.ROOT / "app.py"), default_timeout=240).run()
-    assert any("CACHED-LIVE" in str(o) for o in allowed.selectbox(key="ai_mode_pick").options)
+    assert any(str(o).startswith("Live:") for o in allowed.selectbox(key="ai_mode_pick").options)
     assert "private to this browser session" in " ".join(m.value for e in allowed.sidebar.expander for m in e.markdown)
 
 
@@ -314,11 +315,12 @@ def test_a_run_completes_through_the_live_view_and_shows_every_stage(app):
     process(app, "01")
     assert app.session_state["current_run"] == "AP-2026-0001"
     page = shown(app)
-    assert "APPROVE: pay ₹4,49,934.00 to Tungabhadra Office Furnishings Pvt Ltd" in page and "idk-rail" in page
-    assert "AP-2026-0001 &nbsp;|&nbsp; Tungabhadra_TOF-26-27-0412.pdf &nbsp;|&nbsp; Approved, processed in under a second" in page
+    assert "Cleared: pay ₹4,49,934.00 to Tungabhadra Office Furnishings Pvt Ltd" in page and "idk-rail" in page
+    assert "AP-2026-0001 &nbsp;|&nbsp; Tungabhadra_TOF-26-27-0412.pdf &nbsp;|&nbsp; Cleared, processed in under a second" in page
     labels = [e.label for e in app.expander]
-    for number, title in enumerate(["Intake", "Read", "Extract", "Validate", "Vendor", "PO match", "Duplicates",
-                                    "Decide", "Post and verify"], 1):
+    for number, title in enumerate(["Received", "Read the page", "Picked out the details", "Checked the maths and tax",
+                                    "Checked the vendor", "Matched to the PO and goods receipt", "Looked for duplicates",
+                                    "Decided", "Filed"], 1):
         assert any(f"{number} {title}" in label for label in labels), title
     assert [b.label for b in app.get("download_button")][:2] == ["Full record (JSON)", "Audit receipt (JSON)"]
     assert [r["verdict"] for r in app.db.list_runs()] == ["APPROVE"]
@@ -331,14 +333,14 @@ def test_a_run_completes_through_the_live_view_and_shows_every_stage(app):
 def test_a_hold_shows_its_reasons_owners_and_questions(app):
     process(app, "04")
     page = shown(app)
-    assert "HOLD: 2 points need a person" in page
+    assert "On hold: 2 points need a person" in page
     assert "QTY_OVER_PO" in page and "owner: Procurement" in page and "PO owner P. Deshmukh (EHS)" in page
     assert any(e.label.startswith("Message to the vendor") for e in app.expander)
 
 
 def test_the_message_to_the_vendor_is_ready_to_copy(app):
     process(app, "05")
-    assert "REJECT: same invoice under a different number" in shown(app)
+    assert "Rejected: same invoice under a different number" in shown(app)
     card = next(e for e in app.expander if e.label.startswith("Message to the vendor"))
     draft = card.code[0].value
     assert draft.startswith("Subject:") and "DQI/26-27/1193" in draft
@@ -350,15 +352,15 @@ def test_the_message_to_the_vendor_is_ready_to_copy(app):
 
 def test_the_audit_trail_reads_as_events_and_keeps_the_hashes_one_click_further_in(app):
     process(app, "01")
-    trail = next(e for e in app.expander if e.label.startswith("Tamper-evident audit trail"))
-    assert trail.label == "Tamper-evident audit trail: 1 entry"
+    trail = next(e for e in app.expander if e.label.startswith("Audit trail:"))
+    assert trail.label == "Audit trail: 1 entry, sealed"
     rows = trail.dataframe[0].value
-    assert list(rows.columns) == ["When", "Event", "By", "Outcome", "Note", "Entry fingerprint"]
+    assert list(rows.columns) == ["When", "Event", "By", "Outcome", "Note", "Seal"]
     assert list(rows["Event"]) == ["Decision recorded by the system"] and list(rows["By"]) == ["Invoice Desk"]
     visible = shown(app) + said(app) + " ".join(e.label for e in app.expander)
     assert "SHA-256" not in visible and "hash chain" not in visible.lower()
     app.toggle(key="audit_tech_AP-2026-0001").set_value(True).run()
-    technical = next(e for e in app.expander if e.label.startswith("Tamper-evident audit trail")).dataframe
+    technical = next(e for e in app.expander if e.label.startswith("Audit trail:")).dataframe
     assert "SHA-256 of this entry" in technical[1].value.columns and len(technical) == 3
     assert app.db.get_run("AP-2026-0001").file_sha256 in set(technical[2].value["Value"])
 
@@ -367,15 +369,15 @@ def test_the_same_file_again_returns_the_first_record_and_says_so(app):
     process(app, "01")
     process(app, "01")
     assert app.session_state["current_run"] == "AP-2026-0002"
-    assert "APPROVE: same file as AP-2026-0001, not booked again" in shown(app)
+    assert "Cleared: same file as AP-2026-0001, not booked again" in shown(app)
     assert any("already received as AP-2026-0001" in i.value for i in app.info)
-    assert any("Already received as AP-2026-0001" in c.value for c in app.caption)
+    assert any("Processed in this session as AP-2026-0001" in c.value for c in app.caption)
     assert len([e for e in app.db.ledger_entries() if e["origin"] != "history"]) == 1
 
 
 def test_a_broken_upload_is_refused_with_a_reason_not_an_error(app):
     upload(app, "notes.txt", b"just some text, not a pdf", "text/plain")
-    assert "REJECT: file cannot be opened" in shown(app)
+    assert "Rejected: file cannot be opened" in shown(app)
     assert app.db.list_runs()[0]["verdict"] == "REJECT"
 
 
@@ -386,7 +388,7 @@ def test_every_bad_input_in_the_sample_inbox_ends_in_a_decision_on_screen(app, s
     process(app, f"{sample['order']:02d}")
     row = app.db.list_runs()[0]
     assert row["verdict"] == sample["expected_verdict"] and row["reason_codes"].split(",") == sample["expected_reasons"]
-    assert f"{sample['expected_verdict']}:" in shown(app)
+    assert f"{C.verdict_display_label(sample['expected_verdict'])}:" in shown(app)
 
 
 def test_text_from_an_uploaded_document_is_never_rendered_as_html(app):
@@ -440,7 +442,7 @@ def test_a_photographed_page_is_shown_the_way_it_was_read(app):
 
 def test_the_tax_inclusive_conversion_is_shown_as_a_table(app):
     process(app, "07")
-    assert "APPROVE" in shown(app)
+    assert "Cleared" in shown(app)
     tables = [frame.value for frame in app.dataframe if "Price printed (with GST)" in frame.value.columns]
     assert len(tables) == 1
     row = tables[0].iloc[0]
@@ -464,13 +466,13 @@ def test_the_whole_sample_inbox_then_the_dashboard_shows_the_history(app, manife
     assert metrics["Waiting for review"] == "6" and metrics["Rejected"] == "8"
     assert metrics["Typical handling time"] == "under a second"
     assert "Approved with no person involved" not in metrics and "Median processing time" not in metrics
-    assert any("Tamper-evident audit trail: intact. All 18 entries were re-checked just now." in s.value for s in app.success)
+    assert any("Audit trail: intact. All 18 entries were re-checked just now." in s.value for s in app.success)
     history = app.dataframe[0].value
     assert len(history) == 18 and list(history["Reference"])[0] == "AP-2026-0018"
-    assert set(history["Decision"]) == {"APPROVE", "HOLD", "REJECT"} and "Run" not in history.columns
+    assert set(history["Decision"]) == {"✓ Cleared", "⏸ On hold", "✕ Rejected"} and "Run" not in history.columns
     picker = next(s for s in app.selectbox if s.label.startswith("Record to open"))
     picker.select("AP-2026-0005").run()
-    assert not app.exception and "REJECT: same invoice under a different number" in shown(app)
+    assert not app.exception and "Rejected: same invoice under a different number" in shown(app)
 
 
 def test_a_file_sent_twice_is_one_invoice_on_the_dashboard(app):
@@ -488,7 +490,7 @@ def test_dashboard_filters(app):
     app.button(key="proc_batch").click().run()
     go(app, "dashboard")
     app.multiselect(key="dash_verdict").set_value(["HOLD"]).run()
-    assert set(app.dataframe[0].value["Decision"]) == {"HOLD"} and len(app.dataframe[0].value) == 6
+    assert set(app.dataframe[0].value["Decision"]) == {"⏸ On hold"} and len(app.dataframe[0].value) == 6
     app.multiselect(key="dash_verdict").set_value([]).run()
     app.text_input(key="dash_query").set_value("PO-2026-0193").run()
     assert list(app.dataframe[0].value["Reference"]) == ["AP-2026-0004"]
@@ -501,7 +503,7 @@ def test_dashboard_filters(app):
 def test_review_needs_a_name_then_records_the_decision(app):
     process(app, "08")
     go(app, "review")
-    assert "HOLD: price above the PO" in shown(app) or "HOLD" in shown(app)
+    assert "On hold: price above the PO" in shown(app) or "On hold" in shown(app)
     press(app, "Approve for payment")
     assert any("reviewer's name" in e.value for e in app.error)
     assert app.db.run_row("AP-2026-0001")["review_status"] == "PENDING"
@@ -587,7 +589,7 @@ def test_a_bank_change_takes_two_different_people_on_screen(app):
 def test_an_unbooked_document_can_only_be_closed_as_processed_manually(app):
     from .test_review import _dollar_invoice
     upload(app, "acme.pdf", _dollar_invoice())
-    assert "HOLD: invoice is not in rupees" in shown(app) and "USD 4,000.00" in shown(app)
+    assert "On hold: invoice is not in rupees" in shown(app) and "USD 4,000.00" in shown(app)
     go(app, "review")
     labels = [b.label for b in app.button]
     assert "Close as processed manually" in labels and "Approve for payment" not in labels
@@ -637,8 +639,9 @@ def test_the_reset_lives_with_the_demo_controls_and_restores_the_starting_state(
 
 def test_rules_page_lists_every_code_and_the_master_data(app, rules, master):
     go(app, "reference")
-    decision_table = app.dataframe[0].value
-    assert set(decision_table["Code"]) == set(rules.reasons)
+    codes = next(f.value for f in app.dataframe if "Reason code" in f.value.columns)
+    assert set(codes["Reason code"]) == set(rules.reasons)
+    assert "Reason code" not in app.dataframe[0].value.columns          # codes only behind the auditors' expander
     everything = " ".join(str(v) for frame in app.dataframe for v in frame.value.to_numpy().ravel())
     assert "PO-2026-0193" in everything and master.vendors["V004"].legal_name in everything and "ASS/2026/0871" in everything
 
@@ -654,8 +657,8 @@ def test_the_demo_date_keeps_dated_checks_stable_and_can_be_switched_off(app):
 def test_a_date_set_by_the_host_wins_over_the_switch(tmp_path, monkeypatch):
     at = start(tmp_path, monkeypatch, INVOICE_DESK_TODAY="2026-12-01")
     assert at.toggle(key="demo_clock_pick").disabled
-    assert "01-Dec-2026 (set by INVOICE_DESK_TODAY)" in said(at)
-    assert "01-Dec-2026 (set by INVOICE_DESK_TODAY)" in " ".join(m.value for e in at.sidebar.expander for m in e.markdown)
+    assert "01-Dec-2026 (set by the host)" in said(at)
+    assert "01-Dec-2026 (set by the host)" in " ".join(m.value for e in at.sidebar.expander for m in e.markdown)
 
 
 # ---------------------------------------------------------------- the renderers, as plain functions
@@ -698,8 +701,8 @@ def test_a_key_pasted_into_the_hosts_secrets_box_is_picked_up(tmp_path, monkeypa
     assert not at.exception
     details = " ".join(m.value for e in at.sidebar.expander for m in e.markdown)
     everything = details + shown(at) + said(at) + " ".join(m.value for m in at.sidebar.markdown)
-    assert "CACHED-LIVE (claude-sonnet-5-5)" in details and "secret-from-the-host" not in everything
-    assert "AI assist: live AI calls, stored answers first" in everything
+    assert "<b>AI reading</b> live, with a daily cap" in details and "claude" not in details.lower() and "secret-from-the-host" not in everything
+    assert "AI reading: live, with a daily cap" in everything
 
 
 def _viewer_text(at) -> str:
@@ -722,14 +725,14 @@ def test_screens_say_ai_and_keep_the_model_name_for_the_technical_details(tmp_pa
     at = start(tmp_path, monkeypatch, LLM_MODE="cached-live", ANTHROPIC_API_KEY="sk-ant-test", LLM_ALLOW_LIVE="1",
                LLM_MODEL="claude-sonnet-5-5", INVOICE_DESK_HOME=str(tmp_path / "home"))
     details = " ".join(m.value for e in at.sidebar.expander for m in e.markdown)
-    assert "CACHED-LIVE (claude-sonnet-5-5)" in details
+    assert "<b>AI reading</b> live, with a daily cap" in details and "claude" not in details.lower()
 
     go(at, "demo")
     assert [t for t in at.toggle if t.key == "ai_fresh_pick"]
-    assert "CACHED-LIVE: call the AI model on a cache miss, then store the answer" in at.selectbox(key="ai_mode_pick").options
+    assert "Live: ask the AI when no answer is stored, within a daily cap" in at.selectbox(key="ai_mode_pick").options
     assert "claude" not in _viewer_text(at).lower()
     at.toggle(key="ai_fresh_pick").set_value(True).run()
-    assert "AI assist: live AI calls, a fresh answer on every run" in " ".join(m.value for m in at.sidebar.markdown)
+    assert "AI reading: live, a fresh answer on every run, with a daily cap" in " ".join(m.value for m in at.sidebar.markdown)
     assert "claude" not in _viewer_text(at).lower()
     at.toggle(key="ai_fresh_pick").set_value(False).run()
 
@@ -764,9 +767,9 @@ def test_the_letter_invoice_banner_and_stage_3_name_no_model_and_technical_detai
     at = start(tmp_path, monkeypatch, LLM_MODE="fixture", INVOICE_DESK_HOME=home)
     process(at, "10")
     banner = next(m.value for m in at.markdown if "class='idk-banner'" in m.value)
-    assert "APPROVE" in banner and "The AI assist supplied:" in banner and "claude" not in banner.lower()
+    assert "Cleared" in banner and "The AI assist supplied:" in banner and "claude" not in banner.lower()
 
-    stage3 = next(e for e in at.expander if " 3 Extract" in e.label)
+    stage3 = next(e for e in at.expander if " 3 Picked out the details" in e.label)
     tables = " ".join(d.value.to_string() for d in stage3.dataframe)
     words = " ".join(m.value for m in stage3.markdown) + " " + tables + " " + stage3.label
     assert "<b>AI assist</b>" in words and "AI, checked by code" in tables and "The AI assist supplied:" in words
@@ -776,11 +779,11 @@ def test_the_letter_invoice_banner_and_stage_3_name_no_model_and_technical_detai
     assert "claude" not in everything.lower()
 
     details = " ".join(m.value for e in at.sidebar.expander for m in e.markdown)
-    assert model in details
+    assert model not in details and "recorded answers (no live calls)" in details      # round 5: no model on screen
     run_id = Store(tmp_path / "ui.db").list_runs()[0]["run_id"]
     at.toggle(key=f"audit_tech_{run_id}").set_value(True).run()
     technical = " ".join(d.value.to_string() for d in at.main.dataframe)
-    assert model in technical
+    assert model not in technical and "model in the full record (JSON)" in technical
 
     stored = Store(tmp_path / "ui.db").get_run(run_id)                  # the record itself is unchanged
     assert any(b["title"] == "AI assist (Claude)" for b in stored.stages[2].blocks)
@@ -837,10 +840,10 @@ def test_the_cases_page_shows_owner_question_clock_and_history_for_a_hold(app):
             metric(app, "Waiting on the vendor")) == ("2", "1", "0", "0")
     text = shown(app) + " " + said(app)
     assert "Kaveri Bearings &amp; Drives Pvt Ltd" in text and "KBD/26-27/1193" in text
-    assert "Waiting on Stores" in text and "Answer due 23 Nov 2026" in text
+    assert "Waiting on Stores" in text and "Answer due 23-Nov-2026" in text
     assert C.esc(early.decision.questions[0]) in text and C.esc(late.decision.questions[0]) in text
-    assert "Legal pay-by date 24 Nov 2026, 3 days left" in text
-    assert "counted from the delivery recorded on 10 Oct 2026" in text
+    assert "Legal pay-by date 24-Nov-2026, 3 days left" in text
+    assert "counted from the delivery recorded on 10-Oct-2026" in text
     assert "about ₹45 a day in interest after that date (approximate)" in text
     assert "Urgent" in text and "Finance controller told" in tables(app)
     assert "Held for Stores" in tables(app) and "Invoice Desk" in tables(app)       # the history: what, by whom
@@ -876,7 +879,7 @@ def test_approve_and_send_needs_a_name_and_says_where_the_message_went(app):
     run = case_run(app, "c2_small_supplier_late_invoice")
     go(app, "cases")
     assert run.decision.vendor_draft in [c.value for c in app.code]          # the draft, read-only, as written
-    assert any("In this build, send means the email is written to the outbox folder and recorded. No mail server is "
+    assert any("Send means the email is written to the outbox and recorded. No mail server is "
                "connected." in c.value for c in app.caption)
     press(app, "Approve and send")
     assert any("Enter your name" in e.value for e in app.error)
@@ -911,7 +914,7 @@ def test_a_release_by_rule_reads_as_such_on_the_dashboard_review_queue_and_audit
     assert (metric(app, "Cases opened"), metric(app, "Resolved without a person"), metric(app, "Urgent or escalated")) \
         == ("1", "1", "0")
     released = next(m for m in app.metric if m.label == "Released for payment")
-    assert released.value == C.money(app.db.get_ledger(run.ledger_id)["total"]) and "1 invoice(s)" in released.delta
+    assert released.value == C.money(app.db.get_ledger(run.ledger_id)["total"]) and "1 invoice," in released.delta
     go(app, "review")
     assert "released by rule (no person needed)" in tables(app)
     assert C.EVENT["goods_receipt"] == "Goods receipt recorded" and C.EVENT["release"] == "Released by rule"
@@ -962,13 +965,13 @@ def test_the_business_case_page_shows_every_assumption_with_its_source(app):
     for name in type(assumptions).model_fields:
         assert float(app.number_input(key=f"vm_{name}").value) == float(getattr(assumptions, name)), name
     text = shown(app) + " " + said(app) + " " + tables(app)
-    assert "These are synthetic invoices. The figures show what the controls catch, not a forecast." in text
-    assert "measured: 30 of 49 documents" in text and "Ardent Partners" in text and "APQC" in text
-    assert text.count("assumption") >= 5
-    assert "17.0 minutes" in text and "6.56 minutes" in text and "104.4 hours" in text
-    assert "₹46,980" in text and "₹127.50" in text and "₹49.20" in text and "₹7,65,000" in text
-    assert "Survey figures from other markets, in dollars. Compare against your own baseline." in text
-    assert "What this page does not claim" in [h.value for h in app.subheader]
+    assert "No invoice has been processed in these books yet." in text
+    assert "measured in this app" in text and "published benchmark" in text and "your estimate" in text
+    assert "30 of 49 difficult documents" in text and "Ardent Partners" in text and "APQC" in text
+    assert "At 7,200 invoices a year, the desk gives back about 104 hours a month." in text
+    metrics = {m.label: m.value for m in app.metric}
+    assert metrics["Hours given back"] == "104 a month" and metrics["Cost per invoice"] == "₹128 → ₹49"
+    assert "What this does not count" in text and "US figures from Ardent Partners" in text
     app.number_input(key="vm_invoices_per_month").set_value(1200).run()
-    assert not app.exception and "₹93,960" in shown(app) + " " + tables(app)          # the result follows the input
+    assert not app.exception and "about 209 hours a month" in shown(app)          # the result follows the input
     assert "—" not in text

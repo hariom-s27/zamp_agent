@@ -5,8 +5,7 @@ from invoice_desk.ui import dashboard as D
 
 from .test_ui import app, case_run, go, process, shown  # noqa: F401  (app is a fixture)
 
-CARDS = ["Cleared without a person", "On hold now", "Days to clear a held invoice", "Money stopped before payment",
-         "Small-supplier deadlines at risk"]
+CARDS = ["Cleared, no person", "On hold now", "Days to clear a hold", "Money stopped", "Legal dates at risk"]
 
 
 def item(codes, total, status, excess=0.0) -> dict:
@@ -36,8 +35,8 @@ def test_the_cards_reconcile_with_the_history(app):
     assert all(label in metrics for label in CARDS)
     history = app.dataframe[0].value
     held = sum(1 for r in app.db.list_runs() if r["review_status"] == "PENDING")
-    assert metrics["On hold now"] == str(held) and held == list(history["Decision"]).count("HOLD")
-    assert metrics["Cleared without a person"] == f"{round(100 * list(history['Decision']).count('APPROVE') / 3)}%"
+    assert metrics["On hold now"] == str(held) and held == list(history["Decision"]).count("⏸ On hold")
+    assert metrics["Cleared, no person"] == f"{round(100 * list(history['Decision']).count('✓ Cleared') / 3)}%"
     assert "What happened to each month's invoices" in shown(app) and "Why invoices were held" in shown(app)
     assert "Who is holding invoices today" in shown(app)
 
@@ -50,7 +49,7 @@ def test_needs_attention_lists_open_cases_most_pressing_first(app):
     page = shown(app)
     assert "**Needs attention**" in page and "See all cases" in [b.label for b in app.button]
     assert page.index("NHP/26-27/0287") < page.index("KBD/26-27/1193")      # the legal clock first
-    assert {m.label: m.value for m in app.metric}["Small-supplier deadlines at risk"] == "1"
+    assert {m.label: m.value for m in app.metric}["Legal dates at risk"] == "1"
 
 
 def test_a_new_session_shows_an_empty_state_and_no_numbers(app):

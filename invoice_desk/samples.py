@@ -18,7 +18,7 @@ from .models import RunResult
 # unless INVOICE_DESK_TODAY says otherwise or the demo clock is switched off, so the dated
 # checks (invoice older than a year, dated in the future, dated before its PO) give the same
 # answer in a rehearsal, in the interview and a year from now.
-DEMO_TODAY = date(2026, 11, 21)
+DEMO_TODAY = config.DEMO_TODAY
 
 
 def business_date() -> date:

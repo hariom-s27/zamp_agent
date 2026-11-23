@@ -7,6 +7,7 @@ record and never runs the pipeline.
 """
 from __future__ import annotations
 
+import re
 import time
 from typing import Optional
 
@@ -14,6 +15,7 @@ import pandas as pd
 import streamlit as st
 
 from .. import samples as sample_lib
+from .. import textutil as T
 from ..models import RunResult, StageResult
 from ..pipeline import STAGES, Pipeline
 from ..reader import sha256_of
@@ -91,10 +93,20 @@ def to_stage(stage: StageResult, result: Optional[RunResult]) -> K.Stage:
             actor, note = "ai", f"AI read {ai_read}"
             lines.insert(0, f"Rules read {rules_read} values. AI read {ai_read} that the layout hid. Each one is "
                             f"checked against a quote from the page.")
+    summary = plain(C.screen_words(stage.summary)) or C.stage_display_help(stage.key)
+    again = result.resubmission_of if result is not None else None
+    if again and stage.key == "intake":
+        kind = "stopped"
+        summary = f"Duplicate file: the same file as {plain(again)}. Stopped here, nothing booked again"
+        lines = [f"This exact file was received before as {plain(again)}. It is not read, checked or booked a "
+                 f"second time. The answer shown is that record's, as it stands now."]
+    elif again and kind == "skipped":
+        summary = "Not run: duplicate file"
+        lines = [f"Stopped at step 1. See {plain(again)} for this step."]
     if kind == "skipped":
         lines = lines or ["This step was not needed for this document."]
     return K.Stage(number=stage.number, title=C.stage_display_title(stage.key),
-                   result=kind, summary=plain(C.screen_words(stage.summary)) or C.stage_display_help(stage.key),
+                   result=kind, summary=summary,
                    actor=actor, seconds=stage.duration_ms / 1000, lines=lines, actor_note=note)
 
 
@@ -176,6 +188,11 @@ def run_live(area, pipeline: Pipeline, content: bytes, name: str, source: str, p
                         time.sleep(pause)
                 elif kind == "stage":
                     step = to_stage(payload, live)
+                    if step.result == "skipped" and live is not None and live.resubmission_of:
+                        box = boxes.get(payload.key)
+                        if box is not None:
+                            box.update(label=f"**{step.number}. {step.title}** · {step.summary}", state="complete")
+                        continue
                     box = boxes.get(payload.key) or st.status("", type="step", expanded=False)
                     box.update(label=f"**{step.number}. {step.title}** · {step.summary}",
                                state="error" if step.result == "stopped" else "complete")
@@ -203,7 +220,8 @@ def run_batch(area, store: Store) -> None:
             bar.progress((i - 1) / len(samples), text=f"{i} of {len(samples)}: {sample['title']}")
             result = pipeline.run(sample_lib.sample_bytes(sample), sample_name(sample), "sample")
             ok, want, _ = sample_lib.check(sample, result)
-            rows.append({"Reference": result.run_id, "Scenario": sample["title"], "Expected": want, "Decision": result.verdict,
+            rows.append({"Reference": result.run_id, "Scenario": sample["title"], "Expected": C.screen_words(want),
+                         "Decision": C.verdict_display_label(result.verdict, icon=True),
                          "As expected": "yes" if ok else "NO",
                          "Reasons": "; ".join(f.title for f in result.decision.reasons) or "-",
                          "Time": C.took(result.duration_ms)})
@@ -222,9 +240,10 @@ def expectation_note(result: RunResult, store: Store) -> None:
     ok, want, reasons = sample_lib.check(sample, result)
     titles = ", ".join(sorted(C.get_rules().reason(code).title for code in reasons)) or "no exception"
     if ok:
-        st.caption(f"Sample scenario: {sample['title']}. Expected decision: {want} ({titles}). This is that decision.")
+        st.caption(f"Sample scenario: {sample['title']}. Expected: {C.screen_words(want)} ({titles}). This is that "
+                   f"decision.")
     else:
-        st.warning(f"Sample scenario: {sample['title']}. Expected decision: {want} ({titles}). This run differs, which "
+        st.warning(f"Sample scenario: {sample['title']}. Expected: {C.screen_words(want)} ({titles}). This run differs, which "
                    f"usually means the books were not at their starting state (earlier invoices change what a PO has "
                    f"left) or the AI assist mode is different. 'Start a fresh demo' on the Guided demo page resets both.")
 
@@ -274,7 +293,12 @@ def decision_card(result: RunResult, key: str) -> None:
             st.markdown(" ".join(f":gray-badge[:material/assignment_ind: Waiting on {plain(o)}]" for o in d.owners))
         if d.next_action:
             st.markdown(f"**Next:** {plain(C.screen_words(d.next_action))}")
-        if d.verdict == "HOLD":
+        if result.resubmission_of:
+            if st.button(f"Open the original record, {result.resubmission_of}", type="primary",
+                         key=f"card_original_{key}", icon=":material/content_copy:"):
+                st.session_state["goto"], st.session_state["dash_run"] = "dashboard", result.resubmission_of
+                st.rerun()
+        elif d.verdict == "HOLD":
             if st.button("Open the case", type="primary", key=f"card_case_{key}"):
                 st.session_state["goto"] = "cases"
                 st.rerun()
@@ -287,32 +311,143 @@ def decision_card(result: RunResult, key: str) -> None:
                 st.code(d.vendor_draft, language=None, wrap_lines=True)
 
 
+UNITS = re.compile(r"(\d+(?:\.\d+)?) Nos\b")
+VENDOR_CODES = {"VENDOR_NOT_APPROVED", "VENDOR_MATCHED_BY_NAME", "MISSING_VENDOR_ID", "GSTIN_INVALID",
+                "VENDOR_NAME_VARIANT", "VENDOR_BLOCKED"}
+PO_CODES = {"PO_NOT_FOUND", "NO_PO_FOUND", "PO_CLOSED", "PO_VENDOR_MISMATCH", "LINE_NOT_ON_PO", "PO_INFERRED",
+            "OVER_PO_BALANCE"}
+PRICE_CODES = {"PRICE_VARIANCE", "PRICE_WITHIN_TOLERANCE"}
+QTY_CODES = {"QTY_OVER_PO", "GOODS_NOT_RECEIVED"}
+TAX_CODES = {"TAX_RATE_UNUSUAL", "TAX_TYPE_MISMATCH", "BUYER_GSTIN_MISSING"}
+DUP_CODES = {"DUPLICATE_FILE", "DUPLICATE_INVOICE_NUMBER", "DUPLICATE_CONTENT", "POSSIBLE_DUPLICATE"}
+BANK_CODES = {"BANK_DETAILS_CHANGED"}
+
+
+def tidy(text) -> str:
+    """Engine wording for a table cell a finance person reads: '5 Nos' is '5 units', 'per Nos' is 'per unit'."""
+    out = C.screen_words(str(text or ""))
+    out = out.replace("per Nos", "per unit")
+    out = UNITS.sub(lambda m: f"{m.group(1)} unit{'' if m.group(1) in ('1', '1.0') else 's'}", out)
+    return out
+
+
+def _finding_cells(f) -> tuple[str, str]:
+    """(on the invoice, in our records) for one finding, in real values."""
+    observed, expected = tidy(f.observed), tidy(f.expected)
+    if f.code == "GOODS_NOT_RECEIVED":
+        got = expected.removeprefix("billed quantity up to ").strip()
+        observed = f"{observed} billed" if observed and observed[0].isdigit() else observed
+        expected = "no goods receipt yet" if got in ("0", "0.00", "") else f"{got} received"
+    return plain(observed) or "-", plain(expected) or "-"
+
+
 def evidence_rows(result: RunResult) -> list[dict]:
-    """What was read against what is on record. Every row comes from the stored record."""
+    """What was checked: one row for every check that ran (vendor, PO, prices, quantities, tax, duplicates,
+    bank details), the value on the invoice, the value on record, and the page or line it was read from.
+    Every row comes from the stored record."""
     inv, rows = result.invoice, []
+    ran = {stage.key for stage in result.stages if stage.status != "skipped"}
+    findings = [f for stage in result.stages for f in stage.findings]
 
     def where(name: str) -> str:
         f = inv.fields.get(name) if inv else None
-        if f is None or f.source is None:
-            return "-"
+        if f is None or f.source is None or not f.present:
+            return "Not on the page"
         quote = f': "{plain(f.source.snippet)}"' if f.source.snippet else ""
         return f"Page {f.source.page}{quote}"
 
+    def line_where(f) -> str:
+        items = inv.line_items if inv else []
+        number = f.evidence.get("po_line") if f is not None else None
+        item = next((i for i in items if number is not None and str(i.line_no) == str(number)), None)
+        if item is not None:
+            page = item.source.page if item.source else 1
+            return f"Page {page}, line {item.line_no}: {plain(item.description)}"
+        if items:
+            page = items[0].source.page if items[0].source else 1
+            return f"Page {page}, the item lines ({T.plural(len(items), 'line')})"
+        return "The item lines"
+
+    def finding_row(label: str, f, source: str) -> dict:
+        on_invoice, expected = _finding_cells(f)
+        return {"field": label, "on_invoice": on_invoice, "expected": expected, "source": source,
+                "ok": f.action == "NOTE"}
+
+    def group(codes: set) -> list:
+        return [f for f in findings if f.code in codes]
+
+    used: set[int] = set()
     vendor = result.vendor or {}
-    if inv is not None and inv.get("vendor_name"):
-        rows.append({"field": "Vendor", "on_invoice": plain(inv.get("vendor_name")),
+    if "vendor" in ran and inv is not None:
+        found = [f for f in group(VENDOR_CODES) if f.action != "NOTE"]
+        rows.append({"field": "Vendor", "on_invoice": plain(inv.get("vendor_name")) or "-",
                      "expected": plain(vendor.get("name") if vendor.get("vendor_id") else "not in our records"),
-                     "source": where("vendor_name"), "ok": bool(vendor.get("vendor_id"))})
+                     "source": where("vendor_name"), "ok": bool(vendor.get("vendor_id")) and not found})
+        used |= {id(f) for f in group(VENDOR_CODES)}
     po = result.po or {}
-    if po.get("po_number"):
-        rows.append({"field": "Purchase order", "on_invoice": plain(inv.get("po_number") if inv else None) or "-",
-                     "expected": plain(po["po_number"]), "source": where("po_number"), "ok": True})
-    for stage in result.stages:
-        for f in stage.findings:
+    if "po_match" in ran and inv is not None:
+        quoted = inv.get("po_reference")
+        found = [f for f in group(PO_CODES) if f.action != "NOTE"]
+        rows.append({"field": "Purchase order", "on_invoice": plain(quoted) if quoted else "No PO quoted",
+                     "expected": plain(po.get("po_number")) or "No matching PO", "source": where("po_reference"),
+                     "ok": bool(po.get("po_number")) and not found})
+        for f in found:
             if f.expected or f.observed:
-                rows.append({"field": plain(f.title or f.code), "on_invoice": plain(f.observed) or "-",
-                             "expected": plain(f.expected) or "-",
-                             "source": C.stage_display_title(stage.key), "ok": f.action == "NOTE"})
+                rows.append(finding_row(f.title or "Purchase order", f,
+                                        where("total") if f.code == "OVER_PO_BALANCE" else where("po_reference")))
+        used |= {id(f) for f in group(PO_CODES)}
+        prices = group(PRICE_CODES)
+        for f in prices:
+            rows.append(finding_row("Price", f, line_where(f)))
+        if not prices and po.get("po_number"):
+            rows.append({"field": "Prices", "on_invoice": f"{T.plural(len(inv.line_items), 'line')}",
+                         "expected": "at the PO price", "source": line_where(None), "ok": True})
+        qty = group(QTY_CODES)
+        for f in qty:
+            rows.append(finding_row("Quantity" if f.code == "QTY_OVER_PO" else "Goods received", f, line_where(f)))
+        if not qty and po.get("po_number"):
+            rows.append({"field": "Quantities", "on_invoice": f"{T.plural(len(inv.line_items), 'line')}",
+                         "expected": "within the PO and the goods received", "source": line_where(None), "ok": True})
+        used |= {id(f) for f in prices + qty}
+    if "validate" in ran and inv is not None:
+        tax = group(TAX_CODES)
+        for f in tax:
+            rows.append(finding_row("Tax (GST)", f, where("tax_total") if inv.fields.get("tax_total") else where("total")))
+        if not tax:
+            rows.append({"field": "Tax (GST)", "on_invoice": plain(T.fmt_inr(inv.get("tax_total"))) if inv.get("tax_total") else "as charged",
+                         "expected": "right rate and type for the two GSTINs", "source": where("vendor_gstin"), "ok": True})
+        used |= {id(f) for f in tax}
+    if "duplicates" in ran:
+        dup = group(DUP_CODES)
+        for f in dup:
+            original = f.evidence.get("original_invoice_no") or f.evidence.get("original_run_id") or "an earlier invoice"
+            rows.append(finding_row("Duplicates", f, f"Compared with {plain(original)} in the books"))
+        if not dup:
+            rows.append({"field": "Duplicates", "on_invoice": plain(inv.get("invoice_number")) if inv and inv.get("invoice_number") else "-",
+                         "expected": "no earlier invoice like this", "source": "Compared with every invoice in the books",
+                         "ok": True})
+        used |= {id(f) for f in dup}
+    if "vendor" in ran and inv is not None:
+        bank = group(BANK_CODES)
+        for f in bank:
+            account = str(f.evidence.get("invoice_account") or "")
+            on_file = str(f.evidence.get("master_account") or "")
+            rows.append({"field": "Bank details", "on_invoice": f"Account ending {account[-4:]}" if account else "-",
+                         "expected": f"Account ending {on_file[-4:]} on file" if on_file else "-",
+                         "source": where("bank_account"), "ok": False})
+        if not bank:
+            account = str(inv.get("bank_account") or "")
+            rows.append({"field": "Bank details", "on_invoice": f"Account ending {account[-4:]}" if account else "No account printed",
+                         "expected": "the account on file", "source": where("bank_account"), "ok": True})
+        used |= {id(f) for f in bank}
+    for stage in result.stages:                         # anything else that was found, with its real values
+        for f in stage.findings:
+            if id(f) in used or f.action == "NOTE" or not (f.expected or f.observed):
+                continue
+            field = {"MISSING_INVOICE_NUMBER": "invoice_number", "MISSING_TOTAL": "total",
+                     "MISSING_INVOICE_DATE": "invoice_date"}.get(f.code, "")
+            rows.append(finding_row(f.title or "Check", f, where(field) if field else
+                                    ("The whole document" if stage.key in ("read", "extract") else line_where(None))))
     return rows
 
 
@@ -347,7 +482,7 @@ def page() -> None:
     pipeline = C.get_pipeline(store=store)
     samples = C.manifest()
     st.title("Process an invoice")
-    st.caption("PDF in, decision out. Samples and uploads run through the same pipeline; nothing on this page is "
+    st.caption("PDF in, decision out. Samples and uploads go through the same nine steps; nothing on this page is "
                "worked out in advance.")
 
     flash = st.session_state.pop("flash", None)
@@ -371,17 +506,25 @@ def page() -> None:
             s = by_id[sample_id]
             done = seen.get(hashes.get(sample_id, ""))
             return (f"{s['order']:02d}  {s['title']}  [{s.get('tag', 'Sample')}]" +
-                    (f"   (processed: {done['run_id']} {done['verdict']})" if done else ""))
+                    (f"   (processed: {done['run_id']}, {C.verdict_display_label(done['verdict'])})" if done else ""))
 
         pick, button = st.columns([0.74, 0.26], vertical_alignment="bottom")
         chosen = pick.selectbox("Document", list(by_id), format_func=label, key="proc_sample")
         go = button.button("Process this invoice", type="primary", width="stretch", key="proc_go")
         sample = by_id[chosen]
-        st.caption(f"{sample['description']} {expected_text(sample, hashes.get(chosen, ''))}")
+        st.caption(C.screen_words(f"{sample['description']} {expected_text(sample, hashes.get(chosen, ''))}"))
+        previous = st.session_state.get("proc_prev_sample")
+        if previous is not None and previous != chosen and not going_live:   # a new choice clears the last answer
+            st.session_state.pop("current_run", None)
+            st.session_state.pop("batch", None)
+        st.session_state["proc_prev_sample"] = chosen
         done = seen.get(hashes.get(chosen, ""))
-        if done:
-            st.caption(f"Already received as {done['run_id']}. Sending the same file again returns that record and books "
-                       f"nothing twice. For a clean start use 'Start a fresh demo' on the Guided demo page.")
+        if done and done["run_id"] in st.session_state.get("proc_mine", []) and not going_live:
+            st.caption(f"Processed in this session as {done['run_id']}. Sending the same file again is stopped at "
+                       f"step 1 as a duplicate and links back to {done['run_id']}.")
+        elif done and not going_live:
+            st.caption(f"Already received as {done['run_id']}. Sending the same file again is stopped at step 1 as a "
+                       f"duplicate. For a clean start use 'Start a fresh demo' on the Guided demo page.")
         if going_live == "sample":
             content, name, source = sample_lib.sample_bytes(sample), sample_name(sample), "sample"
     else:
@@ -413,8 +556,13 @@ def page() -> None:
         st.session_state.pop("batch", None)
         result = run_live(area, pipeline, content, name, source, pace_seconds())
         st.session_state["proc_runs"] = st.session_state.get("proc_runs", 0) + 1
+        adopt_for = st.session_state.pop("demo_adopt", None)
         if result is not None:
             st.session_state["current_run"] = result.run_id
+            st.session_state.setdefault("proc_mine", []).append(result.run_id)
+            if adopt_for:
+                from . import demo
+                demo.adopt(result, adopt_for)
         st.rerun()
 
     with area.container():

@@ -129,7 +129,7 @@ def test_the_statutory_date_uses_the_delivery_date_when_known_and_says_so_when_i
     delivered = [master.pos["PO-2026-1042"].line(1)]
     clock = cases.statutory_clock(micro, delivered, date(2026, 10, 12), Decimal("94400.00"), rules, TODAY)
     assert clock["due"] == date(2026, 11, 24) and clock["days_left"] == 3
-    assert clock["basis"] == "counted from the delivery recorded on 10 Oct 2026"
+    assert clock["basis"] == "counted from the delivery recorded on 10-Oct-2026"
     assert clock["interest_per_day"] == 45 and clock["approximate"] is True     # 94,400 x 3 x 5.75% / 365 = 44.61
     po = master.pos["PO-2026-1041"]
     clock = cases.statutory_clock(small, [po.line(1), po.line(2)], date(2026, 11, 19), Decimal("175112.00"), rules, TODAY)

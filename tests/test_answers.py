@@ -63,7 +63,7 @@ def test_invoice_numbers_found_despite_spacing_and_case(store, master, rules, pi
     item = _ask(store, master, rules, pipeline, _eml(text="What is the payment status of dqi 26-27 1187?\n"))
     d = _draft(store, master, rules, item)
     assert [f["invoice_no"] for f in d["facts"]] == ["DQI/26-27/1187"]
-    assert "DQI/26-27/1187 dated 03 Nov 2026 for Rs 6,39,088.00: Approved. Due for payment on 18 Dec 2026." in d["text"]
+    assert "DQI/26-27/1187 dated 03-Nov-2026 for ₹6,39,088.00: Approved. Scheduled for payment on 18-Dec-2026 (not in this week's run)." in d["text"]
 
 
 def test_not_found_asks_for_a_copy(store, master, rules, pipeline):
@@ -72,7 +72,7 @@ def test_not_found_asks_for_a_copy(store, master, rules, pipeline):
             "ap@nilgiri-precision.example.") in d["text"]
     assert d["text"].startswith("Subject: RE: Payment status: DQI/26-27/1187 and DQI/26-27/1193\n\n"
                                 "Dear Deccan Quill Infotech LLP accounts team,\n\n"
-                                "Here is where your invoices stand in our records on 21 Nov 2026.")
+                                "Here is where your invoices stand in our records on 21-Nov-2026.")
     assert d["text"].rstrip().endswith("Accounts Payable, Nilgiri Precision Components Pvt Ltd\nap@nilgiri-precision.example")
 
 
@@ -80,7 +80,8 @@ def test_duplicate_is_explained_with_the_existing_vendor_sentence(store, master,
     dup = _run(pipeline, "05_E2_disguised_duplicate")
     issue = next(f.vendor_issue for f in dup.decision.reasons if f.vendor_issue)
     d = _draft(store, master, rules, _ask(store, master, rules, pipeline, m3(), "m3.eml"))
-    assert f"DQI/26-27/1193 dated 05 Nov 2026 for Rs 6,39,088.00: Not accepted. {issue}" in d["text"]
+    assert f"DQI/26-27/1193 dated 05-Nov-2026 for ₹6,39,088.00: Not accepted. {answers._sentence(issue)}" in d["text"]
+    assert all(line.strip()[-1] in ".:," for line in d["text"].splitlines() if line.strip() and not line.startswith(("Subject", "ap@", "Accounts Payable")))
     assert "DQI/26-27/1187" in issue
 
 
@@ -92,21 +93,21 @@ def test_status_sentence_for_each_state(store, master, rules, pipeline):
     p = payments.propose(store, master, rules, TODAY)
     payments.approve(store, master, rules, TODAY, p["fingerprint"], ["N. Rao"], True, TODAY)
     s = lambda vendor_id, number: answers.status_line(store, master, rules, vendor_id, number, TODAY)  # noqa: E731
-    assert s("V005", "SIS/2311")["sentence"] == ("Approved and included in the payment run approved on 21 Nov 2026. "
+    assert s("V005", "SIS/2311")["sentence"] == ("Approved and included in the payment run approved on 21-Nov-2026. "
                                                  "Payment is released by our Finance team through the bank.")
     assert s("V001", "TOF/26-27/0412")["sentence"] == (
         "Approved. Payment is waiting for a verification on your vendor record. Our team will contact you on the "
         "phone number we hold for you.")
     case09 = store.case_for_run(run_ids["09_fraud_guard_bank_change"].run_id)
-    assert s("V001", "TOF/26-27/0431")["sentence"] == (f"Received on 21 Nov 2026 and being checked. "
+    assert s("V001", "TOF/26-27/0431")["sentence"] == (f"Received on 21-Nov-2026 and being checked. "
                                                        f"Reference {case09['case_id']}.")        # a fraud check is never named
     run08 = run_ids["08_E4b_tax_inclusive_over_tolerance"]
     issue = next(f.vendor_issue for f in run08.decision.reasons if f.vendor_issue).strip().rstrip(".")
     case08 = store.case_for_run(run08.run_id)
-    assert s("V005", "SIS/2327")["sentence"] == f"On hold. {issue}. Reference {case08['case_id']}."
+    assert s("V005", "SIS/2327")["sentence"] == f"On hold. {answers._sentence(issue)} Reference {case08['case_id']}."
     case_c1 = store.case_for_run(run_ids["c1_invoice_before_goods"].run_id)
-    assert s("V101", "KBD/26-27/1193")["sentence"] == f"Received on 21 Nov 2026 and being checked. Reference {case_c1['case_id']}."
-    assert s("V002", "DQI/26-27/1187")["sentence"] == "Approved. Due for payment on 18 Dec 2026."
+    assert s("V101", "KBD/26-27/1193")["sentence"] == f"Received on 21-Nov-2026 and being checked. Reference {case_c1['case_id']}."
+    assert s("V002", "DQI/26-27/1187")["sentence"] == "Approved. Scheduled for payment on 18-Dec-2026 (not in this week's run)."
     assert s("V002", "NOPE/1")["sentence"] == ("We have no record of receiving invoice NOPE/1. Please send a copy to "
                                                "ap@nilgiri-precision.example.")
 
@@ -171,7 +172,7 @@ def test_reword_refused_when_a_fact_changes(store, master, rules, pipeline, tmp_
     on = rules.model_copy(update={"answers": rules.answers.model_copy(update={"ai_reword": True})})
     item = _ask(store, master, rules, pipeline, _eml(text="Payment status of DQI/26-27/1187?\n"))
     plain = answers.draft(store, master, rules, item, TODAY)
-    altered = {"subject": "RE: Payment status", "body": plain["body"].replace("18 Dec 2026", "28 Dec 2026")}
+    altered = {"subject": "RE: Payment status", "body": plain["body"].replace("18-Dec-2026", "28-Dec-2026")}
     d = answers.draft(store, master, on, item, TODAY, llm=assistant(tmp_path, FakeApi(altered)))
     assert d["text"] == plain["text"] and d["reworded"] is False
 
@@ -181,7 +182,7 @@ def test_answers_off(store, master, rules, pipeline):
     out = inbox.deliver(store, master, off, pipeline, [("m3.eml", m3())], TODAY)
     item = store.get_message(out[0]["message_id"])
     assert item["kind"] == "status_query" and item["owner"] == "AP analyst"
-    assert "answers.enabled" in item["action"]
+    assert "Answers are switched off in the desk rules" in item["action"] and "answers.enabled" not in item["action"]
     assert answers.draft(store, master, off, item, TODAY)["status"] == "off"
 
 

@@ -181,7 +181,7 @@ def test_bundled_mailbox_outcomes(store, master, rules, pipeline):
     assert items[3]["sender_check"] == "lookalike" and "tungabhadra-furnishing.example" in items[3]["sender_detail"]
     assert items[6]["action"].startswith("This file was already received on ")
     assert items[6]["run_ids"] == [] and len(store.list_runs()) == 2
-    assert items[2]["action"] == ("Payment question about 2 invoice(s). An answer is drafted from the records for "
+    assert items[2]["action"] == ("Payment question about 2 invoices. An answer is drafted from the records for "
                                   "you to approve.")
     assert store.verify_chain()["ok"]
 

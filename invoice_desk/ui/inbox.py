@@ -12,7 +12,9 @@ from .. import cases as case_engine
 from .. import answers, config
 from .. import inbox as desk_inbox
 from ..mailbox import strip_quoted
+from .. import textutil as T
 from . import common as C
+from . import ui_kit as K
 
 CAPTION = ("Everything that reaches the AP address lands here. The desk sorts each message, does what the procedure "
            "allows, and shows who has the next step.")
@@ -25,53 +27,104 @@ def _flash() -> None:
         {"success": st.success, "info": st.info, "error": st.error}[kind](text)
 
 
-def _deliver(files: list[tuple[str, bytes]], store, rules) -> None:
+def _deliver(files: list[tuple[str, bytes]], store, rules, morning: bool = False) -> None:
     pipeline = C.get_pipeline(store=store)
     results = []
-    with st.status(f"Reading {len(files)} message(s)...", expanded=True) as box:
-        for name, data in files:
-            st.write(f"{name}: reading")
-            results += desk_inbox.deliver(store, C.get_master(), rules, pipeline, [(name, data)], C.business_date())
+    with st.status(f"Reading {T.plural(len(files), 'message')}", expanded=True) as box:
+        for i, (name, data) in enumerate(files, 1):
+            st.write(f"Message {i} of {len(files)}: {name}")
+            results += desk_inbox.deliver(store, C.get_master(), rules, pipeline, [(name, data)], C.business_date(),
+                                          morning=morning)
         box.update(label="Done", state="complete")
     new = sum(r["status"] == "received" for r in results)
     seen = len(results) - new
-    st.session_state["flash_inbox"] = ("success", f"{new} message(s) received and sorted"
-                                       + (f"; {seen} had already been received and changed nothing." if seen else "."))
+    st.session_state["flash_inbox"] = ("success", f"{T.plural(new, 'message')} received and sorted"
+                                       + (f". {T.plural(seen, 'message')} had already been received and changed "
+                                          f"nothing." if seen else "."))
     st.rerun()
+
+
+def size_text(size: int) -> str:
+    """An attachment's real size: 227 bytes, 3.1 KB, 1.2 MB."""
+    size = int(size or 0)
+    if size < 1024:
+        return f"{size} byte{'s' if size != 1 else ''}"
+    if size < 1024 * 1024:
+        return f"{size / 1024:.1f} KB"
+    return f"{size / 1024 / 1024:.1f} MB"
+
+
+def grouped(rows: list[dict]) -> list[dict]:
+    """One row per email. A second item made from the same email (bank-change wording sent to the Vendor
+    master team as well) is carried inside the first as `also`, so no email is listed twice."""
+    groups: dict[str, list[dict]] = {}
+    order: list[str] = []
+    for r in rows:
+        key = r.get("eml_sha256") or r.get("rfc_message_id") or r["message_id"]
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(r)
+    out = []
+    for key in order:
+        group = groups[key]
+        lead = min(group, key=lambda g: (g["message_id"].endswith("-VM"), g["message_id"]))
+        out.append({**lead, "also": [g for g in group if g is not lead]})
+    return out
+
+
+def short_action(text: str, limit: int = 90) -> str:
+    """The first sentence of what the desk did, for the table. The full text is in the message."""
+    text = (text or "").strip()
+    first = text.split(". ")[0].rstrip(".")
+    return (first if len(first) <= limit else first[:limit - 3].rsplit(" ", 1)[0] + "...") + "."
 
 
 def _figures(store) -> None:
     f = desk_inbox.figures(store, C.business_date())
-    plain = {"delta_color": "off", "delta_arrow": "off", "border": True}
     row = st.columns(4)
-    row[0].metric("Received", f["received"], **plain)
-    row[1].metric("Sorted with no person needed", f["sorted"], **plain)
-    row[2].metric("Waiting for a person", f["waiting"], **plain)
-    row[3].metric("Oldest waiting (days)", f["oldest_days"], **plain)
+    with row[0]:
+        K.kpi_card("Received", str(f["received"]), "emails, each listed once",
+                   help="Every email that reached the AP address. A second item made from the same email is shown "
+                        "inside it, not as a new row.")
+    with row[1]:
+        K.kpi_card("Sorted, no person", str(f["sorted"]), "handled by the rules",
+                   help="Messages the desk sorted and finished with nobody touching them.")
+    with row[2]:
+        K.kpi_card("Waiting for a person", str(f["waiting"]), "each with a named owner",
+                   help="Items that need a person, including a bank-change request sent to the Vendor master team.")
+    with row[3]:
+        K.kpi_card("Oldest waiting", T.plural(f["oldest_days"], "day"), "since it arrived",
+                   help="The age of the oldest item still waiting for a person.")
 
 
 def _due_text(row: dict) -> str:
-    if row["state"] in ("sorted", "closed"):
+    if row["state"] in ("sorted", "closed") and not any(a["state"] == "waiting" for a in row.get("also", [])):
         return "-"
     day = desk_inbox._day(row["due_on"])
     return (case_engine.day_text(day) if day else "-") + (" (overdue)" if row["overdue"] else "")
 
 
 def _who(row: dict) -> str:
-    return "-" if row["state"] in ("sorted", "closed") else row["owner"]
+    owners = [g["owner"] for g in [row] + row.get("also", []) if g["state"] not in ("sorted", "closed") and g["owner"]]
+    return " and ".join(dict.fromkeys(owners)) or "-"
 
 
 def _detail(row: dict, store, rules) -> None:
     mid = row["message_id"]
+    state = {"sorted": ("resolved", "Sorted, no person needed"), "waiting": ("due_soon", "Waiting for a person"),
+             "answered": ("resolved", "Answered"), "closed": ("resolved", "Closed")}.get(row["state"])
+    if state:
+        st.markdown(K.chip_md(*state) + " " + K.chip_md("on_track", desk_inbox.KIND_LABEL.get(row["kind"], row["kind"])))
     st.markdown(f"**{C.esc(row['subject'] or '(no subject)')}**", unsafe_allow_html=True)
-    st.caption(f"From {row['sender'] or 'unknown'} | received {config.to_ist_text(row['received_at'])} | {mid}")
+    st.caption(f"From {row['sender'] or 'unknown'} · received {config.to_ist_text(row['received_at'])} · {mid}")
     new_text, quoted = strip_quoted(row["body"] or "")
     st.text(new_text.strip() or "(no text)")
     if quoted:
         with st.expander("Quoted earlier messages"):
             st.text(quoted)
     if row["attachments"]:
-        C.table({"Attachment": a["name"], "Type": a["mime"], "Size (KB)": f"{a['size'] / 1024:.0f}"}
+        C.table({"Attachment": a["name"], "Type": a["mime"], "Size": size_text(a["size"])}
                 for a in row["attachments"])
     sender_line = row["sender_detail"]
     if row["sender_check"] == "lookalike":
@@ -82,6 +135,8 @@ def _detail(row: dict, store, rules) -> None:
     C.text_block(f"What the desk did: {row['action']}")
     for flag in row["flags"]:
         st.warning(flag)
+    for extra in row.get("also", []):
+        st.warning(f"Also sent to the {extra['owner']}: {extra['action']}")
     links = st.columns(3)
     if row["run_ids"] and links[0].button("Open the run", key=f"ib_run_{mid}", icon=":material/receipt_long:"):
         st.session_state["goto"] = "dashboard"
@@ -107,18 +162,26 @@ def _detail(row: dict, store, rules) -> None:
                     st.rerun()
                 except desk_inbox.InboxError as exc:
                     st.error(str(exc))
+    for extra in row.get("also", []):
+        if extra["state"] == "waiting":
+            _close_form(extra, store, f"Close the {extra['owner']} item")
     if row["state"] == "waiting":
-        with st.form(key=f"ib_close_{mid}"):
-            st.markdown("**Close this item**")
-            who = st.text_input("Your name", key=f"ib_close_name_{mid}")
-            note = st.text_input("One-line note", key=f"ib_close_note_{mid}")
-            if st.form_submit_button("Close"):
-                try:
-                    desk_inbox.close_item(store, mid, who, note, C.business_date())
-                    st.session_state["flash_inbox"] = ("success", f"{mid} closed by {who.strip()}.")
-                    st.rerun()
-                except desk_inbox.InboxError as exc:
-                    st.error(str(exc))
+        _close_form(row, store, "Close this item")
+
+
+def _close_form(row: dict, store, title: str) -> None:
+    mid = row["message_id"]
+    with st.form(key=f"ib_close_{mid}"):
+        st.markdown(f"**{title}**")
+        who = st.text_input("Your name", key=f"ib_close_name_{mid}")
+        note = st.text_input("One-line note", key=f"ib_close_note_{mid}")
+        if st.form_submit_button("Close"):
+            try:
+                desk_inbox.close_item(store, mid, who, note, C.business_date())
+                st.session_state["flash_inbox"] = ("success", f"{mid} closed by {who.strip()}.")
+                st.rerun()
+            except desk_inbox.InboxError as exc:
+                st.error(str(exc))
 
 
 def _answer(row: dict, store, rules) -> None:
@@ -170,26 +233,28 @@ def page() -> None:
     bundled = desk_inbox.bundled_mail()
     morning = desk_inbox.bundled_mail("next_morning")
     left, right = st.columns([1, 2])
-    if left.button(f"Deliver today's mail ({len(bundled)} messages)", key="ib_deliver", type="primary",
+    if left.button(f"Deliver today's mail ({T.plural(len(bundled), 'message')})", key="ib_deliver", type="primary",
                    icon=":material/mail:", disabled=not bundled):
         _deliver(bundled, store, rules)
-    if left.button(f"Deliver the next morning's mail ({len(morning)} replies)", key="ib_deliver_next",
-                   icon=":material/forward_to_inbox:", disabled=not morning):
-        _deliver(morning, store, rules)
+    if left.button(f"Deliver the next morning's mail ({T.plural(len(morning), 'reply', 'replies')})",
+                   key="ib_deliver_next", icon=":material/forward_to_inbox:", disabled=not morning):
+        _deliver(morning, store, rules, morning=True)
     uploads = right.file_uploader("Add .eml files", type=["eml"], accept_multiple_files=True, key="ib_upload")
     if uploads and right.button("Read the added files", key="ib_read_uploads"):
         _deliver([(u.name, u.getvalue()) for u in uploads], store, rules)
-    st.caption("No mailbox is connected in this build. Messages are files.")
+    st.caption("No mailbox is connected yet. Messages arrive as files.")
     _figures(store)
 
-    rows = desk_inbox.listing(store, C.business_date())
+    rows = grouped(desk_inbox.listing(store, C.business_date()))
     if not rows:
-        st.markdown(C.neutral_banner_html("Inbox empty", "No messages yet",
-                                          "Deliver today's mail to see the desk sort it."), unsafe_allow_html=True)
+        st.info("No messages yet. Deliver today's mail to see the desk sort it.", icon=":material/inbox:")
         return
-    C.table({"When": config.to_ist_text(r["received_at"]), "From": r["sender"], "Subject": r["subject"],
-             "What it is": desk_inbox.KIND_LABEL.get(r["kind"], r["kind"]), "What the desk did": r["action"],
-             "Next step with": _who(r), "Due": _due_text(r)} for r in rows)
+    st.dataframe([{"When": config.to_ist_text(r["received_at"]), "From": r["sender"], "Subject": r["subject"],
+                   "What it is": desk_inbox.KIND_LABEL.get(r["kind"], r["kind"]),
+                   "What the desk did": short_action(r["action"]), "Next step with": _who(r), "Due": _due_text(r)}
+                  for r in rows], hide_index=True, width="stretch", key="ib_table",
+                 column_config={"What the desk did": st.column_config.TextColumn(width="large"),
+                                "Subject": st.column_config.TextColumn(width="medium")})
     labels = {f"{desk_inbox.KIND_LABEL.get(r['kind'], r['kind'])}: {r['subject'] or '(no subject)'} ({r['message_id']})": r
               for r in rows}
     chosen = st.selectbox("Open a message", list(labels), key="ib_open")

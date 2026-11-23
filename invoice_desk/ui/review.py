@@ -42,7 +42,7 @@ def _po_now(result, store) -> None:
 def _approving(result, row: dict, bank: bool, booked: bool) -> str:
     """Exactly what the signature does, in one sentence: nobody approves what they cannot see."""
     amount = amount_text(row.get("total")) or "the invoice total"
-    vendor = plain(row.get("vendor_name") or "this vendor")
+    vendor = plain(C.vendor_case(row.get("vendor_name")) or "this vendor")
     if not booked:
         return "Closing this document as processed by hand. Nothing is paid from this screen."
     if bank:
@@ -65,8 +65,8 @@ def _pending_card(row: dict, store) -> None:
     booked = bool(result.ledger_id)
     with st.container(border=True):
         top = st.container(horizontal=True, vertical_alignment="center")
-        top.markdown(f"**{plain(row.get('vendor_name') or 'Unknown vendor')}** · "
-                     f"{plain(row.get('invoice_no') or 'number missing')}"
+        top.markdown(f"**{plain(C.vendor_case(row.get('vendor_name')) or 'Unknown vendor')}** · "
+                     f"{'invoice ' + plain(row.get('invoice_no')) if row.get('invoice_no') else 'invoice (number missing)'}"
                      f"{' · ' + amount_text(row.get('total')) if row.get('total') else ''}")
         if bank:
             top.markdown(K.chip_md("due_soon", "Needs two people"))
@@ -74,7 +74,7 @@ def _pending_card(row: dict, store) -> None:
         st.markdown("**You are approving**")
         st.markdown(_approving(result, row, bank, booked))
         st.markdown("**What the desk found**")
-        C.render_findings(d.reasons, with_summary=len(d.reasons) > 1)
+        C.render_findings(d.reasons, with_summary=len(d.reasons) > 1, codes=True)
         if bank:
             st.markdown(f"First approval: {plain(first['reviewer']) + ' · ' + config.to_ist_text(first['decided_at']) if first else 'waiting'}  \n"
                         f"Second approval: waiting")
@@ -135,9 +135,14 @@ def _pending_card(row: dict, store) -> None:
                      "Approve for payment" if booked else "Close as processed manually")
             approve = b1.form_submit_button(label, type="primary", width="stretch")
             reject = b2.form_submit_button("Reject", width="stretch")
+        inline = st.session_state.get("review_inline")
+        if inline and inline[0] == run_id:              # the reason, right under the button that was pressed
+            st.session_state.pop("review_inline", None)
+            st.error(inline[1])
         if approve and first is not None and reviewer.strip().casefold() == str(first["reviewer"]).strip().casefold():
-            st.session_state["flash_review_error"] = (f"{run_id}: Choose a different person. Two people must agree to a "
-                                                      f"bank change.")
+            words = "Choose a different person. Two people must agree to a bank change."
+            st.session_state["flash_review_error"] = f"{run_id}: {words}"
+            st.session_state["review_inline"] = (run_id, words)
             st.rerun()
         if approve or reject:
             decision = "REJECT" if reject else ("APPROVE" if booked else "HANDLED")
@@ -147,6 +152,7 @@ def _pending_card(row: dict, store) -> None:
                                        rules=C.get_rules(), evidence=proof)
             except ReviewError as exc:
                 st.session_state["flash_review_error"] = f"{run_id}: {exc}"
+                st.session_state["review_inline"] = (run_id, str(exc))
                 st.rerun()
             else:
                 st.session_state["reviewer"] = reviewer.strip()
@@ -180,7 +186,7 @@ def page() -> None:
         st.markdown("**Nothing needs a signature.** Nothing is waiting for a person: invoices put on hold appear here "
                     "with the question that has to be answered.")
     else:
-        st.markdown(f"**{len(pending)} invoice(s) waiting**, oldest first.")
+        st.markdown(f"**{T.plural(len(pending), 'invoice')} waiting**, oldest first.")
         for row in pending:
             _pending_card(row, store)
 
@@ -190,8 +196,11 @@ def page() -> None:
         by_run = {r["run_id"]: r for r in runs}
         words = {"APPROVE": "approved for payment", "REJECT": "rejected", "HANDLED": "closed, processed manually",
                  "FIRST_APPROVAL": "first of two approvals", "RELEASED": "released by rule (no person needed)"}
-        C.table({"Reference": r["run_id"], "Vendor": by_run.get(r["run_id"], {}).get("vendor_name", "-"),
+        rows = [{"Reference": r["run_id"], "Vendor": C.vendor_case(by_run.get(r["run_id"], {}).get("vendor_name", "-")),
                  "Invoice no.": by_run.get(r["run_id"], {}).get("invoice_no", "-") or "-",
                  "Total": C.money(by_run.get(r["run_id"], {}).get("total")) if by_run.get(r["run_id"], {}).get("total") else "-",
                  "Decision": words.get(r["decision"], r["decision"]), "Reviewer": r["reviewer"], "Note": r["note"] or "-",
-                 "When": config.to_ist_text(r["decided_at"])} for r in reversed(reviews))
+                 "When": config.to_ist_text(r["decided_at"])} for r in reversed(reviews)]
+        st.dataframe(rows, hide_index=True, width="stretch", key="rev_decided",
+                     column_config={"Note": st.column_config.TextColumn(width="large"),
+                                    "Decision": st.column_config.TextColumn(width="medium")})

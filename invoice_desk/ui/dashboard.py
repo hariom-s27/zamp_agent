@@ -140,7 +140,7 @@ def _kpis(runs: list[dict]) -> None:
     row = st.columns(3)
     row[0].metric("Rejected", len(rejected), "nothing was booked for these", **plain)
     row[1].metric("Released for payment", C.money(value(released)),
-                  f"{len(released)} invoice(s), including approved on review or released by rule", **plain)
+                  f"{T.plural(len(released), 'invoice')}, including approved on review or released by rule", **plain)
     typical = C.took(statistics.median(text_times)) if text_times else "-"
     row[2].metric("Typical handling time", typical if text_times else (C.took(statistics.median(scan_times)) if scan_times else "-"),
                   (f"scanned pages: {C.took(statistics.median(scan_times))} (OCR)" if scan_times and text_times
@@ -167,23 +167,23 @@ def _case_figures(store) -> None:
 def _chain(store) -> None:
     check = store.verify_chain()
     if check["ok"]:
-        st.success(f"Tamper-evident audit trail: intact. All {check['count']} entries were re-checked just now.",
+        st.success(f"Audit trail: intact. All {check['count']} entries were re-checked just now.",
                    icon=":material/verified_user:")
     else:
-        st.error("Tamper-evident audit trail: BROKEN. " + "; ".join(check["problems"][:5]), icon=":material/gpp_bad:")
+        st.error("Audit trail: BROKEN. " + "; ".join(check["problems"][:5]), icon=":material/gpp_bad:")
     with st.expander("What this check proves, and what it does not"):
         from ..store import signing_enabled
         head = store.chain_head()
         st.markdown(
-            "- Every decision by the system and every decision by a reviewer is written once as an entry. Each entry "
-            "carries a fingerprint (SHA-256) of its own content and of the entry before it.\n"
-            "- This check recomputes every fingerprint and every link. Editing or removing any past entry makes it fail.\n"
-            "- What it does not prove on its own: someone with full access to the database could rewrite the whole "
-            "trail from the start. Two things close that gap. Keep the latest fingerprint somewhere this system "
-            "cannot write to (an email to audit, a note in the ERP); and set RECEIPT_SIGNING_KEY, which signs each "
-            "entry with a key the database does not hold.")
-        st.caption(f"Latest entry fingerprint: {head}  |  entries: {check['count']}  |  "
-                   f"signing: {'on' if signing_enabled() else 'off (RECEIPT_SIGNING_KEY not set)'}")
+            "- Every decision by the desk and every decision by a reviewer is written once as an entry. Each entry "
+            "carries a seal worked out from its own content and from the entry before it.\n"
+            "- This check works out every seal again. Editing or removing any past entry makes it fail.\n"
+            "- What it does not prove on its own: someone with full access to the books could rewrite the whole "
+            "trail from the start. Two things close that gap: keep the latest seal somewhere the desk cannot write "
+            "to (an email to audit, a note in the ERP), and switch on signing, which signs each entry with a key the "
+            "books do not hold.")
+        st.caption(f"Latest seal: {head}  ·  entries: {check['count']}  ·  "
+                   f"signing: {'on' if signing_enabled() else 'off'}")
 
 
 
@@ -201,11 +201,33 @@ def _at_risk(case: dict, within: int) -> bool:
     return left is not None and left <= within
 
 
-def _cards(store, runs: list[dict], rules) -> None:
-    within = rules.display.attention_days
+def team_of(case: dict) -> str:
+    return "The vendor" if case["waiting_on"] == "vendor" else case["waiting_on"]
+
+
+def book_figures(store, runs: list[dict]) -> dict:
+    """The figures the Dashboard and the Business case both show, from one query, so they always agree:
+    invoices in the books, cleared without a person, on hold now and who is holding them."""
     inv = invoices(runs)
     cleared = [r for r in inv if outcome(r) == OUTCOMES[0]]
     held = [r for r in received(runs) if r["review_status"] == "PENDING"]
+    teams: dict[str, list[int]] = {}
+    for case in _open_cases(store):
+        late = (_days_left(case["due_on"]) or 0) < 0
+        teams.setdefault(team_of(case), [0, 0])[1 if late else 0] += 1
+    return {"invoices": inv, "cleared": cleared, "held": held,
+            "held_amount": sum(float(T.to_decimal(r["total"]) or 0) for r in held),
+            "teams": teams, "by_owner": {t: sum(v) for t, v in teams.items()}}
+
+
+CARD_LABELS = ["Cleared, no person", "On hold now", "Days to clear a hold", "Money stopped",
+               "Legal dates at risk"]
+
+
+def _cards(store, runs: list[dict], rules) -> None:
+    within = rules.display.attention_days
+    figures = book_figures(store, runs)
+    inv, cleared, held = figures["invoices"], figures["cleared"], figures["held"]
     open_cases = _open_cases(store)
     overdue = sum(1 for c in open_cases if (_days_left(c["due_on"]) or 0) < 0)
     closed = [(case_engine._as_date(c["resolved_on"]) - case_engine._as_date(c["opened_on"])).days
@@ -217,36 +239,36 @@ def _cards(store, runs: list[dict], rules) -> None:
     past = sum(1 for c in risk if (_days_left(c["statutory_due"]) or 0) < 0)
     cols = st.columns(5)
     with cols[0]:
-        K.kpi_card("Cleared without a person", f"{round(100 * len(cleared) / len(inv))}%" if inv else "-",
-                   f"of {len(inv)} invoice{'s' if len(inv) != 1 else ''} in these books",
+        K.kpi_card(CARD_LABELS[0], f"{round(100 * len(cleared) / len(inv))}%" if inv else "-",
+                   f"of {T.plural(len(inv), 'invoice')} in these books",
                    help="Invoices that passed every check with nobody touching them, out of all invoices received. "
                         "Files that are not invoices are left out.")
     with cols[1]:
-        K.kpi_card("On hold now", str(len(held)),
-                   f"{K.inr_short(sum(float(T.to_decimal(r['total']) or 0) for r in held))} · {overdue} overdue",
+        K.kpi_card(CARD_LABELS[1], str(len(held)),
+                   f"{K.inr_short(figures['held_amount'])} · {overdue} overdue",
                    help="Invoices waiting on a person today. Overdue means past the answer date the rule book gives "
                         "its owner.")
     with cols[2]:
         if closed:
             p90 = sorted(closed)[max(0, -(-9 * len(closed) // 10) - 1)]
-            K.kpi_card("Days to clear a held invoice", str(round(statistics.median(closed))),
+            K.kpi_card(CARD_LABELS[2], str(round(statistics.median(closed))),
                        f"median · 9 in 10 within {p90} day{'s' if p90 != 1 else ''}",
                        help="From the day an invoice was put on hold to the day it was cleared or rejected.")
         else:
-            K.kpi_card("Days to clear a held invoice", "-", "no hold has been closed yet",
+            K.kpi_card(CARD_LABELS[2], "-", "no hold has been closed yet",
                        help="From the day an invoice was put on hold to the day it was cleared or rejected.")
     with cols[3]:
         note = (f"{biggest}: {K.inr_short(parts[biggest][0])}" if biggest else
-                f"{sum(n for _, n in parts.values())} invoice(s)")
-        K.kpi_card("Money stopped before payment", K.inr_short(stopped), note,
+                T.plural(sum(n for _, n in parts.values()), "invoice"))
+        K.kpi_card(CARD_LABELS[3], K.inr_short(stopped), note,
                    help="Money that would have been paid wrongly. Duplicates and unverified bank changes count in "
                         "full. Overbilling counts only the excess. Anything later cleared counts as zero.")
         if parts:
             with st.popover("The parts", icon=":material/list:"):
                 st.markdown(" · ".join(f"{name} {K.inr_short(a)} ({n})" for name, (a, n) in parts.items()))
     with cols[4]:
-        K.kpi_card("Small-supplier deadlines at risk", str(len(risk)),
-                   f"within {within} days of the legal limit" + (f", {past} past the limit" if past else ""),
+        K.kpi_card(CARD_LABELS[4], str(len(risk)),
+                   f"small suppliers within {within} days of the legal limit" + (f", {past} past it" if past else ""),
                    help="Micro and small suppliers must be paid within the agreed period, at most 45 days from "
                         "acceptance, or 15 days with no written terms.")
 
@@ -272,18 +294,15 @@ def _charts(store, runs: list[dict]) -> None:
             st.altair_chart(chart, width="stretch", key="dash_chart_months")
     with b:
         st.markdown("**Who is holding invoices today**")
-        teams: dict[str, list[int]] = {}
-        for case in _open_cases(store):
-            team = "The vendor" if case["waiting_on"] == "vendor" else case["waiting_on"]
-            late = (_days_left(case["due_on"]) or 0) < 0
-            teams.setdefault(team, [0, 0])[1 if late else 0] += 1
+        teams = book_figures(store, runs)["teams"]
         if not teams:
             st.caption("Nobody is holding an invoice today.")
         else:
             frame = pd.DataFrame([{"Team": t, "State": s, "Invoices": v[i]} for t, v in teams.items()
                                   for i, s in enumerate(["On time", "Overdue"]) if v[i]])
             chart = alt.Chart(frame).mark_bar().encode(
-                y=alt.Y("Team:N", sort="-x", title=None), x=alt.X("Invoices:Q", stack="zero", axis=alt.Axis(tickMinStep=1)),
+                y=alt.Y("Team:N", sort="-x", title=None, axis=alt.Axis(labelLimit=260)),
+                x=alt.X("Invoices:Q", stack="zero", axis=alt.Axis(tickMinStep=1, format="d")),
                 color=alt.Color("State:N", scale=alt.Scale(domain=["On time", "Overdue"], range=["#9aa0a6", "#c9343d"]),
                                 legend=alt.Legend(orient="bottom", title=None)), tooltip=["Team", "State", "Invoices"])
             st.altair_chart(chart, width="stretch", key="dash_chart_teams")
@@ -321,7 +340,8 @@ def _needs_attention(store, rules) -> None:
         line = st.container(horizontal=True, vertical_alignment="center", border=True)
         amount = amount_text(row.get("total"))
         who = "the vendor" if case["waiting_on"] == "vendor" else case["waiting_on"]
-        line.markdown(f"**{plain(row.get('vendor_name') or 'Unknown vendor')}** · {plain(row.get('invoice_no') or '-')}"
+        number = f"invoice {plain(row['invoice_no'])}" if row.get("invoice_no") else "invoice (number missing)"
+        line.markdown(f"**{plain(C.vendor_case(row.get('vendor_name')) or 'Unknown vendor')}** · {number}"
                       f"{' · ' + amount if amount else ''} · Waiting on {plain(who)}")
         due = case_engine._as_date(case["due_on"])
         if due:
@@ -340,7 +360,8 @@ def _needs_attention(store, rules) -> None:
 
 def _history(store, runs: list[dict], rules) -> None:
     f1, f2, f3 = st.columns([0.3, 0.3, 0.4])
-    verdicts = f1.multiselect("Decision", ORDER, default=[], placeholder="All decisions", key="dash_verdict")
+    verdicts = f1.multiselect("Decision", ORDER, default=[], placeholder="All decisions", key="dash_verdict",
+                              format_func=C.verdict_display_label)
     vendors = sorted({r["vendor_name"] for r in runs if r["vendor_name"]})
     vendor = f2.selectbox("Vendor", ["All vendors"] + vendors, key="dash_vendor")
     query = f3.text_input("Search file, invoice number or PO", key="dash_query").strip().lower()
@@ -364,7 +385,8 @@ def _history(store, runs: list[dict], rules) -> None:
         default = picked[0]
     st.subheader("Invoice record")
     run_id = st.selectbox("Record to open (or select a row above)", ids, index=default, key=f"dash_pick_{default}_{len(ids)}",
-                          format_func=lambda i: next(f"{r['run_id']}  {r['verdict']}  {C.display_name(r['file_name'])}"
+                          format_func=lambda i: next(f"{r['run_id']}  {C.verdict_display_label(r['verdict'])}  "
+                                                     f"{C.display_name(r['file_name'])}"
                                                      for r in shown if r["run_id"] == i))
     st.session_state["dash_run"] = run_id
     result = store.get_run(run_id)
@@ -379,6 +401,8 @@ def page() -> None:
     rules = C.get_rules()
     st.title("Dashboard")
     st.caption("What was received, how it was decided and where it stands. Everything here is read from the stored records.")
+    if rules.cases.enabled:                  # the same case figures as the Business case and Cases pages
+        case_engine.sync(store, case_engine.master_with_receipts(C.get_master(), store), rules, C.business_date())
     runs = store.list_runs()
     if not runs:
         st.info("Nothing received yet. No document has been processed in these books. Run the Guided demo, process "

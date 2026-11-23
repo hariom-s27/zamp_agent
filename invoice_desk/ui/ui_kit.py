@@ -45,7 +45,7 @@ def actor_chip(kind: str, name: str | None = None) -> str:
 
 
 def inr(amount: float) -> str:
-    """Indian digit grouping: 1234567.5 -> Rs 12,34,568 (whole rupees)."""
+    """Indian digit grouping: 1234567.5 -> ₹12,34,568 (whole rupees)."""
     n = int(round(abs(amount)))
     s = str(n)
     if len(s) > 3:
@@ -61,7 +61,7 @@ def inr(amount: float) -> str:
 
 
 def inr_short(amount: float) -> str:
-    """Headline form: Rs 6.8 lakh, Rs 2.31 crore."""
+    """Headline form: ₹6.8 lakh, ₹2.31 crore."""
     a = abs(amount)
     sign = "-" if amount < 0 else ""
     if a >= 1e7:
@@ -80,7 +80,7 @@ def due_label(due: date, today: date) -> tuple[str, str]:
         return "due_soon", "Due today"
     if d <= 2:
         return "due_soon", f"Due in {d} day{'s' if d != 1 else ''}"
-    return "on_track", f"Due {due.strftime('%d %b')}"
+    return "on_track", f"Due {due.strftime('%d-%b-%Y')}"
 
 
 @dataclass

@@ -31,7 +31,7 @@ from ..store import Store
 
 APP_NAME = "Invoice Desk"
 VERDICT = {  # verdict -> (label, text colour, background, border)
-    "APPROVE": ("Approved", "#0b5d36", "#e6f4ec", "#1a8a52"),
+    "APPROVE": ("Cleared", "#0b5d36", "#e6f4ec", "#1a8a52"),
     "HOLD": ("On hold", "#7a4d00", "#fff3d1", "#d99a00"),
     "REJECT": ("Rejected", "#8f1d24", "#fdeaea", "#c9343d"),
 }
@@ -75,8 +75,22 @@ VERDICT_DISPLAY = {
 }
 
 
-def verdict_display_label(verdict: str) -> str:
-    return VERDICT_DISPLAY.get((verdict or "").upper(), (verdict or "").capitalize())
+VERDICT_ICON = {"APPROVE": "\u2713", "HOLD": "\u23f8", "REJECT": "\u2715"}     # check, pause, cross: the word carries it
+
+
+def verdict_display_label(verdict: str, icon: bool = False) -> str:
+    """Cleared / On hold / Rejected, the one set of status words on every screen (with the icon for tables)."""
+    word = VERDICT_DISPLAY.get((verdict or "").upper(), (verdict or "").capitalize())
+    mark = VERDICT_ICON.get((verdict or "").upper())
+    return f"{mark} {word}" if icon and mark else word
+
+
+_VERDICT_WORD = re.compile(r"\b(APPROVE|HOLD|REJECT)\b")
+
+
+def status_words(text: str) -> str:
+    """Engine text uses APPROVE, HOLD and REJECT; a person reads Cleared, On hold and Rejected."""
+    return _VERDICT_WORD.sub(lambda m: VERDICT_DISPLAY[m.group(1)], text) if text else text
 
 CSS = """
 <style>
@@ -209,9 +223,8 @@ def get_store() -> Store:
 def business_date() -> date:
     """The date invoices are processed on. INVOICE_DESK_TODAY wins; otherwise the date the
     samples were written for, unless the demo clock was switched off on the Guided demo page."""
-    if not st.session_state.get("demo_clock", True) and not config.env("INVOICE_DESK_TODAY"):
-        return config.today()
-    return sample_lib.business_date()
+    config.use_real_date(not st.session_state.get("demo_clock", True))
+    return config.business_today()
 
 
 def ai_modes() -> list[str]:
@@ -252,13 +265,30 @@ def reset_books(store: Store) -> None:
     """Back to the seeded history, and forget what this session was looking at."""
     store.reset()
     for key in ("current_run", "batch", "dash_run", "wi_result", "demo_done", "demo_last", "demo_auto",
-                "after_done", "after_last"):
+                "after_done", "after_last", "landing_runs", "demo_adopt"):
         st.session_state.pop(key, None)
 
 
 @st.cache_data(show_spinner=False)
 def manifest() -> list[dict]:
     return sample_lib.load_manifest()
+
+
+_KEEP_UPPER = {"PVT", "LTD", "LLP", "GST", "PO", "AP", "&", "II", "III", "OPC"}
+
+
+def vendor_case(name: Any) -> str:
+    """A vendor name typed in capitals reads in proper case: 'SAHYADRI INDUSTRIAL SUPPLIES PVT LTD' becomes
+    'Sahyadri Industrial Supplies Pvt Ltd'. A name already in mixed case is left as it is."""
+    text = str(name or "").strip()
+    if not text or text != text.upper() or not any(ch.isalpha() for ch in text):
+        return text
+    words = []
+    for word in text.split():
+        bare = word.strip(".,()")
+        words.append(word if bare in ("&",) or (len(bare) <= 3 and bare in _KEEP_UPPER and bare in ("LLP", "GST", "PO", "AP", "II", "III", "OPC"))
+                     else word.capitalize())
+    return " ".join(words)
 
 
 def money(value: Any) -> str:
@@ -308,10 +338,47 @@ _SCREEN_TITLES = {"AI assist (Claude)": "AI assist"}
 _MODEL_ID = r"claude-[A-Za-z0-9.\-]+"
 
 
+_PLAIN = [
+    (re.compile(r"receipt ([0-9a-f]{6,}) chained"), r"audit entry \1 written"),
+    (re.compile(r"second reader \(rules\.yaml: llm\.assist = always\)"), "second reader (asked for on every invoice)"),
+    (re.compile(r"what rules\.yaml says"), "what the rule book says"),
+    (re.compile(r"rules\.yaml"), "the rule book"),
+    (re.compile(r"Document fingerprint"), "File code"),
+    (re.compile(r"Rules file fingerprint"), "Rule book code"),
+    (re.compile(r"Master data fingerprint"), "Vendor and PO records code"),
+    (re.compile(r"\bfingerprint\b"), "file code"),
+    (re.compile(r"\bOCR engine\b"), "page reader (OCR)"),
+    (re.compile(r"\bFIXTURE\b"), "recorded reading"),
+    (re.compile(r"\bCACHED-LIVE\b"), "live reading"),
+    (re.compile(r"fixtures/\S+"), "the recorded readings"),
+    (re.compile(r"\b1 (\w+)\(s\)"), r"1 \1"),
+    (re.compile(r"\b(\d+) (\w+)\(s\)"), r"\1 \2s"),
+    (re.compile(r"\b(\w+)\(s\)"), r"\1s"),
+    (re.compile(r"\bthe extra 1 Nos\b"), "the 1 extra unit"),
+    (re.compile(r"\bthe extra (\d+(?:\.\d+)?) Nos\b"), r"the \1 extra units"),
+    (re.compile(r"\b1 Nos\b"), "1 unit"),
+    (re.compile(r"\b(\d+(?:\.\d+)?) Nos\b"), r"\1 units"),
+    (re.compile(r"\bper Nos\b"), "per unit"),
+    (re.compile(r"\b(?:po|Po)\b"), "PO"),
+    (re.compile(r"\bgstin\b"), "GSTIN"),
+    (re.compile(r"\bgst\b"), "GST"),
+    (re.compile(r"\bmsme\b"), "MSME"),
+]
+RUPEES = re.compile(r"\bRs\.?\s?(?=\d)")
+
+
+def rupees(text: str) -> str:
+    """One currency sign on screen: 'Rs 515' and 'Rs. 515' become '₹515'."""
+    return RUPEES.sub("₹", text) if text else text
+
+
 def screen_words(text: str) -> str:
-    """Engine text as it is shown on screen: no model brand, no model name."""
+    """Engine text as it is shown on screen: no model brand, no model name, rupees as ₹."""
     if not text:
         return text
+    text = status_words(rupees(text))
+    for old, new in _PLAIN:
+        text = old.sub(new, text)
     text = re.sub(r"Claude \([^()]*\) supplied:", "The AI assist supplied:", text)
     text = text.replace("Claude, checked by code", "AI, checked by code")
     text = text.replace("live call to the Claude API", "live call to the AI model")
@@ -336,28 +403,33 @@ def render_blocks(blocks: list[dict]) -> None:
 
 def finding_html(f: Finding, with_summary: bool = True) -> str:
     cls = ACTION_CLASS.get(f.action, "f-note")
-    kind = {"REJECT": "Reject", "HOLD": "Hold", "NOTE": "Note"}.get(f.action, "Note")
+    kind = {"REJECT": "Rejected", "HOLD": "On hold", "NOTE": "Noted"}.get(f.action, "Noted")
     owner = f" &nbsp;|&nbsp; owner: {esc(f.owner)}" if f.owner and f.action != "NOTE" else ""
-    parts = [f"<div class='idk-find {cls}'><span class='t'>{esc(kind)}: {esc(f.title or f.code)}</span> "
-             f"<span class='idk-small'>[{esc(f.code)}]{owner}</span>"]
+    parts = [f"<div class='idk-find {cls}'><span class='t'>{esc(kind)}: {esc(screen_words(f.title) or 'A check')}</span> "
+             f"<span class='idk-small'>{owner}</span>"]
     if with_summary:
         parts.append(f"<br>{esc(screen_words(f.summary))}")
     meta = []
     if f.expected:
-        meta.append(f"<b>Expected:</b> {esc(f.expected)}")
+        meta.append(f"<b>Expected:</b> {esc(screen_words(f.expected))}")
     if f.observed:
-        meta.append(f"<b>Found:</b> {esc(f.observed)}")
+        meta.append(f"<b>Found:</b> {esc(screen_words(f.observed))}")
     if meta:
         parts.append(f"<div class='meta'>{' &nbsp;|&nbsp; '.join(meta)}</div>")
     if f.question and f.action != "NOTE":
-        parts.append(f"<div class='meta'><b>Question:</b> {esc(f.question)}</div>")
+        parts.append(f"<div class='meta'><b>Question:</b> {esc(screen_words(f.question))}</div>")
     parts.append("</div>")
     return "".join(parts)
 
 
-def render_findings(findings: list[Finding], with_summary: bool = True) -> None:
+def render_findings(findings: list[Finding], with_summary: bool = True, codes: bool = False) -> None:
+    """Findings in plain words. The reason codes sit in one expander for auditors (`codes`), only where the
+    findings are not already inside an expander."""
     if findings:
         st.markdown("".join(finding_html(f, with_summary) for f in findings), unsafe_allow_html=True)
+    if findings and codes:
+        with st.expander("Reason code (for auditors)"):
+            st.markdown("  \n".join(f"`{f.code}` {md_safe(f.title)}" for f in findings))
 
 
 # --------------------------------------------------------------------------- stages
@@ -374,7 +446,8 @@ def _stage_label(key: str, status: str, label: str) -> str:
 def rail_html(states: dict[str, str]) -> str:
     """The nine stages as a row of chips; `states` maps stage key to a status."""
     chips = []
-    for number, (key, title) in enumerate(STAGES, 1):
+    for number, (key, _) in enumerate(STAGES, 1):
+        title = stage_display_title(key)
         status = states.get(key, "pending")
         symbol, label, cls = STATUS.get(status, STATUS["pending"])
         label = _stage_label(key, status, label)
@@ -405,10 +478,10 @@ def render_stage(stage: StageResult, expanded: bool = False) -> None:
     """One finished stage as an expander with its evidence inside."""
     colour = {"ok": "green", "attention": "orange", "blocked": "red", "error": "red"}.get(stage.status, "gray")
     symbol = STATUS.get(stage.status, STATUS["pending"])[0] or "•"
-    label = (f":{colour}[**{symbol} {stage.number} {md_safe(stage.title)}**]   {md_safe(screen_words(stage.summary))} "
-             f"  :gray[{stage.duration_ms:.0f} ms]")
+    label = (f":{colour}[**{symbol} {stage.number} {md_safe(stage_display_title(stage.key))}**]   "
+             f"{md_safe(screen_words(stage.summary))}   :gray[{stage.duration_ms:.0f} ms]")
     with st.expander(label, expanded=expanded):
-        st.caption(STAGE_HELP.get(stage.key, ""))
+        st.caption(stage_display_help(stage.key))
         render_findings(stage.findings)
         render_blocks(stage.blocks)
         if stage.status == "skipped":
@@ -481,14 +554,15 @@ def render_decision_details(result: RunResult, key: str) -> None:
         many = len(d.reasons) > 1
         st.markdown(f"**{'Reasons, owners and the questions to answer' if many else 'Reason, owner and the question to answer'}**")
         # with one reason the banner already carries its full text; with several, each card repeats its own
-        render_findings(d.reasons, with_summary=many)
+        render_findings(d.reasons, with_summary=many, codes=True)
     if d.also_noted:
-        with st.expander(f"Also found: {len(d.also_noted)} further point(s) that would hold this document on their own"):
+        with st.expander(f"Also found: {T.plural(len(d.also_noted), 'further point')} that would hold this document on "
+                     f"their own"):
             st.caption("The strictest action wins, so these did not set the decision. They stay on the record in "
                        "case the rejection is disputed.")
             render_findings(d.also_noted)
     if d.notes:
-        with st.expander(f"Noted for the record: {len(d.notes)} point(s) that did not affect the decision",
+        with st.expander(f"Noted for the record: {T.plural(len(d.notes), 'point')} that did not affect the decision",
                          expanded=not d.reasons):
             render_findings(d.notes)
     vendor_note_card(result, key)
@@ -601,7 +675,7 @@ def audit_trail(result: RunResult, store: Store) -> None:
     receipts = store.receipts(result.run_id)
     if not receipts:
         return
-    with st.expander(f"Tamper-evident audit trail: {len(receipts)} entr{'y' if len(receipts) == 1 else 'ies'}"):
+    with st.expander(f"Audit trail: {len(receipts)} entr{'y' if len(receipts) == 1 else 'ies'}, sealed"):
         rows = []
         for r in receipts:
             body = r["body"]
@@ -614,23 +688,23 @@ def audit_trail(result: RunResult, store: Store) -> None:
                 what = f"{what} by two people: {' and '.join(body['approvers'])}"
             rows.append({"When": config.to_ist_text(r["created_at"]), "Event": EVENT.get(r["kind"], r["kind"]),
                          "By": body.get("reviewer") or "Invoice Desk", "Outcome": str(what),
-                         "Note": body.get("note") or "", "Entry fingerprint": r["hash"][:12]})
+                         "Note": body.get("note") or "", "Seal": r["hash"][:12]})
         table(rows)
-        st.caption("Every decision, by the system or by a person, is written once and never edited. Each entry carries "
-                   "a fingerprint computed from its content and from the entry before it, so changing or removing any "
-                   "past entry is detectable. The Dashboard re-checks the whole trail on every visit.")
-        if st.toggle("Technical details (for an auditor or an engineer)", key=f"audit_tech_{result.run_id}"):
+        st.caption("Every decision, by the desk or by a person, is written once and never edited. Each entry carries "
+                   "a seal worked out from its content and from the entry before it, so changing or removing any past "
+                   "entry shows. The Dashboard re-checks the whole trail on every visit.")
+        if st.toggle("Technical details (for an auditor)", key=f"audit_tech_{result.run_id}"):
             table({"#": r["seq"], "Kind": r["kind"], "SHA-256 of this entry": r["hash"],
                    "SHA-256 of the entry before it": r["prev_hash"], "Signed": "yes" if r.get("signature") else "no"}
                   for r in receipts)
             receipt = result.receipt or {}
-            items = [{"Item": "Document fingerprint (SHA-256 of the file)", "Value": result.file_sha256},
-                     {"Item": "Rules file fingerprint", "Value": str((receipt.get("rules") or {}).get("sha256", ""))},
-                     {"Item": "Master data fingerprint", "Value": str(receipt.get("master_data_sha256", ""))}]
+            items = [{"Item": "File code (SHA-256 of the file)", "Value": result.file_sha256},
+                     {"Item": "Rule book code (SHA-256)", "Value": str((receipt.get("rules") or {}).get("sha256", ""))},
+                     {"Item": "Vendor and PO records code (SHA-256)", "Value": str(receipt.get("master_data_sha256", ""))}]
             used = (result.invoice.llm if result.invoice else None) or {}
-            if used.get("called") and used.get("model"):        # the exact model stays here, off the primary screens
-                items.append({"Item": "AI answer (model and prompt version)",
-                              "Value": f"{used['model']}, prompt {used.get('prompt_version', '')}"})
+            if used.get("called"):          # the exact model stays in the stored record and its JSON download
+                items.append({"Item": "AI reading (prompt version)",
+                              "Value": f"prompt {used.get('prompt_version', '')}, model in the full record (JSON)"})
             table(items)
 
 
@@ -643,11 +717,11 @@ def render_run(result: RunResult, store: Store, key: str) -> None:
                 f"Dashboard for the full evidence.", icon=":material/content_copy:")
     st.markdown(rail_html(stage_states(result)), unsafe_allow_html=True)
     render_decision_details(result, key)
-    beside = st.toggle("Show the document beside the stages", value=True, key=f"beside_{key}",
+    beside = st.toggle("Show the document beside the steps", value=True, key=f"beside_{key}",
                        help="Turn off to give the evidence tables the full width.")
     left, right = st.columns([0.58, 0.42], gap="large") if beside else (st.container(), None)
     with left:
-        st.markdown("**The nine stages** (open any stage for its evidence)")
+        st.markdown("**The nine steps** (open any step for its evidence)")
         render_stages(result)
         audit_trail(result, store)
     if right is not None:
@@ -668,9 +742,9 @@ def run_table_rows(runs: list[dict], rules: Rules) -> list[dict]:
         total = r.get("total") or ""
         again = r.get("resubmission_of")
         rows.append({
-            "Reference": r["run_id"], "Decision": r["verdict"],
+            "Reference": r["run_id"], "Decision": verdict_display_label(r["verdict"], icon=True),
             "Status": f"same file as {again}" if again else REVIEW_STATUS.get(r.get("review_status") or "", "-"),
-            "Vendor": r.get("vendor_name") or "-", "Invoice no.": r.get("invoice_no") or "-",
+            "Vendor": vendor_case(r.get("vendor_name")) or "-", "Invoice no.": r.get("invoice_no") or "-",
             "Total": "-" if not total else money(total) if T.to_decimal(total) is not None else total,
             "PO": r.get("po_number") or "-",
             "Reasons": "; ".join(rules.reason(c).title for c in codes) or "-", "File": display_name(r["file_name"]),
@@ -679,27 +753,31 @@ def run_table_rows(runs: list[dict], rules: Rules) -> list[dict]:
     return rows
 
 
-AI_MODE_LABEL = {"fixture": "recorded answers (no network)", "cached-live": "live AI calls, stored answers first",
-                 "off": "off (rules only)"}
+AI_MODE_LABEL = {"fixture": "recorded answers (no live calls)", "cached-live": "live, with a daily cap",
+                 "off": "off"}
+
+
+def ai_reading_label(mode: str) -> str:
+    """The AI mode in words a buyer reads. No model name, no internal mode names (option B: the stored
+    record keeps the exact model; the screens say only how the AI is reading)."""
+    return AI_MODE_LABEL.get(mode, "off")
 
 
 def sidebar_status(pipeline: Pipeline) -> None:
-    """One line a user needs, and the build details behind a click."""
+    """One line a user needs, and the details behind a click."""
     modes = pipeline.modes()
-    ai = "live AI calls, a fresh answer on every run" if fresh_answers() else AI_MODE_LABEL[modes["llm_mode"]]
+    ai = "live, a fresh answer on every run, with a daily cap" if fresh_answers() else ai_reading_label(modes["llm_mode"])
     st.markdown(f"<div class='idk-status'><span class='dot'></span><b>Ready.</b> Decisions by rules "
-                f"(version {esc(modes['rules_version'])}). AI assist: {esc(ai)}.</div>",
+                f"(version {esc(modes['rules_version'])}). AI reading: {esc(ai)}.</div>",
                 unsafe_allow_html=True)
     with st.expander("Technical details"):
         ocr = modes["ocr"] if modes["ocr"] != "not installed" else "not installed (recorded output for known scans)"
-        fixed = "set by INVOICE_DESK_TODAY" if config.env("INVOICE_DESK_TODAY") else "pinned for the demo"
         pinned = bool(config.env("INVOICE_DESK_TODAY")) or st.session_state.get("demo_clock", True)
-        clock = T.fmt_date(modes["today"]) + (f" ({fixed})" if pinned else " (today)")
+        clock = T.fmt_date(business_date()) + (" (set by the host)" if config.env("INVOICE_DESK_TODAY") else
+                                                " (the demo's business day; the time of day is real)" if pinned
+                                                else " (today)")
         books = "private to this browser session" if config.sandbox_mode() == "session" else "shared on this machine"
-        lines = [("Reader", "rules, deterministic"), ("AI assist", modes["llm"])]
-        if modes["llm_mode"] != "off":
-            lines.append(("AI model", get_llm().cfg.model))
-        lines += [("OCR engine", ocr),
+        lines = [("Reader", "fixed rules, the same answer every time"), ("AI reading", ai), ("Page reader (OCR)", ocr),
                  ("Rules", f"version {modes['rules_version']}"), ("Business date", clock), ("Books", books)]
         st.markdown("<div class='idk-mode'>" + "".join(f"<div><b>{esc(k)}</b> {esc(v)}</div>" for k, v in lines) + "</div>",
                     unsafe_allow_html=True)

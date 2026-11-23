@@ -11,11 +11,13 @@ gives each visitor a private sandbox it cannot be disturbed by anyone else.
 """
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Optional
 
 import streamlit as st
 
 from .. import config, demo_steps
+from .. import textutil as T
 from .. import samples as sample_lib
 from ..reader import sha256_of
 from . import common as C
@@ -57,7 +59,7 @@ def rail_html(done: dict, nxt: Optional[dict]) -> str:
         state = done.get(step["key"])
         if state:
             cls = {"APPROVE": "st-ok", "HOLD": "st-attention", "REJECT": "st-blocked"}[state["verdict"]]
-            word = C.VERDICT[state["verdict"]][0].lower() + (", as expected" if state["ok"] else ", NOT expected")
+            word = C.VERDICT[state["verdict"]][0] + (", as expected" if state["ok"] else ", NOT expected")
         elif step is nxt:
             cls, word = "st-running", "next"
         else:
@@ -90,9 +92,9 @@ def _settings(store) -> None:
         with left:
             modes = C.ai_modes()
             chosen = st.selectbox("AI assist mode", modes, index=modes.index(C.ai_mode()), key="ai_mode_pick",
-                                  format_func=lambda m: {"fixture": "FIXTURE: replay recorded answers (no network, no key)",
-                                                         "cached-live": "CACHED-LIVE: call the AI model on a cache miss, then store the answer",
-                                                         "off": "OFF: rules only"}[m])
+                                  format_func=lambda m: {"fixture": "Recorded answers: replay stored readings, no live calls",
+                                                         "cached-live": "Live: ask the AI when no answer is stored, within a daily cap",
+                                                         "off": "Off: fixed rules only"}[m])
             if chosen != C.ai_mode():          # kept in the session apart from the widget, so every page uses it
                 st.session_state["ai_mode"] = chosen
                 st.rerun()
@@ -101,21 +103,24 @@ def _settings(store) -> None:
             if "cached-live" not in modes:
                 st.caption("Live calls are not offered here: " +
                            ("no API key is configured." if not config.env("ANTHROPIC_API_KEY") else
-                            "this is a shared demo and LLM_ALLOW_LIVE is not set."))
+                            "this is a public demo and live calls have not been allowed by the host."))
             else:
                 from ..llm import SpendLedger
                 ledger = SpendLedger()
-                st.caption(f"Cost caps: ${cfg.per_invoice_cap_usd:.2f} per invoice, ${cfg.daily_cap_usd:.2f} per day. "
-                           f"Spent today: ${ledger.spent_today():.4f} in {ledger.calls_today()} call(s). When a cap "
-                           f"is reached the document is handled by the rules alone.")
+                rate = C.get_rules().display.usd_to_inr
+                st.caption(f"Cost caps: {C.money(rate * Decimal(str(cfg.per_invoice_cap_usd)))} an invoice, "
+                           f"{C.money(rate * Decimal(str(cfg.daily_cap_usd)))} a day. Spent today: "
+                           f"{C.money(rate * Decimal(str(ledger.spent_today())))} on "
+                           f"{T.plural(ledger.calls_today(), 'reading')}. When a cap is reached the document is "
+                           f"handled by the rules alone.")
                 if C.ai_mode() == "cached-live":
                     fresh = st.toggle("Ask the AI afresh on every run", value=bool(st.session_state.get("ai_fresh")),
                                       key="ai_fresh_pick",
                                       help="For showing a live call. Normally an answer that is already stored is "
                                            "reused and nothing is sent. With this on, the document is sent to the AI model "
                                            "again on each run, inside the caps. If the call cannot be made, the "
-                                           "stored answer is used and the record says so. The recordings in "
-                                           "fixtures/llm are never changed from here.")
+                                           "stored answer is used and the record says so. The recorded readings "
+                                           "are never changed from here.")
                     if fresh != bool(st.session_state.get("ai_fresh")):
                         st.session_state["ai_fresh"] = fresh
                         st.rerun()
@@ -132,7 +137,7 @@ def _settings(store) -> None:
             if on != st.session_state.get("demo_clock", True):
                 st.session_state["demo_clock"] = on
                 st.rerun()
-            st.caption(f"Business date in force: {C.business_date():%d-%b-%Y}" + (" (set by INVOICE_DESK_TODAY)." if pinned else "."))
+            st.caption(f"Business date in force: {C.business_date():%d-%b-%Y}" + (" (set by the host)." if pinned else "."))
             books = ("Your books are private to this browser session." if config.sandbox_mode() == "session" else
                      "The books are shared by everyone using this installation.")
             st.caption(books + " 'Start a fresh demo' puts them back to the starting state: no records, no reviews, "
@@ -169,7 +174,7 @@ def _after_hold(area, store, done: dict) -> None:
         state = after.get(step["key"])
         mark = ""
         if state:
-            mark = f"{state['verdict']}, " + ("as expected" if state["ok"] else "NOT as expected")
+            mark = f"{C.verdict_display_label(state['verdict'])}, " + ("as expected" if state["ok"] else "NOT as expected")
         st.markdown(f"<div class='idk-text'><b>Step {number}: {C.esc(step['title'])}.</b> {C.esc(step['watch'])}"
                     f"{' <i>' + C.esc(mark) + '</i>' if mark else ''}</div>", unsafe_allow_html=True)
     last = next((s for s in AFTER if s["key"] == st.session_state.get("after_last")), None)
@@ -177,7 +182,8 @@ def _after_hold(area, store, done: dict) -> None:
         state = after[last["key"]]
         result = store.get_run(state["run_id"])
         (st.success if state["ok"] else st.error)(
-            f"Step {len(STEPS) + AFTER.index(last) + 1}: decision {state['verdict']}. Expected: {state['want']}. " +
+            f"Step {len(STEPS) + AFTER.index(last) + 1}: {C.verdict_display_label(state['verdict'])}. "
+            f"Expected: {C.screen_words(state['want'])}. " +
             ("This is the expected decision." if state["ok"] else "This is NOT the expected decision; start a fresh demo."))
         if result is not None and result.decision is not None:
             st.markdown(C.verdict_banner_html(result), unsafe_allow_html=True)
@@ -209,11 +215,35 @@ START_HERE = [("clean", "A clean invoice from a known vendor", "Cleared"),
               ("bank", "A changed bank account", "Stopped, two people must agree")]
 
 
-def _open_on_process(sample_id: str) -> None:
-    """Open Process invoice with this sample chosen and the run started there."""
+def _open_on_process(sample_id: str, step_key: str) -> None:
+    """Open Process invoice with this sample chosen and the run started there. The run belongs to the
+    guided demo (`demo_adopt`), so it never locks the eleven steps."""
     st.session_state.update({"proc_source": process.SAMPLE, "proc_sample": sample_id, "proc_live": "sample",
-                             "goto": "process"})
+                             "goto": "process", "demo_adopt": step_key})
     st.rerun()
+
+
+def adopt(result, step_key: str) -> None:
+    """A run started from the landing band counts as part of the guided demo. When it is the next step in
+    order it is that step; otherwise it is remembered and the books are cleared when the steps start."""
+    if result is None:
+        return
+    done: dict = st.session_state.setdefault("demo_done", {})
+    pending = [s for s in STEPS if s["key"] not in done]
+    landing: list = st.session_state.setdefault("landing_runs", [])
+    if pending and pending[0]["key"] == step_key and not landing:
+        ok, want = step_outcome(pending[0], result, done)
+        done[step_key] = {"run_id": result.run_id, "verdict": result.verdict, "ok": ok, "want": want}
+        st.session_state["demo_last"] = step_key
+    else:
+        landing.append(result.run_id)
+
+
+def demo_runs() -> set[str]:
+    """Every record this session's guided demo made, including runs started from the landing band."""
+    known = {d["run_id"] for d in st.session_state.get("demo_done", {}).values()}
+    known |= {d["run_id"] for d in st.session_state.get("after_done", {}).values()}
+    return known | set(st.session_state.get("landing_runs", []))
 
 
 def _landing(store) -> None:
@@ -232,7 +262,7 @@ def _landing(store) -> None:
     row = st.container(horizontal=True, vertical_alignment="center")
     if row.button("Watch one invoice go from PDF to decision", type="primary", key="demo_watch",
                   icon=":material/play_circle:"):
-        _open_on_process(by_key["clean"]["sample"])
+        _open_on_process(by_key["clean"]["sample"], "clean")
     if row.button("Deliver today's mail", key="demo_mail", icon=":material/mail:"):
         st.session_state["goto"] = "inbox"
         st.rerun()
@@ -243,7 +273,7 @@ def _landing(store) -> None:
             line = st.container(horizontal=True, vertical_alignment="center")
             line.markdown(f"{number}. {title} → **{ends}**")
             if line.button("Run", key=f"start_{key}"):
-                _open_on_process(by_key[key]["sample"])
+                _open_on_process(by_key[key]["sample"], key)
     numbers = robustness_numbers()
     if numbers:
         wrong = numbers["misread-approved"]
@@ -257,7 +287,7 @@ def page() -> None:
     st.title("Guided demo")
     _landing(store)
     st.caption("Eleven scenarios, one button each: a clean invoice, each edge case, the fraud control, the AI assist "
-               "and bad input. Every step is a real run through the pipeline, stored and auditable like any other.")
+               "and bad input. Every step is a real run through the nine steps, recorded and audited like any other.")
     flash = st.session_state.pop("flash_demo", None)
     if flash:
         st.success(flash)
@@ -265,12 +295,13 @@ def page() -> None:
     done: dict = st.session_state.setdefault("demo_done", {})
     pending = [s for s in STEPS if s["key"] not in done]
     nxt = pending[0] if pending else None
-    stale = bool(store.list_runs()) and not done          # records exist that this demo did not make
+    known = demo_runs()
+    stale = any(r["run_id"] not in known for r in store.list_runs())   # records this demo did not make
 
     bar = st.columns([0.2, 0.3, 0.2, 0.3], vertical_alignment="bottom")
     fresh = bar[0].button("Start a fresh demo", icon=":material/restart_alt:", width="stretch", key="demo_fresh",
                           type="primary" if (stale or not pending) else "secondary")
-    go = bar[1].button(f"Run step {len(done) + 1}: {nxt['title'][:34]}" if nxt else "All steps done", type="primary",
+    go = bar[1].button(f"Run step {len(done) + 1}: {nxt['short']}" if nxt else "All steps done", type="primary",
                        disabled=nxt is None or stale, width="stretch", key="demo_next", icon=":material/play_arrow:")
     run_all = bar[2].button("Run all remaining", disabled=nxt is None or stale, width="stretch", key="demo_all",
                             icon=":material/fast_forward:")
@@ -291,6 +322,11 @@ def page() -> None:
     area = st.empty()
     auto = st.session_state.get("demo_auto", False)
     if nxt is not None and not stale and (go or auto):
+        if st.session_state.get("landing_runs"):       # runs from the landing band, out of order: start clean
+            C.reset_books(store)
+            st.session_state.pop("landing_runs", None)
+            st.session_state["demo_done"] = {}
+            nxt = STEPS[0]
         outcome = run_step(area, nxt, store)
         if outcome is None or len(st.session_state["demo_done"]) >= len(STEPS):
             st.session_state["demo_auto"] = False
@@ -309,7 +345,7 @@ def page() -> None:
             state = done[step["key"]]
             st.markdown(f"**Step {STEPS.index(step) + 1}: {C.md_safe(step['title'])}**")
             (st.success if state["ok"] else st.error)(
-                f"Decision {state['verdict']}. Expected: {state['want']}. " +
+                f"{C.verdict_display_label(state['verdict'])}. Expected: {C.screen_words(state['want'])}. " +
                 ("This is the expected decision." if state["ok"] else "This is NOT the expected decision; start a fresh demo."))
             st.markdown(f"<div class='idk-text'><b>What to notice.</b> {C.esc(step['watch'])}</div>", unsafe_allow_html=True)
             if step.get("follow") == "review":
@@ -321,7 +357,7 @@ def page() -> None:
             st.markdown("**Your file**")
         else:
             st.markdown(C.neutral_banner_html("Ready", "Press 'Run step 1' to begin",
-                                              "Each step shows the nine stages running, then the decision with its "
+                                              "Each step shows the nine steps running, then the decision with its "
                                               "reasons, the evidence, who has to act, and the audit entry."),
                         unsafe_allow_html=True)
     with right:
@@ -336,9 +372,8 @@ def page() -> None:
                         "(two different approvers).</div>", unsafe_allow_html=True)
         letter = _samples().get("10_ai_assist_letter_invoice")
         if letter and C.ai_mode() == "fixture" and not C.get_llm().has_recording(sha256_of(sample_lib.sample_bytes(letter))):
-            st.caption("About step 9: no recorded AI answer for the letter invoice is in fixtures/llm yet, so in "
-                       "FIXTURE mode the rules alone decide it (a hold, the safe outcome). Record one with "
-                       "`python -m scripts.record_llm_fixtures` and your API key; see the README.")
+            st.caption("About step 9: no recorded AI reading of the letter invoice is available here, so the rules "
+                       "alone decide it. That is a hold, the safe outcome.")
     if result is not None and result.decision is not None and (last == "upload" or (step is not None and step["key"] in done)):
         C.render_run(result, store, key="demo")
     with st.expander("All eleven scenarios and what each one shows", expanded=not done and not stale):

@@ -26,7 +26,7 @@ from tests.test_llm import FakeApi, assistant
 
 def test_procedure_wording_planned_and_no_builder_phrases():
     assert "not built in this round" not in STEP_TWO
-    assert "planned" in STEP_TWO.lower()
+    assert "coming next" in STEP_TWO.lower() and "this build" not in STEP_TWO
 
 
 def test_case_header_missing_number():
@@ -104,8 +104,9 @@ def test_reply_with_pdf_attachment_warning(store, master, rules, pipeline, tmp_p
         "attachments_json": json.dumps([{"name": "corrected_invoice.pdf", "mime": "application/pdf", "size": 1234, "sha256": "x"}])
     })
     att_name = "corrected_invoice.pdf"
-    expected = f"A corrected invoice is attached. Replacing the original is done by a person in this build. ({att_name})"
-    assert "A corrected invoice is attached. Replacing the original is done by a person in this build." in expected
+    expected = (f"The vendor's reply has a corrected invoice attached: {att_name}. A person compares it with the "
+                f"original and replaces it.")
+    assert "this build" not in expected
     assert att_name in expected
 
 

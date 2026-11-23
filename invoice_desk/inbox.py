@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Any, Optional
 
 from . import cases as case_engine
@@ -21,7 +21,7 @@ from .masterdata import MasterData
 from .pipeline import Pipeline
 from .rules import Rules
 from .store import Store
-from .textutil import fmt_inr
+from .textutil import fmt_inr, plural
 
 DESK = "Invoice Desk"
 STATES = ("sorted", "waiting", "answered", "closed")
@@ -46,15 +46,15 @@ SENTENCE = {
     "refused": "Invoice refused: {reason}. A note to the sender is drafted for you.",
     "seen": "This file was already received on {date} ({run_id}). Nothing was booked again.",
     "reply": "Reply matched to case {case_id}.",
-    "status_query": "Payment question about {n} invoice(s). An answer is drafted from the records for you to approve.",
+    "status_query": "Payment question about {n}. An answer is drafted from the records for you to approve.",
     "bank_change_request": ("Asks to change a bank account. The desk has changed nothing. Bank details change only "
                             "after a call-back to the number on file and approval by two people."),
-    "statement": "Statement of account received. This build does not reconcile statements. Sent to the AP analyst.",
+    "statement": "Statement of account received. Statements are not matched automatically yet. Sent to the AP analyst.",
     "credit_note": "Credit note received. Credit and debit notes are applied to the original invoice by a person.",
     "not_an_invoice": "The attachment is a {kind}, not a tax invoice. Nothing was booked.",
     "other": "The rules could not tell what this is. A person should read it.",
     "unsafe": "Too many or too large attachments. Nothing was opened.",
-    "off": "The inbox is switched off in rules.yaml (inbox.enabled).",
+    "off": "The inbox is switched off in the desk rules.",
 }
 
 
@@ -90,9 +90,12 @@ def _day(text: str) -> Optional[date]:
         return None
 
 
-def _received_at(today: date) -> str:
-    """The business date with the clock time now, in IST: the demo's mail arrives on the demo's day."""
+def _received_at(today: date, morning: bool = False) -> str:
+    """The business date with the clock time now, in IST: the demo's mail arrives on the demo's day.
+    The next morning's mail is stamped the next day, early in the morning."""
     now = config.now_utc().astimezone(config.IST)
+    if morning:
+        return datetime.combine(today + timedelta(days=1), time(8, now.minute, now.second, tzinfo=config.IST)).isoformat()
     return datetime.combine(today, now.timetz()).isoformat()
 
 
@@ -210,13 +213,13 @@ def _sort(store: Store, master: MasterData, rules: Rules, pipeline: Pipeline, ma
     status = find_phrases(words, ib.status_phrases)
     if status:
         if not rules.answers.enabled:
-            action = (f"Payment question about {len(invoice_refs(words))} invoice(s). Answers are switched off in "
-                      f"rules.yaml (answers.enabled); the AP analyst replies by hand.")
+            action = (f"Payment question about {plural(len(invoice_refs(words)), 'invoice')}. Answers are switched "
+                      f"off in the desk rules; the AP analyst replies by hand.")
         elif sender is None or sender.result not in ("on_file", "same_domain"):
             action = ("Sender is not on file for any vendor. No invoice details are shared. If this needs an answer, "
                       "call the vendor on the number on file.")
         else:
-            action = SENTENCE["status_query"].format(n=len(invoice_refs(words)))
+            action = SENTENCE["status_query"].format(n=plural(len(invoice_refs(words)), "invoice"))
         return {"kind": "status_query", "state": "waiting", "owner": ib.owners["status_query"], "action": action,
                 "rule": f"Payment-question wording (\"{status[0]}\")"}
     return {"kind": "other", "state": "waiting", "owner": ib.owners["other"], "action": SENTENCE["other"],
@@ -224,7 +227,7 @@ def _sort(store: Store, master: MasterData, rules: Rules, pipeline: Pipeline, ma
 
 
 def receive(store: Store, master: MasterData, rules: Rules, pipeline: Pipeline, name: str, data: bytes,
-            today: date) -> dict[str, Any]:
+            today: date, morning: bool = False) -> dict[str, Any]:
     """Register, sort and route one received file. A file or Message-ID seen before changes nothing."""
     mail = parse_eml(data)
     earlier = store.find_received(mail.sha256, mail.message_id)
@@ -235,7 +238,13 @@ def receive(store: Store, master: MasterData, rules: Rules, pipeline: Pipeline, 
     sender = check_sender(mail.sender, master, rules)
     found = _sort(store, master, rules, pipeline, mail, today, sender)
     message_id = "IN-" + mail.sha256[:10].upper()
-    received_at = _received_at(today)
+    received_at = _received_at(today, morning)
+    try:                                         # a message dated on the delivery day keeps its own time
+        sent = datetime.fromisoformat(mail.sent_at).astimezone(config.IST) if mail.sent_at else None
+    except ValueError:
+        sent = None
+    if sent is not None and sent.date().isoformat() == received_at[:10]:
+        received_at = sent.isoformat()
     due = today + timedelta(days=rules.inbox.answer_due_days)
     flags = found.get("flags", [])
     base = {"sender": mail.sender, "recipient": mail.to, "subject": mail.subject, "body": mail.text,
@@ -274,11 +283,12 @@ def receive(store: Store, master: MasterData, rules: Rules, pipeline: Pipeline, 
 
 
 def deliver(store: Store, master: MasterData, rules: Rules, pipeline: Pipeline, files: list[tuple[str, bytes]],
-            today: date) -> list[dict[str, Any]]:
-    """Receive each file in order. With the inbox switched off nothing is read and nothing changes."""
+            today: date, morning: bool = False) -> list[dict[str, Any]]:
+    """Receive each file in order. With the inbox switched off nothing is read and nothing changes.
+    `morning` stamps the files as the next morning's delivery."""
     if not rules.inbox.enabled:
         return []
-    return [receive(store, master, rules, pipeline, name, data, today) for name, data in files]
+    return [receive(store, master, rules, pipeline, name, data, today, morning) for name, data in files]
 
 
 def _named(person: str, what: str) -> str:

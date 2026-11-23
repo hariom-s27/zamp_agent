@@ -259,6 +259,7 @@ class DisplayRules(Strict):
     stage_pause_seconds: float = Field(ge=0, le=5)
     attention_days: int = Field(ge=0, le=45)
     attention_max: int = Field(ge=1, le=20)
+    usd_to_inr: Decimal = Field(gt=0)        # shows a recorded AI cost (priced in dollars) in rupees
 
 
 class Reason(Strict):

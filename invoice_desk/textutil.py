@@ -513,3 +513,8 @@ def state_name(code: Optional[str]) -> str:
 
 def digits_only(text: Optional[str]) -> str:
     return re.sub(r"\D", "", text or "")
+
+
+def plural(n: int, word: str, many: str | None = None) -> str:
+    """'1 invoice', '3 invoices', '1 reply', '2 replies': a count with the right noun, never 'invoice(s)'."""
+    return f"{n} {word if n == 1 else (many or word + 's')}"

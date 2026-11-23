@@ -29,14 +29,14 @@ LABEL = {"tolerances.unit_price.pct": ("unit price tolerance", "%"),
          "tolerances.po_total.abs_inr": ("PO value tolerance in rupees", ""),
          "auto_approve.max_invoice_total_inr": ("auto-approval ceiling in rupees", ""),
          "duplicates.window_days": ("duplicate window in days", "")}
-OFF = "Change requests are switched off in rules.yaml (changes.enabled). rules.yaml alone is in force."
-CAPTION = ("The procedure is rules.yaml. A change is proposed by one person, tested against past invoices, approved by "
-           "a second person, and can be undone.")
-LIMIT_LINE = ("Replay re-runs the documents in arrival order on a scratch copy of the books. Decisions people made in "
-              "between are not replayed.")
-STEP_TWO = ("Approval by a second person, putting a change in force and rollback are planned. "
-            "A saved request changes nothing.")
-NAMES = "Names are typed in this build. A deployment would take them from the login."
+OFF = "Change requests are switched off. The current rule book alone is in force."
+CAPTION = ("The procedure is the desk's rule book. One person proposes a change and tests it against past invoices. "
+           "A saved request changes nothing until a second person approves it.")
+LIMIT_LINE = ("The test re-runs past invoices in the order they arrived, on a copy of the books. Decisions people made "
+              "in between are not repeated.")
+STEP_TWO = ("Coming next: a second person approves a rule change before it takes effect, and a change can be undone. "
+            "Saving a request changes nothing.")
+NAMES = "Names are typed for now. With sign-in, they will come from the login."
 
 
 class ChangeError(Exception):
@@ -110,13 +110,22 @@ def in_force(store: Store, rules: Rules) -> Rules:
 
 
 def _documents(store: Store, limit: int) -> tuple[list[dict], bool]:
-    rows = [r for r in reversed(store.list_runs()) if r.get("file_sha256") and r.get("verdict")]
-    docs = [r for r in rows if store.load_file(r["file_sha256"]) is not None]
+    """Each past document once, in arrival order. A file that was sent again is the same document."""
+    rows = [r for r in reversed(store.list_runs()) if r.get("file_sha256") and r.get("verdict")
+            and not r.get("resubmission_of")]
+    seen: set[str] = set()
+    docs = []
+    for r in rows:
+        if r["file_sha256"] in seen or store.load_file(r["file_sha256"]) is None:
+            continue
+        seen.add(r["file_sha256"])
+        docs.append(r)
     return docs[:limit], len(docs) > limit
 
 
 def replay(store: Store, master: MasterData, rules: Rules, proposed: dict[str, Any], today: date,
-           ocr_mode: Optional[str] = None, llm: Optional[LlmAssist] = None) -> dict[str, Any]:
+           ocr_mode: Optional[str] = None, llm: Optional[LlmAssist] = None,
+           progress: Optional[Any] = None) -> dict[str, Any]:
     """Every past document, in arrival order, decided twice on scratch copies of the seeded books: with the procedure
     in force now and with the change. The real books are not touched."""
     from .pipeline import Pipeline                      # imported here: the pipeline imports the stages, not this module
@@ -134,8 +143,12 @@ def replay(store: Store, master: MasterData, rules: Rules, proposed: dict[str, A
             reader = LlmAssist(dataclasses.replace(base_llm, mode="fixture"), fixtures_dir=fixtures,
                                cache_dir=Path(tmp) / f"{name}_cache")      # stored answers only, never a live call
             pipe = Pipeline(store=scratch, rules=used, master=master, llm=reader, today=today, ocr_mode=ocr_mode)
-            lines[name] = [pipe.run(store.load_file(r["file_sha256"]), r["file_name"] or "document.pdf", "replay")
-                           for r in docs]
+            lines[name] = []
+            for i, r in enumerate(docs, 1):
+                if progress is not None:                    # (pass, invoice number, how many)
+                    progress(name, i, len(docs))
+                lines[name].append(pipe.run(store.load_file(r["file_sha256"]), r["file_name"] or "document.pdf",
+                                            "replay"))
         for row, now, new in zip(docs, lines["now"], lines["change"]):
             a = {f.code for f in now.decision.reasons} if now.decision else set()
             b = {f.code for f in new.decision.reasons} if new.decision else set()

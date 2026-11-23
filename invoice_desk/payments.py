@@ -30,7 +30,7 @@ ZERO = Decimal("0")
 WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 GROUPS = {"pay": "Pay in this run", "not_due": "Not due yet", "blocked": "Blocked",
           "on_hold": "On hold, with a legal date close", "deferred": "Deferred for cash", "removed": "Taken out"}
-OFF = "Payment proposals are switched off in rules.yaml (payments.enabled)."
+OFF = "Payment proposals are switched off in the desk rules."
 CAPTION = "The desk prepares the payment run. A person with release authority approves it. Nothing is paid from here."
 DOES_NOT = ("It does not deduct TDS. It does not check GSTR-2B. It does not know whether the bank released a payment. "
             "Amounts are the approved invoice amounts, less any discount shown.")
@@ -99,7 +99,7 @@ def _open_bank_changes(store: Store) -> dict[str, str]:
     for row in reversed(store.list_runs()):
         codes = set((row.get("reason_codes") or "").split(","))
         if row["verdict"] == "HOLD" and "BANK_DETAILS_CHANGED" in codes and (row.get("review_status") or "") in ("", "PENDING") \
-                and row.get("vendor_id"):
+                and row.get("vendor_id") and not row.get("resubmission_of"):    # a repeat file is not a new request
             found.setdefault(row["vendor_id"], row["run_id"])
     return found
 
@@ -108,7 +108,7 @@ def _legal_sentence(vendor, clock: dict) -> str:
     basis = clock["basis"][0].upper() + clock["basis"][1:]
     return (f"Legal pay-by date for a {vendor.msme_category} supplier: {case_engine.day_text(clock['due'])}, "
             f"{_days_left(clock['days_left'])}. {basis}. After that date interest runs at about "
-            f"{fmt_inr(clock['interest_per_day'], symbol='Rs ', decimals=0)} a day (approximate).")
+            f"{fmt_inr(clock['interest_per_day'], decimals=0)} a day (approximate).")
 
 
 def _line(store: Store, master: MasterData, rules: Rules, entry: dict, terms: dict, run_date: date,
@@ -295,7 +295,7 @@ def _export(proposal: dict, master: MasterData, rules: Rules, run_id: str) -> by
                     f"{ln['discount']:.2f}", f"{ln['amount']:.2f}",
                     _mask(vendor.bank_account if vendor else "", rules.payments.export_account_digits),
                     vendor.ifsc if vendor else "", ln["pay_by"].isoformat(), ln["why"]])
-    return out.getvalue().encode("utf-8")
+    return out.getvalue().encode("utf-8-sig")          # with a BOM, so Excel shows the rupee sign
 
 
 def approve(store: Store, master: MasterData, rules: Rules, run_date: date, fingerprint: str, approvers: list[str],
@@ -361,8 +361,8 @@ def approve(store: Store, master: MasterData, rules: Rules, run_date: date, fing
             path.unlink(missing_ok=True)                     # no record, no file
         raise
     return {"run_id": run_id, "path": path, "export_sha256": digest, "total": proposal["total"],
-            "message": (f"Run {run_id} approved by {' and '.join(names)}. Nothing has been paid. Download the proposal "
-                        f"file and release it in the bank.")}
+            "message": (f"Run {run_id} approved by {' and '.join(names)}. Nothing has been paid. The file is a review "
+                        f"copy with masked accounts. The real bank file is prepared from the bank portal after approval.")}
 
 
 def cancel(store: Store, run_id: str, person: str, reason: str, today: date) -> None:
