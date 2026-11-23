@@ -887,7 +887,7 @@ def test_approve_and_send_needs_a_name_and_says_where_the_message_went(app):
     assert any("approved by S. Rao and written to the outbox" in s.value for s in app.success)
     [message] = app.db.messages(case_id)
     assert message["approved_by"] == "S. Rao"
-    assert "Email to the vendor (.eml)" in [b.label for b in app.get("download_button")]
+    assert "Download the email (.eml)" in [b.label for b in app.get("download_button")]
     assert "Approve and send" not in [b.label for b in app.button]           # one message, not two
     assert metric(app, "Waiting on the vendor") == "1" and "Waiting on the vendor" in shown(app)
     press(app, "Decide this hold in the review queue")

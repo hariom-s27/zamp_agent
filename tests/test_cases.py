@@ -394,7 +394,7 @@ def test_an_approved_message_is_a_valid_email_in_the_outbox_with_the_token_and_o
     mail = read_eml(path)
     assert mail["From"] == "ap@nilgiri-precision.example" and mail["To"] == "billing@nandihillspack.example"
     assert mail["Subject"] == f"[{case['case_id']}] {own_subject}"
-    assert mail.get_body(("plain",)).get_content().strip() == body.strip()       # the drafted text, unchanged
+    assert mail.get_body(("plain",)).get_content().replace("\r\n", "\n").strip() == body.strip()   # the draft, unchanged
     assert sent["eml_sha256"] == hashlib.sha256(path.read_bytes()).hexdigest()
 
     [message] = store.messages(case["case_id"])
@@ -465,3 +465,20 @@ def test_a_fresh_demo_empties_the_outbox_so_the_same_message_can_be_approved_aga
     assert again["case_id"] == case["case_id"]                  # the same file gives the same case number
     sent = cases.approve_message(store, master, rules, again["case_id"], "S. Rao", TODAY)
     assert sent["path"].is_file() and len(store.messages(again["case_id"])) == 1
+
+
+def test_the_outbox_email_is_plain_utf8_with_crlf_and_the_body_survives_exactly(pipeline, store, master, rules):
+    """Outlook on Windows broke words at quoted-printable soft line breaks ("=gainst", "quoti=g")."""
+    import email
+    import email.policy
+    run, case = c2_case(pipeline, store, master, rules)
+    body = run.decision.vendor_draft.split("\n", 1)[1].lstrip("\n")
+    raw = cases.approve_message(store, master, rules, case["case_id"], "S. Rao", TODAY)["path"].read_bytes()
+    assert b"Content-Transfer-Encoding: 8bit" in raw and b"quoted-printable" not in raw and b"base64" not in raw
+    assert b"\r\n" in raw and raw.count(b"\n") == raw.count(b"\r\n")         # every line ends CRLF, none bare
+    assert "against".encode() in raw and "quoting".encode() in raw and "₹".encode("utf-8") in raw
+    assert not [line for line in raw.split(b"\r\n") if line.endswith(b"=")]      # no soft line breaks anywhere
+    mail = email.message_from_bytes(raw, policy=email.policy.default)
+    decoded = mail.get_body(("plain",)).get_content().replace("\r\n", "\n")
+    assert decoded.rstrip("\n") == body.rstrip("\n")
+    assert "against" in decoded and "quoting" in decoded and "₹" in decoded

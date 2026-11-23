@@ -316,8 +316,10 @@ def approve_message(store: Store, master: MasterData, rules: Rules, case_id: str
     mail["From"], mail["To"], mail["Subject"] = sender, recipient, subject
     mail["Date"] = format_datetime(config.now_utc())
     mail["Message-ID"] = make_msgid(domain=sender.rpartition("@")[2] or None)
-    mail.set_content(body)
-    data = mail.as_bytes(policy=email_policy.default)
+    # Plain UTF-8 sent as 8bit, with CRLF line endings: no quoted-printable soft breaks for a mail client to misread
+    # (Outlook on Windows broke "against" into "=gainst"), and the rupee sign stays one readable character.
+    mail.set_content(body, cte="8bit")
+    data = mail.as_bytes(policy=email_policy.SMTP)
     digest = hashlib.sha256(data).hexdigest()
 
     n = len([m for m in store.messages(case_id) if m["direction"] == "out"]) + 1

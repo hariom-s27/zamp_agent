@@ -322,11 +322,26 @@ get_store/business_date/reset_books`, `ui/reference._sandbox/_dry_run`, `Rules.v
    `test_a_fresh_demo_empties_the_outbox_so_the_same_message_can_be_approved_again` failed first. Payment exports and
    stored mail (round 4) must be cleared the same way.
 
+### Round 3 fix: email encoding (commit "Round 3 fix: email encoding")
+
+Found by hand: the approved vendor email opened in Outlook on Windows showed "=gainst", "again=t" and "quoti=g". The
+file was written as bytes, but with LF line endings and a quoted-printable body, and Outlook misread the soft line
+breaks (`=` at the end of a line) on bare LF. Now `approve_message` writes the body as plain UTF-8 with
+`Content-Transfer-Encoding: 8bit` and CRLF line endings (`email.policy.SMTP`): no soft breaks, and the rupee sign is
+one readable character. Departure 11 above (default policy, LF) is replaced by this. New test
+`test_the_outbox_email_is_plain_utf8_with_crlf_and_the_body_survives_exactly` checks the raw bytes and the parsed body
+(failed first, showing `quoti=
+ng`). The Cases page download button is now labelled "Download the email (.eml)" on
+the case card after approval. Two assertions in round 3's own new tests changed: the body comparison in
+`test_an_approved_message_is_a_valid_email_...` now turns CRLF into LF before comparing (an email body is CRLF by
+definition; still an exact comparison), and the UI test looks for the new button label. 627 passed; preflight READY
+(11 step, 2 case lines); 18 of 18; cases 2 of 2; robustness 30, 15, 4, 0 (691 of 705); hashes match.
+
 ## Handoff (23 Nov 2026, context nearly full)
 
 **Done.** Round 3 checkpoints 0 to 8: `f762db1` (W), `ec89c9b`, `ae3fdac`, `9341eeb` (1), `e3798f1` (2), `56d6477` (3),
 `08438d0` (4), `9d6b791` (5), `de2ed97` (6), `a5859b8` (7), `b381b2e` (8). Round 4 checkpoint 0 on `round4` (the commit
-after `b381b2e`). Tests: 626 passed at round 4 checkpoint 0 (561 at round 2). Standing results unchanged throughout:
+after `b381b2e`). Tests: 627 passed after the email-encoding fix (561 at round 2). Standing results unchanged throughout:
 preflight READY with 11 `[ok  ] step` lines plus `case 12` and `case 13`; 18 of 18; `--cases` 2 of 2; robustness 30,
 15, 4, 0 with 691 of 705 values; frozen files and baseline data unchanged (rules.yaml changed on purpose in round 3).
 

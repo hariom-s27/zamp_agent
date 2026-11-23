@@ -114,7 +114,7 @@ def _message(case: dict, result, store) -> None:
                     f"{C.esc(last['recipient'])}.</div>", unsafe_allow_html=True)
         path = case_engine.outbox_dir(store) / f"{last['message_id']}.eml"
         if path.is_file():
-            st.download_button("Email to the vendor (.eml)", data=path.read_bytes(), file_name=path.name,
+            st.download_button("Download the email (.eml)", data=path.read_bytes(), file_name=path.name,
                                mime="message/rfc822", key=f"msg_eml_{run_id}", icon=":material/download:",
                                on_click="ignore")
         return
