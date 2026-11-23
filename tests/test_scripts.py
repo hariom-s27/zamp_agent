@@ -229,3 +229,14 @@ def test_preflight_rehearses_the_after_hold_scenarios(workspace, capsys):
     assert "[ok  ] case 13 Legal clock: urgent, escalated to Finance controller, pay-by 24 Nov 2026, message in the outbox"         in rehearsal
     assert "[ok  ] audit trail after the after-hold steps" in rehearsal and "[FAIL" not in rehearsal
     assert out.count("[ok  ] step") == 11
+
+
+def test_the_throughput_benchmark_measures_a_few_invoices_and_writes_its_report(tmp_path, monkeypatch, capsys):
+    from scripts import benchmark_throughput as B
+    monkeypatch.setattr(B, "REPORT", tmp_path / "throughput.md")
+    assert B.main(["--n", "4", "--write"]) == 0
+    out = capsys.readouterr().out
+    assert "4 invoices" in out and "invoices an hour" in out and "median" in out and "95th percentile" in out
+    assert "10,000 a month is about 57 an hour over 22 working days of 8 hours" in out
+    report = (tmp_path / "throughput.md").read_text(encoding="utf-8")
+    assert "# Throughput" in report and "4 invoices" in report and "What limits it" in report

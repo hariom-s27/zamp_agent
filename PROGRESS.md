@@ -240,7 +240,8 @@ to 8. Checkpoints 9 to 11 (day 3) wait for an explicit go-ahead.
 |---|---|---|---|
 | 4 | Approve and send to the outbox: `cases.approve_message`, `cases.outbox_dir` | `08438d0` | 603 passed |
 | 5 | Cases page, RELEASED labels, dashboard case row, steps 12 and 13 in the Guided demo, preflight `case 12` and `case 13`, Cases in the page lists | `9d6b791` | 613 passed |
-| 6 | Business case page: `invoice_desk/value.py` (`measured`, `model`), `invoice_desk/ui/value.py`, page in navigation and preflight | "Checkpoint 6: Business case page" | 619 passed |
+| 6 | Business case page: `invoice_desk/value.py` (`measured`, `model`), `invoice_desk/ui/value.py`, page in navigation and preflight | `de2ed97` | 619 passed |
+| 7 | `invoice_desk/stats.py` (Wilson interval); "How sure can we be" in the robustness report (`--write --ocr fixture`); `scripts/benchmark_throughput.py` and `docs/throughput.md` (200 text invoices in 15.2 s, median 69 ms, about 47,000 an hour) | "Checkpoint 7: intervals and throughput" | 625 passed |
 
 Standing results after each of 4, 5 and 6: preflight READY with 11 `[ok  ] step` lines (and from 5 on, `[ok  ] case 12`
 and `[ok  ] case 13`); 18 of 18; `--cases` 2 of 2; robustness 30, 15, 4, 0 with 691 of 705 values; frozen code files
@@ -265,3 +266,10 @@ Departures from the specification, and why:
 14. **Business case page:** it also runs `cases.sync`, because its "resolved after a hold" figure needs current cases
     (it is a new page, so "no other existing page calls it" still holds). Benchmarks are a fixed table with their
     sources; the assumptions' sources are the comments in rules.yaml, repeated as labels in `ui/value.py`.
+15. **The robustness report is still written from the recorded OCR (checkpoint 7).** `robustness/results.json` and the
+    tests that compare against it use `fixtures/ocr/` (Tesseract 5.3.4, 693 of 705 values), so the numbers reproduce on
+    any machine; only its measurement date changed. With `--write --ocr fixture` on a machine with Tesseract, the script
+    also reads the 12 photographs live, and "How sure can we be" leads with that count (691 of 705, Tesseract 5.4.0
+    here), names the recorded 693, and says the lower one is the one to quote.
+16. **Throughput benchmark:** invoice PDFs are drawn before the clock starts; layouts whose PO number collides with an
+    earlier one are skipped so every invoice has its own purchase order; all 200 go into one set of books.

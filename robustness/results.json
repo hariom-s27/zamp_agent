@@ -1,5 +1,5 @@
 {
-  "measured_on": "2026-11-22",
+  "measured_on": "2026-11-23",
   "ocr": "Photographs read from the OCR output recorded in `fixtures/ocr/` with Tesseract 5.3.4 (two reads each), so the numbers are the same on every machine; `--ocr live` reads them with the installed engine instead, and another Tesseract build may read a photograph differently.",
   "summary": {
     "Tune, text PDFs": {

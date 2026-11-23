@@ -133,3 +133,21 @@ def test_a_changed_document_is_refused(tmp_path, monkeypatch, records):
     monkeypatch.setattr(ER, "content_of", lambda record: b"%PDF-1.4 something else")
     assert ER.check_files(records[:2]) == [records[0]["id"], records[1]["id"]]
     assert hashlib.sha256(b"x").hexdigest() != records[0]["sha256"]
+
+
+def test_the_report_says_how_sure_we_can_be_with_intervals_and_sample_sizes(rows):
+    section = "\n".join(ER.how_sure(rows, live=None))
+    assert section.startswith("## How sure can we be")
+    assert "Wrongly approved | 0 of 49 | 0.0% | 0.0% to 7.3%" in section
+    assert "Wrongly approved, holdout only | 0 of 17 | 0.0% | 0.0% to 18.4%" in section
+    assert "Right outcome | 45 of 49 | 91.8% | 80.8% to 96.8%" in section
+    assert "Values read as printed, recorded OCR output | 693 of 705" in section
+    assert "about 381 documents" in section
+    live = "\n".join(ER.how_sure(rows, live={"correct": 691, "total": 705, "engine": "Tesseract 5.4.0"}))
+    assert "Values read as printed, Tesseract 5.4.0 on this machine | 691 of 705 | 98.0% | 96.7% to 98.8%" in live
+    assert "693 of 705" in live and "differ by 2" in live
+
+
+def test_the_report_on_disk_has_the_intervals():
+    text = ER.REPORT.read_text(encoding="utf-8")
+    assert "## How sure can we be" in text and "0.0% to 7.3%" in text and "about 381 documents" in text

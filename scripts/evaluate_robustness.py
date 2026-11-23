@@ -45,6 +45,7 @@ from invoice_desk.llm import LlmAssist
 from invoice_desk.masterdata import MasterData, PoLine, PurchaseOrder, Vendor, load_master
 from invoice_desk.pipeline import Pipeline
 from invoice_desk.rules import load_rules
+from invoice_desk.stats import documents_needed, wilson
 from invoice_desk.store import Store
 
 SET_DIR = config.ROOT / "robustness"
@@ -218,6 +219,48 @@ def _table(title_a: str, totals: dict) -> list[str]:
     return lines
 
 
+def _short_engine(label: str) -> str:
+    """'Tesseract 5.4.0.20240606' -> 'Tesseract 5.4.0'."""
+    name, _, version = label.partition(" ")
+    return f"{name} {'.'.join(version.split('.')[:3])}".strip()
+
+
+def _share(k: int, n: int) -> str:
+    low, high = wilson(k, n)
+    return f"{k} of {n} | {k / n:.1%} | {low:.1%} to {high:.1%}"
+
+
+def how_sure(rows: list[dict], live: Optional[dict]) -> list[str]:
+    """Each headline figure with its sample size and a Wilson 95% interval (DECISIONS.md D72).
+    `live` is the values-read count from the OCR engine installed here, when it was measured."""
+    every, holdout = tally(rows), tally([r for r in rows if r["split"] == "holdout"])
+    right = lambda t: t["approved-correct"] + t["held-correct"]          # noqa: E731
+    lines = ["## How sure can we be", "",
+             "Every percentage here comes with the number of documents behind it and a 95% interval (Wilson score "
+             "interval, the one recommended for small samples). The interval is the range the true rate could "
+             "plausibly sit in, given only these documents.", "",
+             "| Figure | Count | Rate | 95% interval |", "|---|---|---|---|",
+             f"| Wrongly approved | {_share(every['misread-approved'], every['documents'])} |",
+             f"| Wrongly approved, holdout only | {_share(holdout['misread-approved'], holdout['documents'])} |",
+             f"| Right outcome | {_share(right(every), every['documents'])} |",
+             f"| Right outcome, holdout only | {_share(right(holdout), holdout['documents'])} |"]
+    if live:
+        lines.append(f"| Values read as printed, {live['engine']} on this machine | {_share(live['correct'], live['total'])} |")
+    lines.append(f"| Values read as printed, recorded OCR output | {_share(every['values_correct'], every['values'])} |")
+    needed = documents_needed(0.01)
+    lines += ["", f"- No wrong approval in {every['documents']} documents is still consistent with a true wrong-approval "
+                  f"rate of up to {wilson(0, every['documents'])[1]:.1%}. To show it is under 1% with no miss would "
+                  f"take about {needed} documents.",
+              "- Values are counted one by one, so that interval is narrow; documents are few, so those intervals "
+              "are wide. Read the document counts, not the percentages."]
+    if live and live["correct"] != every["values_correct"]:
+        diff = abs(every["values_correct"] - live["correct"])
+        lines.append(f"- The two values-read counts differ by {diff}: the recordings in `fixtures/ocr/` were made with "
+                     f"another Tesseract build, and the photographs are read slightly differently. The four outcome "
+                     f"classes are the same with either. The lower count is the one to quote.")
+    return lines
+
+
 def report(rows: list[dict], baseline: Optional[dict], facts: dict) -> str:
     totals = summary(rows)
     families = Counter(r["family"] for r in rows)
@@ -261,6 +304,7 @@ def report(rows: list[dict], baseline: Optional[dict], facts: dict) -> str:
         lines += ["", f"Before any change to the reader (measured {baseline.get('measured_on', 'earlier')}, the reader "
                       "exactly as it stood when the set was first run):", ""]
         lines += _table("Baseline", baseline["summary"])
+    lines += [""] + how_sure(rows, facts.get("live_values"))
     silent = [r for r in rows if r["class"] == "misread-approved"]
     lines += ["", "### Misread, approved", ""]
     if silent:
@@ -416,6 +460,16 @@ def main(argv: Optional[list[str]] = None) -> int:
     if args.save_baseline:
         BASELINE.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         print(f"wrote {BASELINE.relative_to(config.ROOT)}")
+    if args.write and engine.available and ocr_mode == "fixture":
+        # The report's numbers come from the recordings so they reproduce anywhere; the values-read count from the
+        # engine installed here is measured too and quoted beside them (the photographs are the only OCR'd pages).
+        scans = [r for r in records if r["kind"] == "scan"]
+        live_rows = run(scans, "live", args.llm)
+        recorded = {r["id"]: r for r in rows}
+        delta = sum(len(recorded[r["id"]]["wrong"]) - len(r["wrong"]) for r in live_rows if r["values"])
+        every = summary(rows)["All documents"]
+        facts["live_values"] = {"correct": every["values_correct"] + delta, "total": every["values"],
+                                "engine": _short_engine(engine.label)}
     if args.write:
         baseline = json.loads(BASELINE.read_text(encoding="utf-8")) if BASELINE.is_file() else None
         RESULTS.write_text(json.dumps(payload, indent=2), encoding="utf-8")
