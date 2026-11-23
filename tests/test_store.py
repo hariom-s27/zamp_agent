@@ -2,6 +2,8 @@
 import sqlite3
 from decimal import Decimal
 
+import pytest
+
 from invoice_desk.store import GENESIS, Store, canonical, receipt_hash
 
 from .test_po_match import CHAIR, post
@@ -110,3 +112,23 @@ def test_invoice_number_can_be_recorded_later(store):
     post(store, "T1", "V003", "PO-2026-0212", [(1, "Stretch wrap", 1, "640.00")], number="")
     store.set_ledger_invoice_no("T1", "MPP/26-27/0388")
     assert store.get_ledger("T1")["invoice_key"] == "MPP2627388"
+
+
+def test_case_rows_written_in_one_transaction_roll_back_together(store):
+    case = {"case_id": "CASE-0000000A", "run_id": "AP-2026-0009", "opened_on": "2026-11-21", "state": "WAITING",
+            "waiting_on": "Stores", "owner": "Stores", "question": "q", "reason_codes": "GOODS_NOT_RECEIVED",
+            "priority": "normal", "due_on": "2026-11-23", "statutory_due": "", "statutory_basis": ""}
+    try:
+        with store.transaction():
+            store.add_case(case)
+            store.add_case_event("CASE-0000000A", "opened", "Invoice Desk", "Case opened")
+            raise RuntimeError("stop half way")
+    except RuntimeError:
+        pass
+    assert store.get_case("CASE-0000000A") is None and store.case_events("CASE-0000000A") == []
+    with store.transaction():
+        store.add_case(case)
+        store.update_case("CASE-0000000A", state="RESOLVED", resolution="approved")
+    assert store.get_case("CASE-0000000A")["state"] == "RESOLVED" and store.list_cases(open_only=True) == []
+    with pytest.raises(ValueError):
+        store.update_case("CASE-0000000A", run_id="AP-2026-0001")       # the case's identity never changes

@@ -48,8 +48,26 @@ CREATE TABLE IF NOT EXISTS vendor_overrides (
     id INTEGER PRIMARY KEY AUTOINCREMENT, vendor_id TEXT, kind TEXT, value TEXT, extra TEXT, source_run TEXT,
     created_at TEXT);
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
+CREATE TABLE IF NOT EXISTS cases (
+    case_id TEXT PRIMARY KEY, run_id TEXT UNIQUE, opened_on TEXT, state TEXT, waiting_on TEXT, owner TEXT,
+    question TEXT, reason_codes TEXT, priority TEXT, due_on TEXT, statutory_due TEXT, statutory_basis TEXT,
+    escalated_to TEXT DEFAULT '', escalated_on TEXT DEFAULT '', resolved_on TEXT DEFAULT '',
+    resolution TEXT DEFAULT '', proposed_json TEXT DEFAULT '');
+CREATE TABLE IF NOT EXISTS case_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, case_id TEXT, at TEXT, kind TEXT, actor TEXT, summary TEXT, detail_json TEXT);
+CREATE TABLE IF NOT EXISTS messages (
+    message_id TEXT PRIMARY KEY, case_id TEXT, direction TEXT, status TEXT, created_at TEXT, approved_by TEXT,
+    sender TEXT, recipient TEXT, subject TEXT, body TEXT, eml_sha256 TEXT, attachments_json TEXT DEFAULT '[]',
+    read_json TEXT DEFAULT '');
+CREATE TABLE IF NOT EXISTS goods_receipts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, po_number TEXT, line_no INTEGER, qty TEXT, received_on TEXT,
+    recorded_by TEXT, reference TEXT, created_at TEXT);
 """
-TABLES = ["runs", "ledger", "ledger_lines", "receipts", "reviews", "vendor_overrides", "meta"]
+TABLES = ["runs", "ledger", "ledger_lines", "receipts", "reviews", "vendor_overrides", "meta",
+          "cases", "case_events", "messages", "goods_receipts"]
+# columns a case may change after it is opened (its id and run never change)
+CASE_FIELDS = {"state", "waiting_on", "owner", "question", "reason_codes", "priority", "due_on", "statutory_due",
+               "statutory_basis", "escalated_to", "escalated_on", "resolved_on", "resolution", "proposed_json"}
 # columns added after the first release: a database made by an older version is upgraded in place
 MIGRATIONS = [("runs", "resubmission_of", "TEXT DEFAULT ''"), ("receipts", "signature", "TEXT DEFAULT ''")]
 GENESIS = "GENESIS"
@@ -175,7 +193,8 @@ class Store:
         with self._conn() as conn:
             for table in TABLES:
                 conn.execute(f"DELETE FROM {table}")
-            conn.execute("DELETE FROM sqlite_sequence WHERE name IN ('receipts', 'reviews', 'vendor_overrides')")
+            conn.execute("DELETE FROM sqlite_sequence WHERE name IN ('receipts', 'reviews', 'vendor_overrides', "
+                         "'case_events', 'goods_receipts')")
         self.seed_history()
 
     # ---------------------------------------------------------------- files
@@ -444,3 +463,87 @@ class Store:
             sql, args = sql + " AND kind = ?", args + [kind]
         with self._conn() as conn:
             return [dict(r) for r in conn.execute(sql + " ORDER BY id", args).fetchall()]
+
+    # ---------------------------------------------------------------- cases (round 3)
+    # Bookkeeping for what happens after a hold. Nothing here writes to the receipt chain:
+    # invoice_desk/cases.py adds a receipt only for a goods receipt, a release and an approved message.
+
+    def add_case(self, case: dict) -> None:
+        with self._conn() as conn:
+            conn.execute(
+                """INSERT INTO cases (case_id, run_id, opened_on, state, waiting_on, owner, question, reason_codes,
+                   priority, due_on, statutory_due, statutory_basis) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (case["case_id"], case["run_id"], case["opened_on"], case["state"], case["waiting_on"], case["owner"],
+                 case["question"], case["reason_codes"], case["priority"], case["due_on"], case["statutory_due"],
+                 case["statutory_basis"]))
+
+    def get_case(self, case_id: str) -> Optional[dict]:
+        with self._conn() as conn:
+            row = conn.execute("SELECT * FROM cases WHERE case_id = ?", (case_id,)).fetchone()
+        return dict(row) if row else None
+
+    def case_for_run(self, run_id: str) -> Optional[dict]:
+        with self._conn() as conn:
+            row = conn.execute("SELECT * FROM cases WHERE run_id = ?", (run_id,)).fetchone()
+        return dict(row) if row else None
+
+    def list_cases(self, open_only: bool = False) -> list[dict]:
+        sql = "SELECT * FROM cases" + (" WHERE state != 'RESOLVED'" if open_only else "")
+        with self._conn() as conn:
+            return [dict(r) for r in conn.execute(sql + " ORDER BY opened_on, rowid").fetchall()]
+
+    def update_case(self, case_id: str, **fields: Any) -> None:
+        unknown = set(fields) - CASE_FIELDS
+        if unknown:
+            raise ValueError(f"a case cannot change: {', '.join(sorted(unknown))}")
+        if not fields:
+            return
+        names = sorted(fields)
+        with self._conn() as conn:
+            conn.execute(f"UPDATE cases SET {', '.join(f'{n} = ?' for n in names)} WHERE case_id = ?",
+                         [fields[n] for n in names] + [case_id])
+
+    def add_case_event(self, case_id: str, kind: str, actor: str, summary: str, detail: Optional[dict] = None) -> None:
+        with self._conn() as conn:
+            conn.execute("INSERT INTO case_events (case_id, at, kind, actor, summary, detail_json) VALUES (?,?,?,?,?,?)",
+                         (case_id, config.now_utc().isoformat(), kind, actor, summary,
+                          json.dumps(detail or {}, default=str)))
+
+    def case_events(self, case_id: str) -> list[dict]:
+        with self._conn() as conn:
+            rows = conn.execute("SELECT * FROM case_events WHERE case_id = ? ORDER BY id", (case_id,)).fetchall()
+        return [{**dict(r), "detail": json.loads(r["detail_json"] or "{}")} for r in rows]
+
+    def add_message(self, message: dict) -> None:
+        with self._conn() as conn:
+            conn.execute(
+                """INSERT INTO messages (message_id, case_id, direction, status, created_at, approved_by, sender,
+                   recipient, subject, body, eml_sha256, attachments_json, read_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (message["message_id"], message["case_id"], message["direction"], message["status"],
+                 message.get("created_at") or config.now_utc().isoformat(), message.get("approved_by") or "",
+                 message.get("sender") or "", message.get("recipient") or "", message.get("subject") or "",
+                 message.get("body") or "", message.get("eml_sha256") or "",
+                 json.dumps(message.get("attachments") or []), json.dumps(message["read"]) if message.get("read") else ""))
+
+    def messages(self, case_id: str) -> list[dict]:
+        with self._conn() as conn:
+            rows = conn.execute("SELECT * FROM messages WHERE case_id = ? ORDER BY created_at, message_id",
+                                (case_id,)).fetchall()
+        return [dict(r) for r in rows]
+
+    def add_goods_receipt(self, po_number: str, line_no: int, qty: Decimal, received_on: str, recorded_by: str,
+                          reference: str) -> int:
+        with self._conn() as conn:
+            cursor = conn.execute(
+                "INSERT INTO goods_receipts (po_number, line_no, qty, received_on, recorded_by, reference, created_at) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (po_number, int(line_no), str(qty), received_on, recorded_by, reference, config.now_utc().isoformat()))
+            return int(cursor.lastrowid)
+
+    def goods_receipts(self, po_number: Optional[str] = None) -> list[dict]:
+        sql, args = "SELECT * FROM goods_receipts", []
+        if po_number:
+            sql, args = sql + " WHERE po_number = ?", [po_number]
+        with self._conn() as conn:
+            rows = conn.execute(sql + " ORDER BY id", args).fetchall()
+        return [{**dict(r), "qty": to_decimal(r["qty"])} for r in rows]
