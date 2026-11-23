@@ -437,3 +437,11 @@ the page in the page check. Replay of samples 01, 07 and 08 with 1.1% and Rs 550
 APPROVE, `PRICE_VARIANCE` gone); with only 1.1% none. Tests 743 (`test_changes.py` 13, UI 1). Standing results unchanged.
 Deviations: the `changes` section carries only the step 1 keys (no `second_approver_role`, no `suggest`), and samples
 L1, L2 and PO-2026-1048 are left to step 2, which is not in this round.
+**Checkpoint T: navy primary colour** (23 Nov 2026). `.streamlit/config.toml` `primaryColor` changed to `#1F3A5F`; every
+other setting kept, no CSS changed (the running-stage colour in `ui/common.py` is untouched). `tests/test_theme.py`
+checks the colour, the rest of the config, that the colour is not in the CSS, and that all eleven pages open with the
+Guided demo as the opening page. Tests 746. Standing results unchanged (preflight READY with the one replies WARN).
+
+**Round 4 status after checkpoint T.** Checkpoints 1 to 7 and T done; 8 to 12 not started, by instruction. Recording
+still to do (needs a key, run by the user): `python -m scripts.record_reply_fixtures --dry-run`, then without
+`--dry-run`, then `python -m scripts.preflight` (the replies line turns ok), then commit `fixtures/llm/reply_read__*.json`.
