@@ -8,6 +8,7 @@ before it is written to the outbox.
 """
 from __future__ import annotations
 
+import json
 from datetime import date
 from decimal import Decimal
 
@@ -15,6 +16,8 @@ import streamlit as st
 
 from .. import cases as case_engine
 from .. import config
+from .. import replies
+from ..mailbox import strip_quoted
 from .. import textutil as T
 from . import common as C
 
@@ -174,10 +177,32 @@ def _card(case: dict, store, live, rules) -> None:
             C.render_findings(result.decision.reasons if result.decision else [])
         if "GOODS_NOT_RECEIVED" in case["reason_codes"].split(","):
             _goods_receipt_form(case, store, live)
+        _replies(case, store)
         _message(case, result, store)
         if st.button("Decide this hold in the review queue", key=f"case_review_{run_id}", icon=":material/fact_check:"):
             st.session_state["goto"] = "review"
             st.rerun()
+
+
+def _replies(case: dict, store) -> None:
+    """Replies matched to this case (round 4): the text as plain text, and what was offered or why not."""
+    for m in store.messages(case["case_id"]):
+        if m["direction"] != "in":
+            continue
+        day = case_engine._as_date(m.get("received_at") or "")
+        st.markdown(f"**Reply received from {C.esc(m['sender'] or 'an unknown sender')} on "
+                    f"{C.esc(case_engine.day_text(day)) if day else '-'}.**", unsafe_allow_html=True)
+        st.text(strip_quoted(m["body"] or "")[0].strip() or "(no text)")
+        report = json.loads(m.get("read_json") or "{}")
+        offered = report.get("offered") or {}
+        for name, o in offered.items():
+            label = replies.VALUE_LABEL.get(name, name)
+            st.success(f"The reply states {label} {o['value']}. Read by AI and checked against the reply text: "
+                       f"\"{o['quote']}\". Confirm it in the review queue.")
+        if report.get("outcome") == "person":
+            st.warning(f"{replies.PERSON} Reason: {report.get('reason') or 'not read'}")
+        elif report.get("outcome") in ("confirms", "disputes", "asks_question") and report.get("summary"):
+            C.text_block(f"AI summary of the reply: {report['summary']}")
 
 
 def page() -> None:

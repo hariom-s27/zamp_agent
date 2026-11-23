@@ -194,7 +194,8 @@ def test_a_reply_with_an_open_case_token_goes_to_its_case(store, master, rules, 
         text="The number is NHP/26-27/0301.\n", mid="<r1@nandihillspack.example>")))
     item = store.get_message(out[0]["message_id"])
     assert item["kind"] == "reply" and item["case_id"] == case["case_id"]
-    assert item["action"] == f"Reply matched to case {case['case_id']}."
+    assert item["action"].startswith(f"Reply matched to case {case['case_id']}. ")
+    assert "A person should read this reply. Reason: no AI answer is available" in item["action"]   # the model is off here
 
 
 def test_overdue_items_are_listed_first(store, master, rules, pipeline):

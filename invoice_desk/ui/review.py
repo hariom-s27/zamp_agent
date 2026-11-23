@@ -15,7 +15,8 @@ from __future__ import annotations
 
 import streamlit as st
 
-from .. import config
+from .. import config, replies
+from .. import textutil as T
 from ..review import ReviewError, apply_review, po_position, required_checks, review_state
 from . import common as C
 
@@ -81,8 +82,21 @@ def _pending_card(row: dict, store) -> None:
                                             "cheque). It is kept with this review.", key=f"rev_proof_{run_id}")
             if "bank_second_check" in needs:
                 checks["bank_second_check"] = st.checkbox(needs["bank_second_check"], key=f"rev_bank2_{run_id}")
+            offer = replies.offer_for_run(store, run_id)       # round 4: a value from the vendor's reply, checked
             if "invoice_number" in needs:
-                checks["invoice_number"] = st.text_input(needs["invoice_number"], key=f"rev_number_{run_id}")
+                stated = offer.get("invoice_number") or {}
+                checks["invoice_number"] = st.text_input(needs["invoice_number"], value=stated.get("value", ""),
+                                                         key=f"rev_number_{run_id}")
+                if stated:
+                    st.caption(f"From the vendor's reply, read by AI and checked against the reply text: "
+                               f"\"{stated['quote']}\"")
+            if offer.get("po_number"):
+                po = offer["po_number"]["value"]
+                used = (store.run_row(run_id) or {}).get("po_number") or ""
+                which = "the PO the desk inferred" if "PO_INFERRED" in codes else "the PO on the invoice"
+                same = T.quote_form(po) == T.quote_form(used)
+                st.caption(f"The vendor's reply states {po}. " + (f"This agrees with {which}." if same else
+                           f"This differs from {which}. Check before approving."))
             if not booked:
                 st.caption("The system did not book this document, so there is nothing to approve for payment. Process "
                            "it in the accounting system by hand, then close it here so the queue shows it as done.")

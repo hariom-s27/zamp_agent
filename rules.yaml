@@ -147,6 +147,12 @@ inbox:                         # the AP inbox (round 4): every message sorted, o
     other: AP analyst
   ai_label: false              # true = AI may suggest a label for a message the rules left as "other". It never routes.
 
+replies:                       # the vendor loop (round 4): a reply to a case's question, read and checked, for a person
+  enabled: true                # false = a reply is matched to its case and shown, nothing more
+  ai_read: true                # false = a reply is shown to a person and never read by AI
+  require_sender_match: true   # nothing is offered unless the reply comes from the vendor's address or domain on file
+  offer: [invoice_number, po_number]   # values that may be offered to the reviewer. Dates and totals are evidence only
+
 # What each finding means for the decision. action: REJECT > HOLD > NOTE.
 # owner: who is asked when the action is HOLD (or who is told, for REJECT).
 reasons:

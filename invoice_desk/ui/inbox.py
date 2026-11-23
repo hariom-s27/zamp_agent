@@ -129,10 +129,14 @@ def page() -> None:
         return
     _flash()
     bundled = desk_inbox.bundled_mail()
+    morning = desk_inbox.bundled_mail("next_morning")
     left, right = st.columns([1, 2])
     if left.button(f"Deliver today's mail ({len(bundled)} messages)", key="ib_deliver", type="primary",
                    icon=":material/mail:", disabled=not bundled):
         _deliver(bundled, store, rules)
+    if left.button(f"Deliver the next morning's mail ({len(morning)} replies)", key="ib_deliver_next",
+                   icon=":material/forward_to_inbox:", disabled=not morning):
+        _deliver(morning, store, rules)
     uploads = right.file_uploader("Add .eml files", type=["eml"], accept_multiple_files=True, key="ib_upload")
     if uploads and right.button("Read the added files", key="ib_read_uploads"):
         _deliver([(u.name, u.getvalue()) for u in uploads], store, rules)

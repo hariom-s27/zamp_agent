@@ -15,7 +15,7 @@ from datetime import date, datetime, timedelta
 from typing import Any, Optional
 
 from . import cases as case_engine
-from . import config, samples
+from . import config, replies, samples
 from .mailbox import ParsedMail, case_tokens, check_sender, find_phrases, parse_eml, strip_quoted
 from .masterdata import MasterData
 from .pipeline import Pipeline
@@ -74,10 +74,13 @@ def invoice_refs(text: str) -> list[str]:
     return found
 
 
-def bundled_mail() -> list[tuple[str, bytes]]:
-    """Today's demo mail: the .eml files of samples/desk/mail, in delivery order."""
+DELIVERIES = {"today": "today's mail", "next_morning": "the next morning's mail"}
+
+
+def bundled_mail(delivery: str = "today") -> list[tuple[str, bytes]]:
+    """A demo delivery: today's mail (samples/desk/mail) or the next morning's replies, in delivery order."""
     return [(entry["file"].split("/")[-1], (config.SAMPLES_DIR / entry["file"]).read_bytes())
-            for entry in samples.load_mail_manifest()]
+            for entry in samples.load_mail_manifest(delivery)]
 
 
 def _day(text: str) -> Optional[date]:
@@ -254,8 +257,13 @@ def receive(store: Store, master: MasterData, rules: Rules, pipeline: Pipeline, 
                 "eml_sha256": mail.sha256, "sender": mail.sender, "received_at": received_at,
                 "message_kind": "bank_change_request", "route_rule": "Bank-change wording inside an invoice email",
                 "owner": rules.inbox.owners["bank_change_request"]})
+    action = found["action"]
+    if found["kind"] == "reply":                # the vendor loop: read, check, offer to a person (invoice_desk/replies.py)
+        report = replies.handle_reply(store, rules, pipeline.llm, message_id, today)
+        if report is not None:
+            action = replies.action_text(found["case_id"], report)
     return {"status": "received", "message_id": message_id, "file": name, "kind": found["kind"],
-            "owner": found["owner"], "action": found["action"]}
+            "owner": found["owner"], "action": action}
 
 
 def deliver(store: Store, master: MasterData, rules: Rules, pipeline: Pipeline, files: list[tuple[str, bytes]],

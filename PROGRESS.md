@@ -380,3 +380,17 @@ Inbox page in the page check. Tests 671 (`test_inbox.py` 17, `test_ui_desk.py` 3
 Deviations: an item sorted with no person needed is owned by "Invoice Desk" so every row has an owner; the received time
 is the business date with the current IST clock time, so the demo's due dates are fixed; the inbox audit entries use the
 message id in the run column.
+**Checkpoint 4: the reply reader** (23 Nov 2026). New purpose `reply_read` in `llm.py` (strict schema with no bank field,
+`ReplyAnswer` with extra fields forbidden, `Answer.stop_reason` kept; the two existing purposes and their template
+hashes unchanged). `invoice_desk/replies.py` reads a token-matched reply with quoted text removed, runs the eight checks,
+writes `messages.read_json`, `cases.proposed_json`, the case events `reply_received`, `reply_read`,
+`reply_needs_a_person` and audit entries `reply` and `reply_read` under the case's run; the case moves to its internal
+owner. Cases page shows each reply and what was offered or why not; the review form pre-fills the number and shows the
+sentence and the PO "agrees/differs" line. Inbox page: "Deliver the next morning's mail". `rules.yaml` gains `replies:`.
+`scripts/record_reply_fixtures.py` (dry run, record, force). Preflight: `[WARN] replies` without recordings, READY.
+Tests 693 (`test_replies.py` 20, UI 2 more). Standing results unchanged apart from that WARN.
+Deviations: `n2_corrected_copy.eml` and the keys `corrected_copy`, `reminder_after_days`, `max_reminders` are left to
+checkpoints 8 and 10 (not in this round), so a PDF inside a reply is listed and handled by hand; n1 and n3 have the
+same text after quotes are removed, so one recording serves both (n3 is refused by the sender check); the n4 wording
+avoids the exact bank-change phrases so that it reaches the reply reader, as the spec intends; recordings not made
+(no API calls allowed here), so the manual path is what the app shows until they are recorded.

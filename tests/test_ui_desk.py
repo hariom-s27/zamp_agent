@@ -58,3 +58,32 @@ def test_inbox_close_form_needs_a_name(app):
     app.text_input(key=f"ib_close_note_{mid}").input("Greeting, nothing to do")
     app.button(key=f"FormSubmitter:ib_close_{mid}-Close").click().run()
     assert app.db.get_message(mid)["state"] == "closed"
+
+
+def test_next_morning_replies_show_on_the_case_and_the_manual_path_without_a_recording(app):
+    go(app, "inbox", "Inbox")
+    app.button(key="ib_deliver").click().run()
+    app.button(key="ib_deliver_next").click().run()
+    assert not app.exception, [str(e.value) for e in app.exception]
+    replies_in = [i for i in app.db.inbox() if i["kind"] == "reply"]
+    assert len(replies_in) == 3
+    go(app, "cases", "Cases")
+    text = " ".join(m.value for m in app.markdown)
+    assert "Reply received from billing@nandihillspack.example" in text
+    assert any("A person should read this reply. Reason: no AI answer is available" in w.value for w in app.warning)
+
+
+def test_review_form_is_prefilled_from_an_offered_value(app):
+    import json
+    go(app, "inbox", "Inbox")
+    app.button(key="ib_deliver").click().run()
+    case = app.db.list_cases()[0]
+    sentence = "The invoice number for our invoice dated 14 November 2026 is NHP/26-27/0301."
+    app.db.update_case(case["case_id"], proposed_json=json.dumps({
+        "invoice_number": {"value": "NHP/26-27/0301", "quote": sentence},
+        "po_number": {"value": "PO-2026-1043", "quote": "It was raised against PO-2026-1043."}}))
+    go(app, "review", "Review queue")
+    assert app.text_input(key=f"rev_number_{case['run_id']}").value == "NHP/26-27/0301"
+    words = said(app)
+    assert f"From the vendor's reply, read by AI and checked against the reply text: \"{sentence}\"" in words
+    assert "The vendor's reply states PO-2026-1043. This agrees with the PO on the invoice." in words

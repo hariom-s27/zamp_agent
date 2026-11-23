@@ -191,6 +191,14 @@ class InboxRules(Strict):
         return self
 
 
+class ReplyRules(Strict):
+    """The vendor loop (round 4): a reply to a held invoice's question is read, checked and offered to a person."""
+    enabled: bool
+    ai_read: bool
+    require_sender_match: bool
+    offer: list[Literal["invoice_number", "po_number"]]
+
+
 class Reason(Strict):
     action: Action
     owner: str = ""
@@ -215,6 +223,7 @@ class Rules(Strict):
     msme: Msme
     value_model: ValueModel
     inbox: InboxRules
+    replies: ReplyRules
     reasons: dict[str, Reason]
     sha256: str = ""
 

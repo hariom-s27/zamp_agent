@@ -11,6 +11,7 @@ means ready. Nothing in the app's own database is touched and nothing is sent an
 from __future__ import annotations
 
 import argparse
+import json
 import importlib
 import importlib.metadata
 import platform
@@ -314,6 +315,21 @@ def check_desk(rep: Report) -> None:
             problems.append("a message has no owner or due date")
         rep.line("FAIL" if problems else "ok", f"inbox: {len(want)} messages",
                  "; ".join(problems) or "each sorted as expected, with an owner and a due date")
+        # the next morning's replies, read from recorded AI answers only (fixture mode never calls the API)
+        pipeline.llm = LlmAssist(config.llm_config(mode="fixture"))
+        out = inbox.deliver(store, master, rules, pipeline, inbox.bundled_mail("next_morning"), today)
+        reports = [json.loads(store.get_message(o["message_id"])["read_json"] or "{}") for o in out]
+        leaked = [o["file"] for o, r in zip(out[1:], reports[1:]) if r.get("offered")]
+        if leaked:
+            rep.line("FAIL", "replies", f"a reply that must offer nothing offered a value: {', '.join(leaked)}")
+        elif reports and reports[0].get("outcome") == "offered":
+            rep.line("ok", "replies", "invoice number offered from a recorded AI answer; the look-alike sender and "
+                     "the reply with instructions offer nothing")
+        elif not rules.replies.enabled:
+            rep.line("WARN", "replies", "switched off in rules.yaml (replies.enabled)")
+        else:
+            rep.line("WARN", "replies", "no recorded AI answer for the bundled replies, so the manual path is shown "
+                     "(record them with python -m scripts.record_reply_fixtures)")
         chain = store.verify_chain()
         rep.line("ok" if chain["ok"] else "FAIL", "audit trail after the desk rehearsal",
                  f"{chain['count']} entries verified")

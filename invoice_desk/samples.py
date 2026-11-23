@@ -51,9 +51,11 @@ def load_desk_manifest() -> list[dict]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def load_mail_manifest() -> list[dict]:
-    """The bundled demo mailbox (round 4): one entry per .eml file, in delivery order, with its expected kind."""
-    path = config.SAMPLES_DIR / "desk" / "mail" / "manifest.json"
+def load_mail_manifest(delivery: str = "today") -> list[dict]:
+    """The bundled demo mailbox (round 4): one entry per .eml file, in delivery order, with its expected kind.
+    "today" is the first delivery; "next_morning" holds the vendor's replies to the question about D2."""
+    folder = config.SAMPLES_DIR / "desk" / "mail"
+    path = (folder / "next_morning" if delivery == "next_morning" else folder) / "manifest.json"
     if not path.is_file():
         return []
     return json.loads(path.read_text(encoding="utf-8"))
