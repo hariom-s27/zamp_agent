@@ -16,7 +16,7 @@ from typing import Any, Optional
 
 from . import cases as case_engine
 from . import config, replies, samples
-from .mailbox import ParsedMail, case_tokens, check_sender, find_phrases, parse_eml, strip_quoted
+from .mailbox import ParsedMail, SenderCheck, case_tokens, check_sender, find_phrases, parse_eml, strip_quoted
 from .masterdata import MasterData
 from .pipeline import Pipeline
 from .rules import Rules
@@ -173,7 +173,7 @@ def _run_pdfs(store: Store, master: MasterData, rules: Rules, pipeline: Pipeline
 
 
 def _sort(store: Store, master: MasterData, rules: Rules, pipeline: Pipeline, mail: ParsedMail,
-          today: date) -> dict[str, Any]:
+          today: date, sender: Optional[SenderCheck] = None) -> dict[str, Any]:
     """The sorting rules of DECISIONS.md D71, first match wins. Returns what to record for the message."""
     ib = rules.inbox
     new_text, _ = strip_quoted(mail.text)
@@ -209,8 +209,15 @@ def _sort(store: Store, master: MasterData, rules: Rules, pipeline: Pipeline, ma
                 "rule": f"CSV or XLSX attachment with statement wording (\"{statement[0]}\")"}
     status = find_phrases(words, ib.status_phrases)
     if status:
-        return {"kind": "status_query", "state": "waiting", "owner": ib.owners["status_query"],
-                "action": SENTENCE["status_query"].format(n=len(invoice_refs(words))),
+        if not rules.answers.enabled:
+            action = (f"Payment question about {len(invoice_refs(words))} invoice(s). Answers are switched off in "
+                      f"rules.yaml (answers.enabled); the AP analyst replies by hand.")
+        elif sender is None or sender.result not in ("on_file", "same_domain"):
+            action = ("Sender is not on file for any vendor. No invoice details are shared. If this needs an answer, "
+                      "call the vendor on the number on file.")
+        else:
+            action = SENTENCE["status_query"].format(n=len(invoice_refs(words)))
+        return {"kind": "status_query", "state": "waiting", "owner": ib.owners["status_query"], "action": action,
                 "rule": f"Payment-question wording (\"{status[0]}\")"}
     return {"kind": "other", "state": "waiting", "owner": ib.owners["other"], "action": SENTENCE["other"],
             "rule": "No rule matched"}
@@ -226,7 +233,7 @@ def receive(store: Store, master: MasterData, rules: Rules, pipeline: Pipeline, 
                 "kind": earlier["kind"]}
     store.save_attachment(data)
     sender = check_sender(mail.sender, master, rules)
-    found = _sort(store, master, rules, pipeline, mail, today)
+    found = _sort(store, master, rules, pipeline, mail, today, sender)
     message_id = "IN-" + mail.sha256[:10].upper()
     received_at = _received_at(today)
     due = today + timedelta(days=rules.inbox.answer_due_days)

@@ -165,6 +165,12 @@ payments:                      # the payment-run proposal (round 4). The desk pr
   itc_reversal_warn_days: 150  # unpaid this long after the invoice date: warn. Input tax credit is reversed at 180 days
   export_account_digits: 4     # the export shows only this many last digits of a bank account
 
+answers:                       # payment-status answers (round 4): rule-written from the records, approved by a person
+  enabled: true                # false = a payment question goes to the AP analyst with no draft
+  max_listed: 10               # with no invoice number quoted, list at most this many open invoices
+  reply_to_address_on_file: true   # the answer always goes to the vendor's address on file (only true is allowed)
+  ai_reword: false             # true = AI may reword the rule-written answer. Accepted only if every fact is unchanged
+
 # What each finding means for the decision. action: REJECT > HOLD > NOTE.
 # owner: who is asked when the action is HOLD (or who is told, for REJECT).
 reasons:

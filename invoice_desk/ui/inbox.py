@@ -9,7 +9,7 @@ from __future__ import annotations
 import streamlit as st
 
 from .. import cases as case_engine
-from .. import config
+from .. import answers, config
 from .. import inbox as desk_inbox
 from ..mailbox import strip_quoted
 from . import common as C
@@ -89,6 +89,8 @@ def _detail(row: dict, store, rules) -> None:
     if row["case_id"] and links[1].button("Open the case", key=f"ib_case_{mid}", icon=":material/assignment_late:"):
         st.session_state["goto"] = "cases"
         st.rerun()
+    if row["kind"] == "status_query" and row["state"] not in ("closed",):
+        _answer(row, store, rules)
     if row["state"] == "closed":
         st.caption(f"Closed by {row['closed_by']}: {row['closed_note'] or 'no note'}.")
         return
@@ -117,6 +119,43 @@ def _detail(row: dict, store, rules) -> None:
                     st.rerun()
                 except desk_inbox.InboxError as exc:
                     st.error(str(exc))
+
+
+def _answer(row: dict, store, rules) -> None:
+    """The rule-written answer to a payment question, the records it is built on, and the named approval."""
+    mid = row["message_id"]
+    if row["state"] == "answered":
+        sent = store.get_message(f"{mid}-ANS")
+        if sent:
+            st.success(f"Answer approved by {sent['approved_by']} and written to the outbox, addressed to "
+                       f"{sent['recipient']}.")
+            path = case_engine.outbox_dir(store) / f"{mid}-ANS.eml"
+            if path.is_file():
+                st.download_button("Download the answer (.eml)", data=path.read_bytes(), file_name=path.name,
+                                   mime="message/rfc822", key=f"ib_ans_dl_{mid}")
+        return
+    d = answers.draft(store, C.get_master(), rules, row, C.business_date(),
+                      C.get_llm() if rules.answers.ai_reword else None)
+    if d["status"] != "drafted":
+        st.info(d["reason"])
+        return
+    st.markdown("**Drafted answer**")
+    st.text(d["text"])
+    C.table({"Invoice": f["invoice_no"], "What our records say": f["says"], "Record": f["record"]} for f in d["facts"])
+    for flag in d["flags"]:
+        st.warning(flag)
+    with st.form(key=f"ib_ans_{mid}"):
+        who = st.text_input("Your name", key=f"ib_ans_name_{mid}")
+        go = st.form_submit_button("Approve and send", type="primary")
+        st.caption(answers.SEND_NOTE)
+    if go:
+        try:
+            answers.approve(store, C.get_master(), rules, mid, who, d["sha256"], C.business_date(),
+                            C.get_llm() if rules.answers.ai_reword else None)
+            st.session_state["flash_inbox"] = ("success", f"Answer approved by {who.strip()} and written to the outbox.")
+            st.rerun()
+        except answers.AnswerError as exc:
+            st.error(str(exc))
 
 
 def page() -> None:

@@ -315,6 +315,14 @@ def check_desk(rep: Report) -> None:
             problems.append("a message has no owner or due date")
         rep.line("FAIL" if problems else "ok", f"inbox: {len(want)} messages",
                  "; ".join(problems) or "each sorted as expected, with an owner and a due date")
+        from invoice_desk import answers
+        question = next(i for i in store.inbox() if i["kind"] == "status_query")
+        d = answers.draft(store, master, rules, question, today)
+        want_lines = ("Approved. Due for payment on 18 Dec 2026.", "We have no record of receiving invoice DQI/26-27/1193.")
+        missing = [w for w in want_lines if w not in d.get("text", "")]
+        rep.line("FAIL" if missing else "ok", "payment question",
+                 f"draft is missing: {'; '.join(missing)}" if missing else
+                 "answer drafted from the records on fresh books; nothing sent until a person approves")
         # the next morning's replies, read from recorded AI answers only (fixture mode never calls the API)
         pipeline.llm = LlmAssist(config.llm_config(mode="fixture"))
         out = inbox.deliver(store, master, rules, pipeline, inbox.bundled_mail("next_morning"), today)

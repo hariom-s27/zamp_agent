@@ -82,8 +82,11 @@ MIGRATIONS = [("runs", "resubmission_of", "TEXT DEFAULT ''"), ("receipts", "sign
 INBOX_COLUMNS = ["kind", "vendor_id", "sender_check", "sender_detail", "route_rule", "action", "owner", "state", "due_on",
                  "flags_json", "run_ids_json", "rfc_message_id", "received_at", "closed_by", "closed_at", "closed_note"]
 MIGRATIONS += [("messages", name, "TEXT DEFAULT ''") for name in INBOX_COLUMNS]
+# round 4: an outgoing answer to a payment question names the question and the records it was built on
+MIGRATIONS += [("messages", "in_reply_to", "TEXT DEFAULT ''"), ("messages", "facts_json", "TEXT DEFAULT ''")]
 # columns an inbox item may change after it is received (what arrived never changes)
 INBOX_FIELDS = {"kind", "owner", "state", "due_on", "route_rule", "action", "flags_json", "case_id", "read_json",
+                "in_reply_to",
                 "closed_by", "closed_at", "closed_note"}
 GENESIS = "GENESIS"
 
@@ -536,6 +539,11 @@ class Store:
         with self._conn() as conn:
             rows = conn.execute("SELECT * FROM case_events WHERE case_id = ? ORDER BY id", (case_id,)).fetchall()
         return [{**dict(r), "detail": json.loads(r["detail_json"] or "{}")} for r in rows]
+
+    def set_answer_facts(self, message_id: str, in_reply_to: str, facts: list) -> None:
+        with self._conn() as conn:
+            conn.execute("UPDATE messages SET in_reply_to = ?, facts_json = ? WHERE message_id = ?",
+                         (in_reply_to, json.dumps(facts, default=str), message_id))
 
     def add_message(self, message: dict) -> None:
         with self._conn() as conn:

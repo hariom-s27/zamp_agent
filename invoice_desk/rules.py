@@ -213,6 +213,14 @@ class PaymentRules(Strict):
     export_account_digits: int = Field(ge=0, le=6)
 
 
+class AnswerRules(Strict):
+    """Payment-status answers (round 4): written by rules from the records, sent after a named person approves."""
+    enabled: bool
+    max_listed: int = Field(gt=0)
+    reply_to_address_on_file: Literal[True]
+    ai_reword: bool
+
+
 class Reason(Strict):
     action: Action
     owner: str = ""
@@ -239,6 +247,7 @@ class Rules(Strict):
     inbox: InboxRules
     replies: ReplyRules
     payments: PaymentRules
+    answers: AnswerRules
     reasons: dict[str, Reason]
     sha256: str = ""
 

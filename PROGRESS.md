@@ -409,3 +409,19 @@ check. The worked example of 4.3 comes out as written (37.24%, 9.17%, Rs 1,08,81
 Deviations: the terms file is `data/vendor_terms_desk.csv` (the round's data naming rule) not `data/vendor_terms.csv`;
 "approved for payment in run {id}" is shown on the Payments page only (other pages unchanged); the MSME-1 register rider
 is not built.
+**Checkpoint 6: payment-status answers** (23 Nov 2026). `invoice_desk/answers.py`: sender check first (on file or the
+vendor's own domain; shared mail services only by exact address), invoices found by `invoice_no_key` within the
+sender's own vendor (spacing and case ignored), unmatched references answered "We have no record ...", no number quoted
+lists open invoices newest first up to `answers.max_listed`; one sentence per invoice from one record (approved payment
+run, posted with pay-by date, vendor blocked, on hold with the existing `vendor_issue` or "being checked", not accepted
+with the existing sentence); rule-written draft with the records table; overdue invoices flagged for the Finance
+controller; optional AI rewording only through `draft_vendor_note` and its checks. A named person approves the draft
+as shown (fingerprint), the `.eml` goes to the outbox addressed to the address on file (UTF-8 8bit, CRLF), the outgoing
+row carries `in_reply_to` and `facts_json`, one audit entry, the question becomes "answered". Inbox row shows the draft,
+the records and "Approve and send". `rules.yaml` gains `answers:`; preflight "payment question" line. The bundled m3
+gives "Approved. Due for payment on 18 Dec 2026." and, on fresh books, "We have no record of receiving invoice
+DQI/26-27/1193"; after sample 05 it gives "Not accepted." with the duplicate sentence. Tests 729 (`test_answers.py` 13,
+UI 1). Standing results unchanged.
+Deviations: a hold for a changed bank account is answered "Received on {date} and being checked" so the fraud check is
+never named; invoices without a number cannot be quoted back and are not listed; `reply_to_address_on_file` accepts
+only `true`; m8 and m9 are built inside the tests, not as files.

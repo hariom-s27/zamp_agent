@@ -120,3 +120,19 @@ def test_payments_two_people_approve_and_nothing_is_paid(app, tmp_path):
     assert "approved by N. Rao and S. Iyer. Nothing has been paid." in said(app)
     assert app.db.payment_runs()[0]["status"] == "APPROVED"
     assert all(e["status"] == "POSTED" for e in app.db.ledger_entries() if e["origin"] == "run")
+
+def test_payment_question_answer_is_approved_from_the_inbox(app):
+    go(app, "inbox", "Inbox")
+    app.button(key="ib_deliver").click().run()
+    q = next(o for o in app.selectbox(key="ib_open").options if o.startswith("Payment question"))
+    app.selectbox(key="ib_open").select(q).run()
+    mid = q.rsplit("(", 1)[1].rstrip(")")
+    assert any("We have no record of receiving invoice DQI/26-27/1193." in t.value for t in app.text)
+    assert "No mail server is connected." in said(app)
+    app.button(key=f"FormSubmitter:ib_ans_{mid}-Approve and send").click().run()
+    assert any("Enter your name" in e.value for e in app.error)
+    app.text_input(key=f"ib_ans_name_{mid}").input("Priya (AP)")
+    app.button(key=f"FormSubmitter:ib_ans_{mid}-Approve and send").click().run()
+    assert not app.exception, [str(e.value) for e in app.exception]
+    assert app.db.get_message(mid)["state"] == "answered"
+    assert app.db.get_message(f"{mid}-ANS")["recipient"] == "billing@deccanquill.example"
