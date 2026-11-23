@@ -330,8 +330,7 @@ breaks (`=` at the end of a line) on bare LF. Now `approve_message` writes the b
 `Content-Transfer-Encoding: 8bit` and CRLF line endings (`email.policy.SMTP`): no soft breaks, and the rupee sign is
 one readable character. Departure 11 above (default policy, LF) is replaced by this. New test
 `test_the_outbox_email_is_plain_utf8_with_crlf_and_the_body_survives_exactly` checks the raw bytes and the parsed body
-(failed first, showing `quoti=
-ng`). The Cases page download button is now labelled "Download the email (.eml)" on
+(failed first: the raw file had `quoti=` at a line end, then `ng`). The Cases page download button is now labelled "Download the email (.eml)" on
 the case card after approval. Two assertions in round 3's own new tests changed: the body comparison in
 `test_an_approved_message_is_a_valid_email_...` now turns CRLF into LF before comparing (an email body is CRLF by
 definition; still an exact comparison), and the UI test looks for the new button label. 627 passed; preflight READY
