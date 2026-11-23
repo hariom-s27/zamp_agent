@@ -365,3 +365,8 @@ manifest, UTF-8 8bit with CRLF, fixed dates, Message-IDs and MIME boundaries. `m
 `samples/desk/.gitattributes` keeps the .eml bytes. Tests 638 (+11). Standing results unchanged.
 Deviation: the rule sections of features 2 to 5 are added at the checkpoint that builds each feature (context budget),
 not all at checkpoint 1; `rules.yaml` changes are additions only (checked against `b381b2e`).
+**Checkpoint 2: `mailbox.py`** (23 Nov 2026). Parse one `.eml` (fingerprint, Message-ID, sender, claimed date, plain
+text with HTML reduced to words, attachments with their SHA-256), strip quoted text ("On ... wrote:", Outlook divider,
+header block, `>` lines), find `CASE-` tokens, phrase matching, and the four-way sender check with the exact screen
+sentences; shared mail domains count only by exact address. `tests/test_mailbox.py` (13). Tests 651. Standing results
+unchanged. No deviations.
