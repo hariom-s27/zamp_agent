@@ -171,6 +171,18 @@ answers:                       # payment-status answers (round 4): rule-written 
   reply_to_address_on_file: true   # the answer always goes to the vendor's address on file (only true is allowed)
   ai_reword: false             # true = AI may reword the rule-written answer. Accepted only if every fact is unchanged
 
+changes:                       # procedure change requests (round 4, step 1): propose and replay. Nothing goes in force
+  enabled: true                # false = the Procedure page says it is off and rules.yaml alone is in force
+  allowed:                     # the only numbers a change request may touch, each with hard bounds
+    tolerances.unit_price.pct:          {min: 0.0, max: 3.0}       # percent over the PO price
+    tolerances.unit_price.abs_inr:      {min: 0, max: 2000}        # rupees over the PO price, per line
+    tolerances.po_total.pct:            {min: 0.0, max: 2.0}       # percent over the PO value
+    tolerances.po_total.abs_inr:        {min: 0, max: 2000}        # rupees over the PO value
+    auto_approve.max_invoice_total_inr: {min: 100000, max: 5000000}   # the auto-approval ceiling
+    duplicates.window_days:             {min: 7, max: 60}          # days within which a lookalike is a duplicate
+  max_keys_per_request: 3      # some limits work as a pair, so a request may change a few together
+  replay_max_documents: 60     # replay stops here and says so
+
 # What each finding means for the decision. action: REJECT > HOLD > NOTE.
 # owner: who is asked when the action is HOLD (or who is told, for REJECT).
 reasons:

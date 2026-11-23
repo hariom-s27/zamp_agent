@@ -425,3 +425,15 @@ UI 1). Standing results unchanged.
 Deviations: a hold for a changed bank account is answered "Received on {date} and being checked" so the fraud check is
 never named; invoices without a number cannot be quoted back and are not listed; `reply_to_address_on_file` accepts
 only `true`; m8 and m9 are built inside the tests, not as files.
+**Checkpoint 7: change request step 1** (23 Nov 2026). `invoice_desk/changes.py`: a proposal may touch only the six
+numbers the what-if sandbox changes, within the bounds in `rules.yaml` `changes.allowed`, at most
+`max_keys_per_request` together; `apply` returns the base object for no change and otherwise a copy with version
+"+proposal" and its own hash; `replay` decides every past document twice, in arrival order, on scratch copies of the
+seeded books with recorded AI answers only (fixture mode, no live call), stops at `replay_max_documents` and says so;
+`save` stores a PROPOSED change request (new table `change_requests`) with the replay, refusing a number already
+proposed; a YAML difference can be downloaded. `in_force` returns rules.yaml itself: nothing goes in force in this step.
+Page "Procedure" (propose, replay, save, waiting proposals, history) and preflight "change request replay" line plus
+the page in the page check. Replay of samples 01, 07 and 08 with 1.1% and Rs 550 gives one difference (08, HOLD to
+APPROVE, `PRICE_VARIANCE` gone); with only 1.1% none. Tests 743 (`test_changes.py` 13, UI 1). Standing results unchanged.
+Deviations: the `changes` section carries only the step 1 keys (no `second_approver_role`, no `suggest`), and samples
+L1, L2 and PO-2026-1048 are left to step 2, which is not in this round.

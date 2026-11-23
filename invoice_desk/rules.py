@@ -221,6 +221,38 @@ class AnswerRules(Strict):
     ai_reword: bool
 
 
+class Bounds(Strict):
+    min: Decimal
+    max: Decimal
+
+    @model_validator(mode="after")
+    def _ordered(self):
+        if self.min > self.max:
+            raise ValueError("min must not be above max")
+        return self
+
+
+CHANGEABLE = ("tolerances.unit_price.pct", "tolerances.unit_price.abs_inr", "tolerances.po_total.pct",
+              "tolerances.po_total.abs_inr", "auto_approve.max_invoice_total_inr", "duplicates.window_days")
+
+
+class ChangeRules(Strict):
+    """Procedure change requests (round 4, step 1): propose a change and replay it on past documents. Nothing goes in
+    force in this step."""
+    enabled: bool
+    allowed: dict[str, Bounds]
+    max_keys_per_request: int = Field(ge=1)
+    replay_max_documents: int = Field(ge=1)
+
+    @model_validator(mode="after")
+    def _only_the_sandbox_numbers(self):
+        unknown = [k for k in self.allowed if k not in CHANGEABLE]
+        if unknown:
+            raise ValueError(f"changes.allowed: {', '.join(unknown)} cannot be changed by a request; only the six "
+                             "numbers the what-if sandbox changes are allowed")
+        return self
+
+
 class Reason(Strict):
     action: Action
     owner: str = ""
@@ -248,6 +280,7 @@ class Rules(Strict):
     replies: ReplyRules
     payments: PaymentRules
     answers: AnswerRules
+    changes: ChangeRules
     reasons: dict[str, Reason]
     sha256: str = ""
 

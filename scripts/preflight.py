@@ -339,6 +339,7 @@ def check_desk(rep: Report) -> None:
             rep.line("WARN", "replies", "no recorded AI answer for the bundled replies, so the manual path is shown "
                      "(record them with python -m scripts.record_reply_fixtures)")
         _rehearse_payments(rep, folder, today)
+        _rehearse_replay(rep, folder, today)
         chain = store.verify_chain()
         rep.line("ok" if chain["ok"] else "FAIL", "audit trail after the desk rehearsal",
                  f"{chain['count']} entries verified")
@@ -386,6 +387,31 @@ def _rehearse_payments(rep: Report, folder: Path, today) -> None:
              f"exported; nothing paid")
 
 
+def _rehearse_replay(rep: Report, folder: Path, today) -> None:
+    """Change request step 1: samples 01, 07 and 08 replayed with 1.1% and Rs 550 give one difference, and the real
+    books are untouched."""
+    from decimal import Decimal
+    from invoice_desk import changes
+    from invoice_desk.llm import LlmAssist
+    from invoice_desk.pipeline import Pipeline
+    from invoice_desk.store import Store
+    pipeline = Pipeline(store=Store(folder / "replay.db"), today=today, llm=LlmAssist(config.llm_config(mode="off")))
+    store, master, rules = pipeline.store, pipeline.master, pipeline.rules
+    if not rules.changes.enabled:
+        rep.line("WARN", "change request replay", "switched off in rules.yaml (changes.enabled)")
+        return
+    by_id = {s["id"]: s for s in sample_lib.load_manifest()}
+    for sid in ("01_happy_path_furniture", "07_E4a_tax_inclusive_within_tolerance", "08_E4b_tax_inclusive_over_tolerance"):
+        pipeline.run(sample_lib.sample_bytes(by_id[sid]), sample_lib.received_name(by_id[sid]), "preflight")
+    head = store.chain_head()
+    result = changes.replay(store, master, rules, {"tolerances.unit_price.pct": Decimal("1.1"),
+                                                   "tolerances.unit_price.abs_inr": Decimal("550")}, today)
+    flips = [(d["now"], d["with_change"]) for d in result["differ"]]
+    ok = flips == [("HOLD", "APPROVE")] and store.chain_head() == head
+    rep.line("ok" if ok else "FAIL", "change request replay",
+             f"{result['summary']} No decision changed; the books are untouched" if ok else f"got {flips}")
+
+
 def check_pages(rep: Report) -> None:
     """Open every page of the app without a browser, on a scratch database."""
     print("\nEvery page of the app opens (headless, scratch database)")
@@ -407,7 +433,7 @@ def check_pages(rep: Report) -> None:
     os.environ["INVOICE_DESK_DB"], os.environ["LLM_USAGE_DB"] = str(folder / "pages.db"), str(folder / "usage.db")
     try:
         for key, title in (("demo", "Guided demo"), ("inbox", "Inbox"), ("process", "Process invoice"), ("review", "Review queue"),
-                           ("cases", "Cases"), ("payments", "Payments"), ("dashboard", "Dashboard"), ("value", "Business case"), ("reference", "Rules and data"), ("guide", "How it works")):
+                           ("cases", "Cases"), ("payments", "Payments"), ("procedure", "Procedure"), ("dashboard", "Dashboard"), ("value", "Business case"), ("reference", "Rules and data"), ("guide", "How it works")):
             app = AppTest.from_file(str(config.ROOT / "app.py"), default_timeout=120)
             app.session_state["goto"] = key
             app.run()

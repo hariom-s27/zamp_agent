@@ -70,9 +70,14 @@ CREATE TABLE IF NOT EXISTS payment_runs (
 CREATE TABLE IF NOT EXISTS payment_run_lines (
     run_id TEXT, ledger_id TEXT, vendor_id TEXT, group_name TEXT, amount TEXT, discount TEXT, pay_by TEXT, basis TEXT,
     why TEXT, removed_by TEXT DEFAULT '', removed_reason TEXT DEFAULT '');
+CREATE TABLE IF NOT EXISTS change_requests (
+    change_id TEXT PRIMARY KEY, changes_json TEXT, reason TEXT, proposed_by TEXT, proposed_at TEXT, replay_json TEXT,
+    status TEXT, approved_by TEXT DEFAULT '', approved_role TEXT DEFAULT '', approved_at TEXT DEFAULT '',
+    base_rules_sha256 TEXT, rolled_back_by TEXT DEFAULT '', rolled_back_at TEXT DEFAULT '',
+    rollback_reason TEXT DEFAULT '');
 """
 TABLES = ["runs", "ledger", "ledger_lines", "receipts", "reviews", "vendor_overrides", "meta",
-          "cases", "case_events", "messages", "goods_receipts", "payment_runs", "payment_run_lines"]
+          "cases", "case_events", "messages", "goods_receipts", "payment_runs", "payment_run_lines", "change_requests"]
 # columns a case may change after it is opened (its id and run never change)
 CASE_FIELDS = {"state", "waiting_on", "owner", "question", "reason_codes", "priority", "due_on", "statutory_due",
                "statutory_basis", "escalated_to", "escalated_on", "resolved_on", "resolution", "proposed_json"}
@@ -670,3 +675,20 @@ class Store:
         with self._conn() as conn:
             conn.execute("UPDATE payment_runs SET status = 'CANCELLED', cancelled_by = ?, cancelled_at = ?, "
                          "cancel_reason = ? WHERE run_id = ?", (by, at, reason, run_id))
+    # ---------------------------------------------------------------- change requests (round 4)
+
+    def add_change_request(self, row: dict) -> None:
+        names = ["change_id", "changes_json", "reason", "proposed_by", "proposed_at", "replay_json", "status",
+                 "base_rules_sha256"]
+        with self._conn() as conn:
+            conn.execute(f"INSERT INTO change_requests ({', '.join(names)}) VALUES ({', '.join('?' for _ in names)})",
+                         [row[n] for n in names])
+
+    def change_requests(self) -> list[dict]:
+        with self._conn() as conn:
+            return [dict(r) for r in conn.execute("SELECT * FROM change_requests ORDER BY change_id").fetchall()]
+
+    def change_request(self, change_id: str) -> Optional[dict]:
+        with self._conn() as conn:
+            row = conn.execute("SELECT * FROM change_requests WHERE change_id = ?", (change_id,)).fetchone()
+        return dict(row) if row else None

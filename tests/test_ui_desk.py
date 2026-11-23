@@ -136,3 +136,27 @@ def test_payment_question_answer_is_approved_from_the_inbox(app):
     assert not app.exception, [str(e.value) for e in app.exception]
     assert app.db.get_message(mid)["state"] == "answered"
     assert app.db.get_message(f"{mid}-ANS")["recipient"] == "billing@deccanquill.example"
+
+def test_procedure_replays_and_saves_without_changing_anything(app):
+    from invoice_desk import samples, config
+    from invoice_desk.llm import LlmAssist
+    from invoice_desk.pipeline import Pipeline
+    from tests.conftest import TODAY
+    pipe = Pipeline(store=app.db, llm=LlmAssist(config.LlmConfig(mode="off")), today=TODAY, ocr_mode="fixture")
+    by_id = {s["id"]: s for s in samples.load_manifest()}
+    for sid in ("01_happy_path_furniture", "07_E4a_tax_inclusive_within_tolerance", "08_E4b_tax_inclusive_over_tolerance"):
+        pipe.run(samples.sample_bytes(by_id[sid]), samples.received_name(by_id[sid]), source="cli")
+    go(app, "procedure", "Procedure")
+    assert "A saved request changes nothing." in said(app)
+    app.selectbox(key="cr_key_0").select("tolerances.unit_price.pct").run()
+    app.text_input(key="cr_val_0").input("1.1").run()
+    app.selectbox(key="cr_key_1").select("tolerances.unit_price.abs_inr").run()
+    app.text_input(key="cr_val_1").input("550").run()
+    app.text_input(key="cr_why").input("reviewers keep approving these").run()
+    app.button(key="cr_replay").click().run()
+    assert not app.exception, [str(e.value) for e in app.exception]
+    assert "3 documents replayed. 1 would have been decided differently." in shown(app)
+    app.text_input(key="cr_name").input("N. Rao")
+    app.button(key="FormSubmitter:cr_save_form-Save as a change request").click().run()
+    assert app.db.change_requests()[0]["status"] == "PROPOSED"
+    assert app.db.list_runs()[0]["verdict"] == "HOLD"                 # sample 08 is still held
