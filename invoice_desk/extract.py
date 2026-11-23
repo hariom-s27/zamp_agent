@@ -51,14 +51,20 @@ LABELS: dict[str, list[set[str]]] = {
     ],
 }
 SUBTOTAL = _keys("sub total", "taxable value", "taxable amount", "total taxable value", "total before tax",
-                 "amount before tax", "basic amount", "assessable value", "taxable total")
+                 "amount before tax", "basic amount", "assessable value", "taxable total", "total amount before tax")
 GRAND = _keys("grand total", "invoice total", "total amount", "total payable", "net payable", "amount payable",
               "amount due", "total invoice value", "invoice value", "total amount payable", "balance due",
               "total inr", "total rs", "net total", "invoice total in figures", "total inclusive of gst",
               "total due", "total amount due", "net amount", "net amount payable",
-              "total incl gst", "total inclusive of tax", "invoice value in figures", "quoted total")
+              "total incl gst", "total inclusive of tax", "invoice value in figures", "quoted total",
+              "g total", "invoice amount", "total invoice amount", "bill amount", "total bill amount", "net bill amount",
+              "total payable amount", "net payable amount", "total after tax", "total amount after tax",
+              "amount after tax", "total amount including gst", "total amount incl gst", "total with gst")
 GENERIC_TOTAL = _keys("total")
 TAX_LABELS = {"cgst": "cgst", "sgst": "sgst", "utgst": "sgst", "igst": "igst"}
+# Words printed in front of the tax name on a tax line: accounting packages print the ledger
+# name ('Output CGST 9%'), hand-made bills write 'Add: IGST @ 18%'.
+TAX_LINE_LEADS = {"output", "input", "add", "plus", "op", "ip"}
 ROUND_OFF = _keys("round off", "rounding off", "rounded off", "roundoff")
 WORDS_LABELS = _keys("amount in words", "invoice total in words", "total in words", "amount chargeable in words",
                      "invoice value in words", "in words")
@@ -139,15 +145,25 @@ class Piece:
     word: Word
 
 
+GLUED_LABEL = re.compile(r"^(No|NO|Number|NUMBER|Dt|DT|Date|DATE|Ref|REF)\.?(?=[A-Z0-9][A-Za-z0-9/\-_.]*\d)")
+
+
 def _pieces(cell: Cell) -> list[Piece]:
+    """The words of a cell, with a word split where a label runs straight into its value:
+    at a colon ('No:SIS/2311'), or where the colon was lost because the label did not fit
+    its cell ('NoPO-2026-0512' in a narrow spreadsheet column)."""
     out: list[Piece] = []
     for w in cell.words:
+        glued = GLUED_LABEL.match(w.text)
         if ":" in w.text.strip(":") and not re.match(r"^\d{1,2}:\d{2}", w.text):
             head, _, tail = w.text.partition(":")
             if head:
                 out.append(Piece(head + ":", w))
             if tail:
                 out.append(Piece(tail, w))
+        elif glued:
+            out.append(Piece(glued.group(0), w))
+            out.append(Piece(w.text[glued.end():], w))
         else:
             out.append(Piece(w.text, w))
     return out
@@ -186,6 +202,22 @@ def match_label(cell: Cell, vocab: set[str], fuzzy: bool = False) -> Optional[La
     return None
 
 
+def tax_kind(cell: Cell) -> Optional[str]:
+    """'cgst', 'sgst' or 'igst' when the cell is the label of a tax line: 'CGST @ 9%',
+    'CGST9 (9%)', 'Output CGST 9%', 'Add : IGST @ 18.00 %'. None for anything else."""
+    for word in cell.words[:4]:
+        token = T.letters_digits(word.text)
+        if not token:
+            continue                                    # a bare ':' or '-'
+        stem = token.rstrip("0123456789")
+        for key, kind in TAX_LABELS.items():
+            if stem == key or (token.startswith(key) and len(stem) <= len(key) + 1):
+                return kind
+        if token not in TAX_LINE_LEADS:
+            return None
+    return None
+
+
 def is_label(cell: Cell, fuzzy: bool = False) -> bool:
     hit = match_label(cell, ALL_LABELS, fuzzy)
     return hit is not None and not hit.rest_text
@@ -200,6 +232,8 @@ def _conf(words: list[Word], method: str, loose: bool = False, below: bool = Fal
     if method == "ocr":
         values = [w.conf for w in words if w.conf is not None]
         base = min(0.95, max(0.4, (sum(values) / len(values)) / 100)) if values else 0.6
+    elif any(w.conf == 0.0 for w in words):
+        base = 0.4          # a text-layer word with a glyph nothing could decode (reader.repair_undecoded)
     else:
         base = 0.99
     if below:
@@ -209,12 +243,22 @@ def _conf(words: list[Word], method: str, loose: bool = False, below: bool = Fal
     return round(base, 2)
 
 
+# An OCR engine without a rupee glyph prints something else for it: '%1,02,338.45', '=1,02,338.45',
+# 'z1,02,338.45'. One stray character in front of an amount with thousands separators and two decimals
+# is that sign. (A percentage is written after its number and has no separators.)
+MISREAD_RUPEE = re.compile(r"^[^\d\s(+\-.,]((?:\d{1,3})(?:,\d{2,3})+\.\d{2})$")
+
+
 def _amount_words(words: list[Word]) -> list[tuple[Decimal, Word]]:
     """Numbers among the words, skipping percentages ('9%', '18 %', '18 percent')."""
     out = []
     for i, w in enumerate(words):
         text = w.text.strip()
         nxt = words[i + 1].text.strip().lower() if i + 1 < len(words) else ""
+        sign = MISREAD_RUPEE.match(text) if w.conf is not None else None      # scanned words only
+        if sign:
+            out.append((T.parse_amount(sign.group(1)), w))
+            continue
         if "%" in text or nxt in {"%", "percent", "per"} or nxt.startswith("%"):
             continue
         if text.startswith("@") or text.startswith("("):
@@ -269,16 +313,18 @@ class Candidate:
     raw: str = ""
 
 
-def _parse_identifier(pieces: list[Piece]) -> Optional[tuple[str, list[Word], bool]]:
+def _parse_identifier(pieces: list[Piece]) -> Optional[tuple[str, list[Word], bool, str]]:
+    """(identifier, its word, loose, the text exactly as printed) or None."""
     tokens = [p for p in pieces if p.text.strip(":;#=.-")]
     if not tokens:
         return None
-    first = tokens[0].text.strip(".,;:_|'\"`").lstrip("-=~").replace("$", "S").replace("§", "S")
+    raw = tokens[0].text.strip(".,;:_|'\"`").lstrip("-=~")
+    first = raw.replace("$", "S").replace("§", "S")
     if not ID_RE.match(first) or not any(ch.isdigit() for ch in first) or T.parse_date(first):
         return None
     rest = [p.text.strip(".,;:").lower() for p in tokens[1:]]
     benign = (not rest) or rest[0] in {"dt", "dated", "date", "of", "/"} or T.parse_date(" ".join(rest[:3])) is not None
-    return first, [tokens[0].word], not benign
+    return first, [tokens[0].word], not benign, raw
 
 
 def _parse_field(kind: str, pieces: list[Piece]) -> Optional[tuple[object, list[Word], bool, str]]:
@@ -289,8 +335,7 @@ def _parse_field(kind: str, pieces: list[Piece]) -> Optional[tuple[object, list[
     if not text:
         return None
     if kind == "id":
-        got = _parse_identifier(pieces)
-        return (got[0], got[1], got[2], got[1][0].text.strip(".,;:_|'\"`").lstrip("-=~")) if got else None
+        return _parse_identifier(pieces)
     if kind == "date":
         got = T.parse_date(text)
         if not got:
@@ -330,6 +375,40 @@ def _find_labelled(ctx: _Ctx, name: str, kind: str) -> Optional[Candidate]:
         if best is not None:
             return best
     return best
+
+
+def _number_by_title(ctx: _Ctx) -> Optional[Candidate]:
+    """Some templates label the invoice number with nothing but a sign: the title 'TAX INVOICE'
+    and, directly under it, '# INV-000482'. Used only when no worded label was found, and only
+    for a '#' or 'No.' followed by one identifier and nothing else."""
+    limit = 0.4 * ctx.height.get(1, 842)
+    for line in ctx.lines:
+        if line.page != 1 or line.top > limit:
+            break
+        for cell in line.cells:
+            if _title_kind(cell.text) != "tax_invoice":
+                continue
+            under = ctx.below(line, cell)
+            if under is None:
+                continue
+            pieces = _pieces(under[1])
+            sign = pieces[0].text.strip() if pieces else ""
+            if sign.startswith("#") and len(sign) > 1:                   # '#INV-000482' in one word
+                pieces = [Piece(sign.lstrip("#"), pieces[0].word)] + pieces[1:]
+            elif sign.lower().rstrip(".:") in {"#", "no"} and len(pieces) > 1:
+                pieces = pieces[1:]
+            else:
+                continue
+            parsed = _parse_identifier(pieces)
+            if parsed and not parsed[2]:
+                return Candidate(parsed[0], parsed[1], under[0], 30, False, True, parsed[3])
+    return None
+
+
+# why an invoice number is missing when its label is on the page (validate.py words the hold from these)
+BLANK_PROVEN = "the invoice number is left blank on the document"
+BLANK_UNCHECKED = "a number label is on the scan, with nothing read beside it"
+BLANK_UNREAD = "something is written beside the invoice number label, but it could not be read"
 
 
 def _field(name: str, value=None, confidence: float = 0.0, source: Optional[SourceRef] = None,
@@ -546,7 +625,9 @@ def _find_table(ctx: _Ctx) -> Table:
             continue
         fuzzy = ctx.fuzzy(line)
         first_hit = match_label(line.cells[0], END_OF_TABLE | set(TAX_LABELS), fuzzy)
-        starts_tax = T.letters_digits(line.cells[0].words[0].text)[:5].rstrip("0123456789") in TAX_LABELS
+        # a tax line ends the items wherever it sits: under the table, or as a ledger row
+        # inside the grid ('Output CGST 9%' in the description column, its amount in the amount column)
+        starts_tax = any(tax_kind(cell) for cell in line.cells[:2])
         if first_hit or starts_tax or any(match_label(c, END_OF_TABLE, fuzzy) for c in line.cells[1:]) \
                 or T.norm(line.text).startswith("rupees"):
             if first_hit and first_hit.key in GENERIC_TOTAL:
@@ -590,8 +671,14 @@ def _assign_row(line: Line, table: Table, numeric_roles: set[str]) -> dict:
     centre or left edge, whichever is closest), best fits first."""
     desc = table.col("desc")
     numeric: list[tuple[Decimal, Word]] = []
+    glued_unit: dict[int, str] = {}
     for w in line.words:
         text = w.text.strip().rstrip("%")
+        glued = re.fullmatch(r"(\d[\d,.]*?)([A-Za-z]{2,6})\.?", text)
+        if glued and glued.group(2).lower() in UOM_WORDS and T.parse_amount(glued.group(1)) is not None:
+            numeric.append((T.parse_amount(glued.group(1)), w))          # '25Nos': a quantity that runs into its unit
+            glued_unit[id(w)] = glued.group(2)
+            continue
         if re.search(r"[A-Za-z]", text.replace("O", "").replace("l", "")) and not re.fullmatch(r"[\dOoIl|,.]+", text):
             continue
         value = T.parse_amount(text)
@@ -627,10 +714,13 @@ def _assign_row(line: Line, table: Table, numeric_roles: set[str]) -> dict:
                                  (uom_col is not None and abs(w.xc - uom_col.xc) < 20)):
             uom = w.text.strip(".,")
             continue
-        if desc is not None and w.x1 < desc.x0 - 3 and len(w.text.strip(".")) <= 2:
-            continue  # a serial number the scan turned into a letter
+        if desc is not None and w.x1 < desc.x0 - 3 and len(w.text.strip(".")) <= 2 and (
+                w.conf is not None or (w is line.words[0] and re.fullmatch(r"\(?\d{1,3}[.)]?", w.text.strip()))):
+            continue  # a serial number (on a scan it may have turned into a letter); on a text page 'A4' and '75' are part of the description
         if w.x0 < first_num_x:
             text_words.append(w)
+    if uom is None and "qty" in value_words:
+        uom = glued_unit.get(id(value_words["qty"]))
     return {"line": line, "values": values, "value_words": value_words, "uom": uom,
             "text_words": text_words, "more_text": [], "all_numbers": numeric}
 
@@ -718,9 +808,48 @@ def _label_amounts(ctx: _Ctx, line: Line, k: int, hit: LabelHit) -> list[tuple[D
     return found
 
 
+def _words_sentence(ctx: _Ctx, line: Line, cell: Cell, beside: str, beside_words: list[Word]
+                    ) -> Optional[tuple[str, Line, list[Word]]]:
+    """The amount in words that belongs to the label in `cell`: the text beside it, or, when
+    nothing readable is beside it, the text under it. A sentence that wraps is followed
+    down the page: lines are added while they sit in the same column and the whole still
+    reads as one amount, until the sentence ends in 'only'."""
+    at = ctx.lines.index(line)
+    following = [ln for ln in ctx.lines[at + 1: at + 7] if ln.page == line.page]
+
+    def in_column(candidate: Line, x0: float) -> Optional[Cell]:
+        return next((c for c in candidate.cells if abs(c.x0 - x0) <= 12), None)
+
+    text, home, words, column = beside, line, list(beside_words), None
+    if T.words_to_amount(text) is not None:
+        column = beside_words[0].x0 if beside_words else None
+    else:
+        text, words = "", []
+        for k, nxt in enumerate(following):
+            under = in_column(nxt, cell.x0)
+            if under is None:
+                continue                                  # a line of the other column (the totals) in between
+            if T.words_to_amount(under.text) is None:
+                break
+            text, home, words, column, following = under.text, nxt, list(under.words), under.x0, following[k + 1:]
+            break
+        if not text:
+            return (beside, line, beside_words or line.words) if beside else None
+    for nxt in (following if home is not line else following):
+        if T.norm(text).rstrip(" .)").endswith("only") or column is None:
+            break
+        more = in_column(nxt, column) or in_column(nxt, cell.x0)
+        if more is None:
+            continue
+        if T.words_to_amount(f"{text} {more.text}") is None:
+            break
+        text, words = f"{text} {more.text}", words + list(more.words)
+    return text, home, words
+
+
 def _find_totals(ctx: _Ctx, table: Table) -> dict:
     start = ctx.lines.index(table.last_line) + 1 if table.last_line else 0
-    out: dict = {"subtotal": [], "grand": [], "generic": [], "cgst": None, "sgst": None, "igst": None,
+    out: dict = {"subtotal": [], "grand": [], "generic": [], "closing": [], "cgst": None, "sgst": None, "igst": None,
                  "round_off": None, "words": None}
     if table.total_row:
         row = table.total_row
@@ -739,10 +868,10 @@ def _find_totals(ctx: _Ctx, table: Table) -> dict:
     for line in ctx.lines[start:]:
         fuzzy = ctx.fuzzy(line)
         for k, cell in enumerate(line.cells):
-            first = T.letters_digits(cell.words[0].text)
-            tax_kind = next((v for key, v in TAX_LABELS.items() if first.startswith(key)), None)
-            if tax_kind and (table.total_row is None or line is not table.total_row["line"]):
-                amounts = _amount_words([w for w in cell.words[1:]])
+            kind = tax_kind(cell)
+            if kind and (table.total_row is None or line is not table.total_row["line"]):
+                label_end = next((i for i, w in enumerate(cell.words) if tax_kind(Cell([w]))), 0)
+                amounts = _amount_words([w for w in cell.words[label_end + 1:]])
                 for nxt in line.cells[k + 1:]:
                     if match_label(nxt, ALL_LABELS, fuzzy):
                         break
@@ -750,9 +879,9 @@ def _find_totals(ctx: _Ctx, table: Table) -> dict:
                 rate = PERCENT_RE.search(cell.text)
                 small = [a for a in amounts if a[0] > 40 or "." in a[1].text or "," in a[1].text]
                 amounts = small or amounts
-                if amounts and out[tax_kind] is None:
-                    out[tax_kind] = {"amount": amounts[-1][0], "word": amounts[-1][1], "line": line,
-                                     "rate": Decimal(rate.group(1)) if rate else None}
+                if amounts and out[kind] is None:
+                    out[kind] = {"amount": amounts[-1][0], "word": amounts[-1][1], "line": line,
+                                 "rate": Decimal(rate.group(1)) if rate else None}
                 continue
             for target, vocab in (("words", WORDS_LABELS), ("subtotal", SUBTOTAL), ("grand", GRAND),
                                   ("round_off", ROUND_OFF), ("generic", GENERIC_TOTAL)):
@@ -760,9 +889,15 @@ def _find_totals(ctx: _Ctx, table: Table) -> dict:
                 if hit is None:
                     continue
                 if target == "words":
-                    text = hit.rest_text or " ".join(c.text for c in line.cells[k + 1:])
-                    if out["words"] is None and text:
-                        out["words"] = (text, line, [p.word for p in hit.rest] or line.words)
+                    if hit.rest_text:
+                        beside, beside_words = hit.rest_text, [p.word for p in hit.rest]
+                    else:
+                        beside = " ".join(c.text for c in line.cells[k + 1:])
+                        beside_words = [w for c in line.cells[k + 1:] for w in c.words]
+                    found = _words_sentence(ctx, line, cell, beside, beside_words)
+                    if found and (out["words"] is None or
+                                  (T.words_to_amount(out["words"][0]) is None and T.words_to_amount(found[0]) is not None)):
+                        out["words"] = found
                     break
                 if table.total_row is not None and line is table.total_row["line"]:
                     break
@@ -776,6 +911,13 @@ def _find_totals(ctx: _Ctx, table: Table) -> dict:
                 break
         if out["words"] is None and T.norm(line.text).startswith("rupees"):
             out["words"] = (line.text, line, line.words)
+        # 'Payable   23,340.40' under a label this reader does not know: remembered, and used as the
+        # invoice total only if the lines plus the taxes give exactly this figure (_reconcile)
+        if len(line.cells) >= 2 and re.search(r"[A-Za-z]{3}", line.cells[0].text) and not tax_kind(line.cells[0]) \
+                and not match_label(line.cells[0], ALL_LABELS, fuzzy):
+            last = _amount_words(line.cells[-1].words)
+            if len(last) == 1 and len(line.cells[-1].words) <= 2 and re.search(r"\d\.\d{2}\b", last[0][1].text):
+                out["closing"].append((last[0][0], last[0][1], line, line.cells[0].text.strip(" :")))
     return out
 
 
@@ -840,10 +982,32 @@ def _vendor_name(ctx: _Ctx, buyer_name: str) -> Optional[FieldValue]:
     limit = 0.32 * ctx.height.get(1, 842)
     stop = re.compile(r"(?i)^(bill(ed)? to|ship to|to,?|buyer|customer|details of receiver|consignee)\b")
     candidates: list[tuple[int, Line, Cell]] = []
+    wordy = re.compile(r"[A-Za-z][A-Za-z .,'()\-]*")
+
+    def _trim(text: str) -> str:
+        return re.sub(r"^[^A-Za-z0-9]+|[^A-Za-z0-9.)]+$", "", text)        # a speck read as a quote mark or a bar
+
+    def name_cells(line: Line) -> list[Cell]:
+        """The cells of a line; on a scanned page two wordy cells a few characters apart are one
+        name ('Kaveri Bearings   Transmission Pvt Ltd': the engine dropped the '&' between them)."""
+        if not ctx.fuzzy(line):
+            return line.cells
+        out: list[Cell] = []
+        for cell in line.cells:
+            previous = out[-1] if out else None
+            if previous is not None and wordy.fullmatch(_trim(previous.text)) and wordy.fullmatch(_trim(cell.text)):
+                letters = sum(len(w.text) for w in previous.words + cell.words)
+                width = sum(w.width for w in previous.words + cell.words) / max(letters, 1)
+                if cell.x0 - previous.x1 <= 5 * width:
+                    out[-1] = Cell(previous.words + cell.words)
+                    continue
+            out.append(cell)
+        return out
+
     for line in first_page:
         if line.top > limit or stop.match(line.text.strip()):
             break
-        for cell in line.cells:
+        for cell in name_cells(line):
             text = cell.text.strip()
             tokens = set(re.findall(r"[a-z]+", text.lower()))
             if not text or re.search(r"(?i)\binvoice\b|original for|gstin|^\(?state\b", text) or NOT_A_NAME.search(text):
@@ -859,7 +1023,7 @@ def _vendor_name(ctx: _Ctx, buyer_name: str) -> Optional[FieldValue]:
     if candidates:
         best = max(score for score, _, _ in candidates)
         _, line, cell = next(c for c in candidates if c[0] == best)       # the first of the strongest candidates
-        name = re.sub(r"(?i)^m/s\.?\s*", "", cell.text.strip())
+        name = re.sub(r"(?i)^m/s\.?\s*", "", _trim(cell.text) if ctx.fuzzy(line) else cell.text.strip())
         return _field("vendor_name", T.unify(name), _conf(cell.words, ctx.method.get(1, "text")),
                       ctx.src(line, cell.words))
     for line in reversed(ctx.lines):
@@ -946,14 +1110,46 @@ def _reconcile(ctx: _Ctx, inv: Invoice, table: Table, tot: dict) -> None:
     tax_sum = sum(taxes.values(), ZERO)
     round_off = tot["round_off"][0] if tot.get("round_off") else ZERO
 
-    grand = _pick(tot["grand"])
-    generic = list(tot["generic"])
-    if grand is None and generic:
-        grand = max(generic, key=lambda c: c[0])
-        generic = [g for g in generic if g is not grand]
+    # Which printed figure is the invoice total? The one the arithmetic points at: the lines
+    # plus the taxes (for tax-inclusive prices, the lines alone). A figure under a known
+    # total label wins if it fits; a figure under a label this reader does not know is
+    # accepted only on that arithmetic, and only when no known total label is on the page.
+    expected = None
+    if line_sum is not None and items:
+        expected = line_sum + round_off + (ZERO if inv.tax_inclusive else tax_sum)
+    grand, grand_note = None, None
+    if expected is not None:
+        grand = next((c for c in tot["grand"] + tot["generic"] if _close(c[0], expected)), None)
+        if grand is None and not tot["grand"]:
+            fits = [c for c in tot["closing"] if abs(c[0] - expected) <= Decimal("0.51")]      # the same amount, give or take rounding to a rupee
+            if fits and len({T.q2(c[0]) for c in fits}) == 1:
+                grand = fits[0][:3]
+                grand_note = (f"printed beside '{fits[0][3]}'; taken as the invoice total because the lines plus tax "
+                              f"give this figure")
+    in_words = tot.get("words_value")
+    rescued = None
+    if grand is None and expected is not None and in_words is not None and abs(in_words - expected) < Decimal("0.005") \
+            and any(p.method == "ocr" for p in ctx.doc.pages):
+        # A scan whose total figure cannot be used as read: written by hand, smudged, or misread.
+        # Two things that do not depend on that figure give the same amount, to the paisa: the
+        # lines plus the taxes, and the amount in words. That amount is the total.
+        seen = [c[1].text for c in tot["grand"]] or [c[1].text for c in tot["closing"][-1:]]
+        rescued = _derived("total", expected, ("the figure printed as the total " +
+                                               (f"was read as '{seen[0]}'" if seen else "could not be read") +
+                                               "; the lines plus tax and the amount in words both give "
+                                               f"{T.q2(expected)}, so that value is used"), 0.9)
+    if grand is None and rescued is None:
+        grand = _pick(tot["grand"])
+        if grand is None:
+            # a 'Total' row that only repeats the tax (the foot of a tax summary table) is not the invoice total
+            pool = [c for c in tot["generic"] if not (tax_sum and _close(c[0], tax_sum))]
+            grand = max(pool, key=lambda c: c[0]) if pool else None
+    generic = [g for g in tot["generic"] if g is not grand]
     if grand is not None:
-        f["total"] = _money_field(ctx, "total", grand)
-    total = grand[0] if grand else None
+        f["total"] = _money_field(ctx, "total", grand, grand_note)
+    elif rescued is not None:
+        f["total"] = rescued
+    total = grand[0] if grand else (expected if rescued is not None else None)
 
     subtotal_cand = _pick(tot["subtotal"], line_sum if not inv.tax_inclusive else None)
     if subtotal_cand is None and generic and not inv.tax_inclusive:
@@ -1114,6 +1310,8 @@ def extract_invoice(doc: DocRead, buyer_gstin: str = "", buyer_name: str = "",
 
     for field_name, kind in (("invoice_number", "id"), ("invoice_date", "date"), ("po_reference", "id")):
         cand = _find_labelled(ctx, field_name, kind)
+        if cand is None and field_name == "invoice_number":
+            cand = _number_by_title(ctx)
         if cand is not None:
             method = ctx.method.get(cand.line.page, "text")
             f[field_name] = _field(field_name, cand.value, _conf(cand.words, method, cand.loose, cand.below),
@@ -1147,6 +1345,7 @@ def extract_invoice(doc: DocRead, buyer_gstin: str = "", buyer_name: str = "",
     inv.tax_inclusive = inv.tax_inclusive or table.inclusive_header
     inv.line_items = _build_items(ctx, table)
     totals = _find_totals(ctx, table)
+    totals["words_value"] = T.words_to_amount(totals["words"][0]) if totals.get("words") else None
     _reconcile(ctx, inv, table, totals)
 
     if totals.get("words"):
@@ -1180,12 +1379,35 @@ def extract_invoice(doc: DocRead, buyer_gstin: str = "", buyer_name: str = "",
         "bank_account": "no bank account printed",
         "bank_ifsc": "no IFSC printed",
     }
-    if "invoice_number" not in f and any(match_label(cell, LABELS["invoice_number"][0], ctx.fuzzy(line))
-                                         for line in ctx.lines for cell in line.cells):
-        reasons["invoice_number"] = "the invoice number is left blank on the document"
+    blank_at: Optional[SourceRef] = None
+    if "invoice_number" not in f:
+        # a number label with nothing read beside it. On a text PDF that is a blank box. On a scan it
+        # may also be something OCR could not read, so the place is kept and the pipeline looks at
+        # the picture (reader.ink_share) before anyone says the vendor left it empty.
+        # The document's title is not a number label: on a scan "TAX INVOICE" is within the spelling
+        # slack of "tax invoice no", and round 1 took it for one. Exact label matches are tried first.
+        for fuzzy_pass in (False, True):
+            for line in ctx.lines:
+                for k, cell in enumerate(line.cells):
+                    if INVOICE_TITLE.fullmatch(cell.text.strip().lower()):
+                        continue
+                    if not match_label(cell, LABELS["invoice_number"][0], fuzzy_pass and ctx.fuzzy(line)):
+                        continue
+                    following = line.cells[k + 1] if k + 1 < len(line.cells) else None
+                    right = following.x0 - 3 if following is not None else cell.x1 + 190
+                    scanned = ctx.method.get(line.page, "text") != "text"
+                    blank_at = SourceRef(page=line.page, snippet=cell.text[:60], method="ocr" if scanned else "text",
+                                         bbox=[cell.x1 + 3, cell.top - 2, max(right, cell.x1 + 24), cell.bottom + 2])
+                    reasons["invoice_number"] = BLANK_UNCHECKED if scanned else BLANK_PROVEN
+                    break
+                if blank_at is not None:
+                    break
+            if blank_at is not None:
+                break
     for field_name, reason in reasons.items():
         if field_name not in f:
-            f[field_name] = _field(field_name, None, 0.0, None, missing=reason)
+            f[field_name] = _field(field_name, None, 0.0, blank_at if field_name == "invoice_number" else None,
+                                   missing=reason)
     for field_name, value in f.items():
         value.label = FIELD_LABELS.get(field_name, field_name)
     return inv

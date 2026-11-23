@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "purpose": "vendor_note",
+  "key": "dd2312b57462e25e1e101fea631b6aa74cb54167bce933a2ed65ffcaa78bcf15",
+  "prompt_version": "vendor-note-v1",
+  "template_sha256": "2add7545374917fa62935e7100a1ee070f845903a6f7c9c8af797b32ae14ccad",
+  "model": "claude-haiku-5-5",
+  "recorded_at": "2026-11-23T05:59:42+00:00",
+  "request_id": "req_011ChKMBEaK4db51WE4vwLrm",
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 737,
+    "output_tokens": 918,
+    "seconds": 5.79
+  },
+  "cost_usd": 0.000533,
+  "sdk": "anthropic 2.12.0",
+  "response": {
+    "subject": "Invoice ASS/2026/0933 dated 12-Nov-2026: action needed before payment",
+    "body": "Dear Aravalli Shield Safety Equipment Pvt Ltd accounts team,\n\nWe have received invoice ASS/2026/0933 dated 12-Nov-2026 for ₹1,47,500.00 against PO-2026-0193. Before we can process it, please resolve the following points:\n\n1. Line 1 bills 5 Nos, but only 4 remain on PO-2026-0193.\n2. This invoice takes billing on PO-2026-0193 to ₹5,25,000.00, against a PO value of ₹5,00,000.00.\n\nPlease reply to this email with a corrected invoice or a clarification, quoting the reference above.\n\nRegards,\nAccounts Payable\nNilgiri Precision Components Pvt Ltd"
+  }
+}

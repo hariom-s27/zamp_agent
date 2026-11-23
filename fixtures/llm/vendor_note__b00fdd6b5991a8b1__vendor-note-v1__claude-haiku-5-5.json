@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "purpose": "vendor_note",
+  "key": "b00fdd6b5991a8b152ca3b460d8621a915bfc1028df294ab61be9c8fcc9cd2c2",
+  "prompt_version": "vendor-note-v1",
+  "template_sha256": "2add7545374917fa62935e7100a1ee070f845903a6f7c9c8af797b32ae14ccad",
+  "model": "claude-haiku-5-5",
+  "recorded_at": "2026-11-23T05:59:46+00:00",
+  "request_id": "req_011ChKMBdnKLkGDDNPWM2P6U",
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 710,
+    "output_tokens": 701,
+    "seconds": 4.02
+  },
+  "cost_usd": 0.000421,
+  "sdk": "anthropic 2.12.0",
+  "response": {
+    "subject": "Invoice DQI/26-27/1193 dated 05-Nov-2026: action needed before payment",
+    "body": "Dear Deccan Quill Infotech LLP accounts team,\n\nWe have received invoice DQI/26-27/1193 dated 05-Nov-2026 for ₹6,39,088.00 against PO-2026-0171. We have not booked it for the following reason:\n\n1. This appears to be a second copy of invoice DQI/26-27/1187 dated 03-Nov-2026, which we already have. If it is a separate supply, please reply with the delivery challan for it.\n\nIf it was sent in error, no action is needed. Otherwise, please reply with a corrected document.\n\nRegards,\nAccounts Payable\nNilgiri Precision Components Pvt Ltd"
+  }
+}

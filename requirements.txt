@@ -18,7 +18,7 @@ numpy==2.4.6
 pydantic==2.14.4
 rapidfuzz==3.14.6
 PyYAML==6.0.4
-requests==2.34.2           # only used for the optional LLM assist
+anthropic==2.12.0          # the Claude API client for AI assist; the app runs without a key (FIXTURE mode)
 python-dotenv==1.2.4
 
 # test data generator and tests

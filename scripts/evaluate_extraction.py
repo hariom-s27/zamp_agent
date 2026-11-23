@@ -48,7 +48,7 @@ SCAN_ANGLES = [-1.1, 0.6, 1.3, -0.4]        # degrees of tilt given to the scann
 # Layouts with a lower index than this were looked at while the reader was being built
 # (they drove fixes). Everything from here up was first run after the reader was finished.
 SEEN = {"text": 60, "scan": 24}
-LLM_OFF = config.LlmConfig("off", "", "", "", 5.0)
+LLM_OFF = config.LlmConfig(mode="off")
 
 
 def _same_money(got, want) -> bool:

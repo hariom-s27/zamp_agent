@@ -11,34 +11,24 @@
   "po_ref": "PO-2026-0224",
   "tax_inclusive": true,
   "gst_rate": "18",
-  "taxable": "93867.80",
-  "cgst": "8448.10",
-  "sgst": "8448.10",
+  "taxable": "51688.14",
+  "cgst": "4651.93",
+  "sgst": "4651.93",
   "igst": "0",
-  "tax_total": "16896.20",
-  "total": "110764.00",
+  "tax_total": "9303.86",
+  "total": "60992.00",
   "bank_account": "117700452981",
   "ifsc": "CUCB0001177",
   "lines": [
     {
       "description": "Laser Toner Cartridge 26A (Compatible)",
       "hsn": "8443",
-      "qty": "20",
+      "qty": "16",
       "uom": "Nos",
-      "unit_price": "3780.00",
-      "amount": "75600.00",
-      "unit_price_pre_tax": "3203.39",
-      "amount_pre_tax": "64067.80"
-    },
-    {
-      "description": "Paper Shredder Cross Cut 20 Litre",
-      "hsn": "8472",
-      "qty": "4",
-      "uom": "Nos",
-      "unit_price": "8791.00",
-      "amount": "35164.00",
-      "unit_price_pre_tax": "7450.00",
-      "amount_pre_tax": "29800.00"
+      "unit_price": "3812.00",
+      "amount": "60992.00",
+      "unit_price_pre_tax": "3230.51",
+      "amount_pre_tax": "51688.14"
     }
   ]
 }

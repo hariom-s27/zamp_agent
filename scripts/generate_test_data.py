@@ -107,8 +107,10 @@ PURCHASE_ORDERS = [
     ("PO-2026-0160", "2026-04-01", "V006", "OPEN", "M. Fernandes (Admin)", [
         ("SVC-FM-AMC", "Facility management and housekeeping services, FY 2026-27", "998533", "Lot", 1, "720000.00", "AMOUNT", "")]),
     ("PO-2026-0171", "2026-10-22", "V002", "OPEN", "S. Menon (IT Procurement)", [
-        ("IT-LT-14", "Business laptop 14 inch, 16 GB RAM, 512 GB SSD", "8471", "Nos", 8, "58500.00", "QTY", 8),
-        ("IT-DK-USBC", "USB-C docking station with power delivery", "8473", "Nos", 8, "9200.00", "QTY", 8)]),
+        # 16 ordered, 8 delivered and billed so far (H003): the PO still has room, which is what makes
+        # the disguised duplicate (sample 05) a test of the duplicate rule and not of the PO balance
+        ("IT-LT-14", "Business laptop 14 inch, 16 GB RAM, 512 GB SSD", "8471", "Nos", 16, "58500.00", "QTY", 8),
+        ("IT-DK-USBC", "USB-C docking station with power delivery", "8473", "Nos", 16, "9200.00", "QTY", 8)]),
     ("PO-2026-0178", "2026-11-02", "V002", "OPEN", "S. Menon (IT Procurement)", [
         ("IT-SW-24", "Managed network switch 24 port gigabit", "8517", "Nos", 6, "18500.00", "QTY", 6),
         ("IT-UPS-3K", "Online UPS 3 kVA with batteries", "8504", "Nos", 2, "42000.00", "QTY", 2)]),
@@ -201,13 +203,18 @@ SAMPLES = [
          lines=[line("Stretch wrap film roll 23 micron", "3920", 120, "Roll", "640.00"),
                 line("BOPP packing tape 48 mm (carton of 72)", "3919", 25, "Carton", "2340.00"),
                 line("Bubble wrap roll 1 m x 100 m", "3921", 40, "Roll", "1150.00")]),
+    # Samples 07 and 08 are one pair. Same vendor, item and quantity; the printed (tax-inclusive)
+    # unit price differs by two rupees. The PO price is Rs 3,200 before tax, and the tolerance is
+    # 1% and Rs 500 on the line, both of which must hold.
+    #   07: 3,812 / 1.18 = 3,230.51  -> +30.51 (0.95%), 16 x 30.51 = 488.16 on the line: inside both
+    #   08: 3,814 / 1.18 = 3,232.20  -> +32.20 (1.01%), 16 x 32.20 = 515.20 on the line: outside both
+    # Each bills 16 units of a PO that has more than that open, so nothing but the price can trip.
     spec(id="07_E4a_tax_inclusive_within_tolerance", layout="retail", vendor="V005", invoice_no="SIS/2311",
          invoice_date=date(2026, 11, 13), po_ref="PO-2026-0224", tax_inclusive=True,
-         lines=[line("Laser Toner Cartridge 26A (Compatible)", "8443", 20, "Nos", "3780.00"),
-                line("Paper Shredder Cross Cut 20 Litre", "8472", 4, "Nos", "8791.00")]),
+         lines=[line("Laser Toner Cartridge 26A (Compatible)", "8443", 16, "Nos", "3812.00")]),
     spec(id="08_E4b_tax_inclusive_over_tolerance", layout="retail", vendor="V005", invoice_no="SIS/2327",
          invoice_date=date(2026, 11, 17), po_ref="PO-2026-0229", tax_inclusive=True,
-         lines=[line("Laser Toner Cartridge 26A (Compatible)", "8443", 30, "Nos", "3835.00")]),
+         lines=[line("Laser Toner Cartridge 26A (Compatible)", "8443", 16, "Nos", "3814.00")]),
     spec(id="09_fraud_guard_bank_change", layout="classic", vendor="V001", invoice_no="TOF/26-27/0431",
          invoice_date=date(2026, 11, 14), po_ref="PO-2026-0152", po_date=date(2026, 10, 28),
          vendor_name_printed="Tungabhadra Office Furnishing Pvt. Ltd.",
@@ -221,31 +228,48 @@ SAMPLES = [
                 line("Online UPS 3 kVA with batteries", "8504", 2, "Nos", "42000.00")]),
 ]
 
+# id: (title shown to a buyer, group, verdict, reason codes, description, tag used in the documents,
+#      the file name the attachment "arrived" under)
 MANIFEST_META = {
-    "01_happy_path_furniture": ("Happy path", "core", "APPROVE", [],
-        "Clean text PDF, PO quoted, three itemised lines, CGST and SGST. Everything matches."),
-    "02_scanned_clean_safety": ("Scanned invoice, clean", "core", "APPROVE", [],
-        "A tilted, noisy scan with no text layer. OCR reads it, arithmetic confirms the read, and it posts untouched."),
-    "03_monthly_service_instalment": ("Monthly service instalment", "core", "APPROVE", [],
-        "Instalment 8 of 12 against a Rs 7,20,000 service PO. A partial bill that fits the balance is normal."),
-    "04_E1_split_po_overbilling": ("E1 Split PO, third invoice over-bills", "edge", "HOLD",
+    "01_happy_path_furniture": ("Standard three-way match, clean text PDF", "core", "APPROVE", [],
+        "Clean text PDF, PO quoted, three itemised lines, CGST and SGST. Everything matches.",
+        "Standard", "Tungabhadra_TOF-26-27-0412.pdf"),
+    "02_scanned_clean_safety": ("Scanned invoice, read by OCR and matched", "core", "APPROVE", [],
+        "A tilted, noisy scan with no text layer. OCR reads it twice, arithmetic confirms the read, and it posts untouched.",
+        "Scan", "scan_ASS-2026-0941.pdf"),
+    "03_monthly_service_instalment": ("Service contract instalment, part-billing of a PO", "core", "APPROVE", [],
+        "Instalment 8 of 12 against a Rs 7,20,000 service PO. A partial bill that fits the balance is normal.",
+        "Service", "VindhyaSpark_VSF-26-27-11.pdf"),
+    "04_E1_split_po_overbilling": ("Split purchase order: one invoice too many", "edge", "HOLD",
         ["QTY_OVER_PO", "OVER_PO_BALANCE"],
-        "PO for 20 units and Rs 5,00,000. Two invoices already posted for 16 units. This one bills 5 more."),
-    "05_E2_disguised_duplicate": ("E2 Disguised duplicate", "edge", "REJECT", ["DUPLICATE_CONTENT"],
-        "Same vendor, lines and amount as an invoice posted two days earlier, under a new invoice number."),
-    "06_E3_scan_no_number_implied_po": ("E3 Scan, no invoice number, PO implied", "edge", "HOLD",
+        "PO for 20 units and Rs 5,00,000. Two invoices already posted for 16 units. This one bills 5 more.",
+        "Edge case 1", "Aravalli_ASS-2026-0933.pdf"),
+    "05_E2_disguised_duplicate": ("Suspected duplicate: same items under a new invoice number", "edge", "REJECT",
+        ["DUPLICATE_CONTENT"],
+        "Same vendor, lines and amount as an invoice posted two days earlier, under a new invoice number. "
+        "The PO still has room for it; no second delivery has been received.",
+        "Edge case 2", "DeccanQuill_DQI-26-27-1193.pdf"),
+    "06_E3_scan_no_number_implied_po": ("Scanned invoice with no invoice number and no PO quoted", "edge", "HOLD",
         ["MISSING_INVOICE_NUMBER", "PO_INFERRED"],
-        "Scanned bill with the number left blank and no PO quoted. The PO is inferred and a person is asked to confirm."),
-    "07_E4a_tax_inclusive_within_tolerance": ("E4 Tax-inclusive prices, inside tolerance", "edge", "APPROVE", [],
-        "Prices include GST; the PO is pre-tax. After conversion one price is Rs 3.39 over, inside both limits."),
-    "08_E4b_tax_inclusive_over_tolerance": ("E4 Tax-inclusive prices, outside tolerance", "edge", "HOLD",
-        ["PRICE_VARIANCE", "OVER_PO_BALANCE"],
-        "Same vendor and item; after conversion the price is Rs 50 over (1.56%), outside the 1% limit."),
-    "09_fraud_guard_bank_change": ("Fraud guard: bank account changed", "guard", "HOLD", ["BANK_DETAILS_CHANGED"],
-        "A perfect match on the PO, but the bank account differs from the vendor master and the name is a variant."),
-    "10_ai_assist_letter_invoice": ("AI assist: invoice written as a letter", "assist", "HOLD",
+        "Scanned bill with the number left blank and no PO quoted. The PO is inferred and a person is asked to confirm.",
+        "Edge case 3", "scan_Malabar_Polywrap_12Nov.pdf"),
+    "07_E4a_tax_inclusive_within_tolerance": ("Tax-inclusive prices, just inside the price tolerance", "edge", "APPROVE", [],
+        "Prices include GST; the PO is pre-tax. After conversion the price is Rs 30.51 over (0.95%), Rs 488.16 on "
+        "the line: just inside the 1% and Rs 500 limits.",
+        "Edge case 4, inside", "Sahyadri_SIS-2311.pdf"),
+    "08_E4b_tax_inclusive_over_tolerance": ("Tax-inclusive prices, just outside the price tolerance", "edge", "HOLD",
+        ["PRICE_VARIANCE"],
+        "The same bill with the printed price two rupees higher. After conversion it is Rs 32.20 over (1.01%), "
+        "Rs 515.20 on the line: just outside both limits. Nothing else is wrong with it.",
+        "Edge case 4, outside", "Sahyadri_SIS-2327.pdf"),
+    "09_fraud_guard_bank_change": ("Bank account differs from the vendor master", "guard", "HOLD", ["BANK_DETAILS_CHANGED"],
+        "A perfect match on the PO, but the bank account differs from the vendor master and the name is a variant.",
+        "Fraud control", "Tungabhadra_TOF-26-27-0431.pdf"),
+    "10_ai_assist_letter_invoice": ("Invoice written as a letter, read with AI assist", "assist", "HOLD",
         ["LINE_ITEMS_UNREADABLE", "MISSING_INVOICE_NUMBER", "MISSING_TOTAL"],
-        "Free-form prose, no table. Rules alone hold it. With LLM assist on, the lines are read and verified against the page."),
+        "Free-form prose, no table. Rules alone hold it. With AI assist the fields are read and each one is "
+        "verified against the page before it is used.",
+        "AI assist", "DeccanQuill_letter_14Nov.pdf"),
 }
 # What a sample should give when the LLM assist actually supplied values (live or replayed).
 WITH_LLM = {"10_ai_assist_letter_invoice": {"expected_verdict": "APPROVE", "expected_reasons": []}}
@@ -1006,6 +1030,36 @@ def corrupt_bytes() -> bytes:
     return b"%PDF-1.7\n" + bytes(rnd.getrandbits(8) for _ in range(4096))
 
 
+NOT_A_PDF = (b"Dear AP team,\n\nPlease find our invoice for November attached.\n\nRegards,\nAccounts\n"
+             b"(Synthetic test file for a case study. This is plain text, not a PDF.)\n")
+
+
+def encrypted_pdf() -> bytes:
+    """A one-page PDF that needs a password. `invariant` keeps the bytes the same on every run."""
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4, invariant=1, encrypt="open-sesame")
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(60, 780, "TAX INVOICE")
+    c.setFont("Helvetica", 9)
+    c.drawString(60, 760, DISCLAIMER)
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+def long_pdf(pages: int) -> bytes:
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4, invariant=1)
+    for n in range(1, pages + 1):
+        c.setFont("Helvetica", 10)
+        c.drawString(60, 780, f"Annual rate contract, schedule of items, page {n} of {pages}")
+        c.setFont("Helvetica-Oblique", 6.5)
+        c.drawCentredString(PAGE_W / 2, 22, DISCLAIMER)
+        c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
 # --------------------------------------------------------------------------- truth and files
 
 def truth_for(inv: dict) -> dict:
@@ -1093,10 +1147,10 @@ def write_samples(samples_dir: Path) -> None:
         (samples_dir / name).write_bytes(pdf)
         (samples_dir / "truth" / f"{inv['id']}.json").write_text(
             json.dumps(truth_for(inv), indent=2), encoding="utf-8")
-        title, group, verdict, reasons, description = MANIFEST_META[inv["id"]]
-        manifest.append({"id": inv["id"], "file": name, "order": order, "title": title, "group": group,
-                         "scanned": inv["scanned"], "layout": inv["layout"], "expected_verdict": verdict,
-                         "expected_reasons": reasons, "description": description})
+        title, group, verdict, reasons, description, tag, received_as = MANIFEST_META[inv["id"]]
+        manifest.append({"id": inv["id"], "file": name, "order": order, "title": title, "group": group, "tag": tag,
+                         "received_as": received_as, "scanned": inv["scanned"], "layout": inv["layout"],
+                         "expected_verdict": verdict, "expected_reasons": reasons, "description": description})
         if inv["id"] in WITH_LLM:
             manifest[-1]["with_llm"] = WITH_LLM[inv["id"]]
     bad = [
@@ -1107,12 +1161,20 @@ def write_samples(samples_dir: Path) -> None:
         ("corrupt_file.pdf", corrupt_bytes(), "Corrupt file", "REJECT", ["UNREADABLE_FILE"],
          "Starts like a PDF, then random bytes."),
         ("empty_file.pdf", b"", "Empty file", "REJECT", ["UNREADABLE_FILE"], "Zero bytes."),
+        ("password_protected.pdf", encrypted_pdf(), "Password-protected PDF", "REJECT", ["UNREADABLE_FILE"],
+         "A real invoice-like PDF that needs a password to open."),
+        ("too_many_pages.pdf", long_pdf(25), "PDF with more pages than the limit", "HOLD", ["FILE_TOO_LARGE"],
+         "25 pages against a limit of 20: held for a person instead of being read automatically."),
+        ("not_a_pdf.pdf", NOT_A_PDF, "A text file renamed to .pdf", "REJECT", ["UNREADABLE_FILE"],
+         "The body of an email saved with a .pdf name."),
+        ("truncated_download.pdf", build_sample(SAMPLES[0])[:700], "Truncated PDF (download cut short)", "REJECT",
+         ["UNREADABLE_FILE"], "The first 700 bytes of a valid invoice."),
     ]
     for order, (name, content, title, verdict, reasons, description) in enumerate(bad, len(SAMPLES) + 1):
         (samples_dir / "bad_inputs" / name).write_bytes(content)
         manifest.append({"id": Path(name).stem, "file": f"bad_inputs/{name}", "order": order, "title": title,
-                         "group": "bad_input", "scanned": False, "layout": "-", "expected_verdict": verdict,
-                         "expected_reasons": reasons, "description": description})
+                         "group": "bad_input", "tag": "Bad input", "received_as": name, "scanned": False, "layout": "-",
+                         "expected_verdict": verdict, "expected_reasons": reasons, "description": description})
     (samples_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
 
@@ -1174,13 +1236,19 @@ def variant_spec(index: int) -> dict:
                 date_format=rnd.choice(DATE_FORMATS), lines=lines)
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Rewrite data/ and samples/ from the seeded generator. The output is the same on every run, "
+                    "so running it changes nothing unless the generator itself was edited.")
+    parser.parse_args(argv)                      # no options; this only makes --help safe to type
     write_master_data(ROOT / "data")
     write_samples(ROOT / "samples")
     print(f"wrote {len(VENDORS)} vendors, {len(PURCHASE_ORDERS)} purchase orders, {len(HISTORY)} history "
-          f"invoices and {len(SAMPLES)} sample invoices plus 4 bad inputs")
+          f"invoices and {len(SAMPLES)} sample invoices plus 8 bad inputs")
     print(f"buyer GSTIN {BUYER['gstin']}")
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])

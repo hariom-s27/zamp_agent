@@ -3,10 +3,11 @@ import json
 from invoice_desk import config, run
 
 
-def test_all_samples_from_the_command_line(capsys):
+def test_all_samples_from_the_command_line(capsys, manifest):
+    assert len(manifest) == 18                                   # 10 invoices and 8 bad inputs
     assert run.main(["--all"]) == 0
     out = capsys.readouterr().out
-    assert "14 of 14 samples gave the expected decision" in out and "MISMATCH" not in out
+    assert "18 of 18 samples gave the expected decision" in out and "MISMATCH" not in out
 
 
 def test_one_file_prints_every_stage_and_the_decision(capsys):

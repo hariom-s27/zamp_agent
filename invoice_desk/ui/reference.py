@@ -12,7 +12,6 @@ import streamlit as st
 from .. import config
 from .. import samples as sample_lib
 from .. import textutil as T
-from ..llm import LlmAssist
 from ..pipeline import Pipeline
 from ..store import Store
 from . import common as C
@@ -56,8 +55,9 @@ def _dry_run(sample: dict, rules) -> tuple[str, list[str]]:
     """Process one sample against a scratch copy of the seeded books. Nothing is kept."""
     folder = Path(tempfile.mkdtemp(prefix="invoice_desk_whatif_"))
     try:
-        pipeline = Pipeline(store=Store(folder / "whatif.db"), rules=rules, master=C.get_master(), llm=LlmAssist())
-        result = pipeline.run(sample_lib.sample_bytes(sample), Path(sample["file"]).name, "what-if")
+        pipeline = Pipeline(store=Store(folder / "whatif.db"), rules=rules, master=C.get_master(), llm=C.get_llm(),
+                            today=C.business_date())
+        result = pipeline.run(sample_lib.sample_bytes(sample), sample_lib.received_name(sample), "what-if")
         return result.verdict, [f"{f.title}: {f.summary}" for f in result.decision.reasons] or \
             [result.decision.explanation]
     finally:
@@ -83,8 +83,9 @@ def _sandbox(rules) -> None:
     ceiling = c3.number_input("Auto-approval ceiling, rupees", min_value=1000, max_value=100000000,
                               value=int(rules.auto_approve.max_invoice_total_inr), step=50000, key="wi_ceiling")
     window = c3.slider("Duplicate window, days", 0, 60, int(rules.duplicates.window_days), 1, key="wi_window")
-    st.caption("Ideas: sample 07 with the price tolerance at 0.10%; sample 01 with the ceiling at 4,00,000; "
-               "sample 08 with both price limits and both PO limits raised to 2% and 2,000.")
+    st.caption("Ideas: sample 07 (0.95% above the PO price) with the price tolerance at 0.90%; sample 08 (1.01%, "
+               "Rs 515 on the line) with the price tolerance at 1.10% and 550 rupees; sample 01 with the ceiling at "
+               "4,00,000.")
     if st.button("Run both ways", type="primary", key="wi_go"):
         trial = rules.model_copy(deep=True)
         trial.tolerances.unit_price.pct, trial.tolerances.unit_price.abs_inr = Decimal(str(price_pct)), Decimal(price_abs)
@@ -133,7 +134,7 @@ def _purchase_orders(store, master) -> None:
     st.markdown("**Invoices against this PO**")
     C.table({"Invoice": e["invoice_no"] or "(no number)", "Date": T.fmt_date(e["invoice_date"]),
              "Taxable value": C.money(e["taxable"]), "Status": e["status"],
-             "From": "prior history" if e["origin"] == "history" else f"run {e['run_id']}"} for e in usage["invoices"])
+             "From": "prior history" if e["origin"] == "history" else e["run_id"]} for e in usage["invoices"])
 
 
 def _vendors(store, master) -> None:
@@ -154,7 +155,7 @@ def _ledger(store, master) -> None:
     C.table({"Ledger ID": e["ledger_id"], "Invoice": e["invoice_no"] or "(no number)", "Date": T.fmt_date(e["invoice_date"]),
              "Vendor": master.vendors[e["vendor_id"]].legal_name if e["vendor_id"] in master.vendors else (e["vendor_id"] or "-"),
              "PO": e["po_number"] or "-", "Taxable value": C.money(e["taxable"]), "Total": C.money(e["total"]),
-             "Status": e["status"], "From": "prior history" if e["origin"] == "history" else f"run {e['run_id']}",
+             "Status": e["status"], "From": "prior history" if e["origin"] == "history" else e["run_id"],
              "Note": e["note"] or ""} for e in reversed(entries))
     st.caption("POSTED entries count against PO balances and are payable. PENDING entries wait in the review queue "
                "and do not use PO balance. REJECTED entries are kept for the record and never paid.")

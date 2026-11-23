@@ -15,11 +15,10 @@ from typing import Optional
 from . import textutil as T
 from .masterdata import MasterData, PoLine, PurchaseOrder, Vendor
 from .models import Finding, Invoice, LineItem
-from .rules import Limit, Rules
+from .rules import Limit, Matching, Rules, current_rules
 
 STAGE = "po_match"
 ZERO = Decimal("0")
-LINE_MATCH = 0.72           # description similarity needed to pair an invoice line with a PO line
 money, num = T.fmt_inr, T.fmt_num
 
 
@@ -38,11 +37,17 @@ def _similarity(item: LineItem, po_line: PoLine) -> float:
     return score
 
 
-def pair_lines(items: list[LineItem], po: PurchaseOrder) -> list[tuple[LineItem, Optional[PoLine], float]]:
-    """Pair each invoice line with its best unused PO line, strongest pairs first."""
+def pair_lines(items: list[LineItem], po: PurchaseOrder, matching: Optional[Matching] = None
+               ) -> list[tuple[LineItem, Optional[PoLine], float]]:
+    """Pair each invoice line with its best unused PO line, strongest pairs first. An
+    invoice may bill one item on two lines (two deliveries) where the PO has it once: a
+    line left without a PO line of its own then shares one that is already paired, but
+    only on a near-exact wording match. The similarity each kind of pair needs comes
+    from rules.yaml (matching)."""
+    matching = matching or current_rules().matching
     scored = sorted(((_similarity(it, pl), i, pl.line_no) for i, it in enumerate(items) for pl in po.lines),
                     reverse=True)
-    threshold = 0.5 if (len(items) == 1 and len(po.lines) == 1) else LINE_MATCH
+    threshold = matching.line_pairing_min_single if (len(items) == 1 and len(po.lines) == 1) else matching.line_pairing_min
     chosen: dict[int, tuple[PoLine, float]] = {}
     used: set[int] = set()
     for score, i, line_no in scored:
@@ -50,21 +55,26 @@ def pair_lines(items: list[LineItem], po: PurchaseOrder) -> list[tuple[LineItem,
             continue
         chosen[i] = (po.line(line_no), score)
         used.add(line_no)
+    for score, i, line_no in scored:
+        if i not in chosen and line_no in used and score >= matching.line_sharing_min:
+            chosen[i] = (po.line(line_no), score)
     return [(it, *(chosen.get(i, (None, max((_similarity(it, pl) for pl in po.lines), default=0.0)))))
             for i, it in enumerate(items)]
 
 
 def score_po(inv: Invoice, po: PurchaseOrder, usage: dict, rules: Rules) -> dict:
-    """How well an invoice with no PO number fits one open PO: item wording (65%), price
-    agreement (25%) and whether the quantity still fits (10%), averaged over the lines."""
-    pairs = pair_lines(inv.line_items, po)
+    """How well an invoice with no PO number fits one open PO: item wording, price
+    agreement and whether the quantity still fits, weighted as rules.yaml says
+    (po_inference.weights) and averaged over the lines."""
+    w = rules.po_inference.weights
+    pairs = pair_lines(inv.line_items, po, rules.matching)
     if not pairs:
         return {"po_number": po.po_number, "score": 0.0, "matched": 0, "lines": 0}
     total = 0.0
     matched = 0
     for item, po_line, sim in pairs:
         if po_line is None:
-            total += 0.65 * sim * 0.5
+            total += w.wording * sim * 0.5
             continue
         matched += 1
         price = 0.5
@@ -75,7 +85,7 @@ def score_po(inv: Invoice, po: PurchaseOrder, usage: dict, rules: Rules) -> dict
         if item.qty is not None:
             before = usage["posted"].get(po_line.line_no, {}).get("qty", ZERO)
             fits = 1.0 if before + item.qty <= po_line.qty_ordered else 0.0
-        total += 0.65 * sim + 0.25 * price + 0.10 * fits
+        total += w.wording * sim + w.price * price + w.quantity * fits
     score = total / len(pairs)
     inv_date = inv.day()
     if inv_date and inv_date < po.po_date:
@@ -178,11 +188,17 @@ def match_po(inv: Invoice, vendor: Optional[Vendor], master: MasterData, store, 
             text += (f"They were converted to pre-tax to compare with the PO; for example line {example.line_no}: "
                      f"{money(example.unit_price)} / {1 + (rate or ZERO) / 100:g} = {money(example.unit_price_pre_tax)}.")
         findings.append(Finding(code="TAX_INCLUSIVE_NORMALISED", stage=STAGE, summary=text))
+        factor = 1 + (rate or ZERO) / 100
+        blocks.append({"type": "table", "title": "Prices printed with GST, converted to pre-tax for the PO comparison", "rows": [
+            {"Line": f"{it.line_no} {it.description[:40]}", "Price printed (with GST)": money(it.unit_price),
+             "GST": f"{rate:g}%" if rate else "-", "Divided by": f"{factor:g}", "Pre-tax price": money(it.unit_price_pre_tax)}
+            for it in items if it.unit_price is not None and it.unit_price_pre_tax is not None]})
 
     # ---------------------------------------------------------------- 3. line by line
-    pairs = pair_lines(items, po)
+    pairs = pair_lines(items, po, rules.matching)
     rows: list[dict] = []
     matched = 0
+    taken: dict[int, dict] = {}       # what earlier lines of this invoice already bill on each PO line
     remaining_total = po.total - usage["posted_amount"]
     whole_invoice_lump = (len(items) == 1 and items[0].qty is None and pairs[0][1] is None)
     if whole_invoice_lump and inv.taxable is not None:
@@ -232,11 +248,13 @@ def match_po(inv: Invoice, vendor: Optional[Vendor], master: MasterData, store, 
             matched += 1
             alloc["po_line_no"] = po_line.line_no
             before = usage["posted"].get(po_line.line_no, {"qty": ZERO, "amount": ZERO})
+            mine = taken.setdefault(po_line.line_no, {"qty": ZERO, "amount": ZERO})
             result: list[str] = []
             row = {"Invoice line": label, "PO line": f"{po_line.line_no} {po_line.description[:40]} ({sim:.0%})"}
             if po_line.match_basis == "AMOUNT" or item.qty is None:
                 amount = item.amount_pre_tax or ZERO
-                left = po_line.line_amount - before["amount"]
+                left = po_line.line_amount - before["amount"] - mine["amount"]
+                mine["amount"] += amount
                 row.update({"Billed": money(amount), "PO open": f"{money(left)} of {money(po_line.line_amount)}"})
                 if po_line.match_basis == "QTY":
                     if breaks_limit(abs(amount - left), max(left, Decimal(1)), tol.po_total):
@@ -253,26 +271,31 @@ def match_po(inv: Invoice, vendor: Optional[Vendor], master: MasterData, store, 
                 row["Result"] = ", ".join(result) or "ok"
                 rows.append(row)
                 continue
-            # ---- quantity
-            after_qty = before["qty"] + item.qty
+            # ---- quantity (lines of this invoice that share the PO line are added up)
+            earlier = mine["qty"]
+            open_qty = po_line.qty_ordered - before["qty"] - earlier
+            after_qty = before["qty"] + earlier + item.qty
+            mine["qty"] += item.qty
+            mine["amount"] += item.amount_pre_tax or ZERO
             limit_qty = po_line.qty_ordered * (1 + tol.quantity_over_pct / 100)
             row.update({"Billed": f"{num(item.qty)} {po_line.uom}",
-                        "PO open": f"{num(po_line.qty_ordered - before['qty'])} of {num(po_line.qty_ordered)}"})
+                        "PO open": f"{num(open_qty)} of {num(po_line.qty_ordered)}"})
             if after_qty > limit_qty:
                 over = after_qty - po_line.qty_ordered
+                shared = f", {num(earlier)} on earlier lines of this invoice," if earlier else ""
                 findings.append(Finding(
                     code="QTY_OVER_PO", stage=STAGE,
                     summary=f"Line {item.line_no} '{item.description}': {num(after_qty)} of {num(po_line.qty_ordered)} "
-                            f"{po_line.uom} would be billed in total ({num(before['qty'])} on earlier invoices plus "
+                            f"{po_line.uom} would be billed in total ({num(before['qty'])} on earlier invoices{shared} plus "
                             f"{num(item.qty)} now), which is {num(over)} more than the PO.",
-                    expected=f"at most {num(po_line.qty_ordered - before['qty'])} {po_line.uom} still open",
+                    expected=f"at most {num(max(open_qty, ZERO))} {po_line.uom} still open",
                     observed=f"{num(item.qty)} {po_line.uom} billed",
                     evidence={"po_line": po_line.line_no, "ordered": str(po_line.qty_ordered),
-                              "billed_before": str(before["qty"]), "this_invoice": str(item.qty)},
+                              "billed_before": str(before["qty"]), "this_invoice": str(earlier + item.qty)},
                     question=f"PO owner {po.buyer}: were the extra {num(over)} {po_line.uom} ordered and received? "
                              f"Amend the PO, or ask the vendor to correct the invoice.",
                     vendor_issue=f"line {item.line_no} bills {num(item.qty)} {po_line.uom}, but only "
-                                 f"{num(po_line.qty_ordered - before['qty'])} remain on {po.po_number}"))
+                                 f"{num(max(open_qty, ZERO))} remain on {po.po_number}"))
                 result.append(f"{num(over)} over the PO quantity")
             elif po_line.qty_received is not None and after_qty > po_line.qty_received:
                 findings.append(Finding(

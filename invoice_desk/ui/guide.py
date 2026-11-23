@@ -31,33 +31,43 @@ def page() -> None:
     st.caption("An accounts payable desk for a fictional buyer, Nilgiri Precision Components Pvt Ltd. All vendors, "
                "purchase orders and invoices are synthetic test data.")
     st.graphviz_chart(FLOW, width="stretch")
-    st.subheader("Bundled samples")
-    C.table({"#": f"{s['order']:02d}", "Sample": s["title"], "Documented outcome": sample_lib.expected(s)[0],
-             "What it shows": s["description"]} for s in C.manifest())
     left, right = st.columns(2, gap="large")
     with left:
-        st.subheader("The nine stages")
-        C.table({"Stage": f"{n} {title}", "What it does": STAGE_HELP[key]} for n, (key, title) in enumerate(STAGES, 1))
         st.subheader("Three outcomes")
         st.markdown(
             "- **APPROVE**: everything matched inside tolerance. The invoice is posted to the ledger and uses PO balance.\n"
-            "- **HOLD**: something needs a person. The hold names the owner and asks one specific question.\n"
-            "- **REJECT**: nothing can be owed on this document (a duplicate, a blocked vendor, not an invoice).")
+            "- **HOLD**: something needs a person. The hold names the owner and asks one specific question. Clearing "
+            "it is controlled too: the PO is checked again at approval, and a changed bank account takes two people.\n"
+            "- **REJECT**: nothing can be owed on this document (a duplicate, a blocked vendor, not an invoice). The "
+            "message to the vendor is drafted.")
+        st.subheader("The nine stages")
+        C.table({"Stage": f"{n} {title}", "What it does": STAGE_HELP[key]} for n, (key, title) in enumerate(STAGES, 1))
     with right:
         st.subheader("What decides")
         st.markdown(
-            "- **Reading** is done by rules: label vocabulary, page geometry and arithmetic. The same file always "
-            "reads the same way.\n"
-            "- **Scans** are straightened and read with Tesseract OCR. Arithmetic then cross-checks the read: "
-            "quantity times price, the sum of the lines, tax and the total must all agree.\n"
-            "- **An LLM is optional** and only fills gaps the rules could not read. A value is accepted only if its "
-            "quote is on the page and states the value. It never takes part in the decision.\n"
-            "- **The decision** is a pure function of the findings and `rules.yaml`. No model, no clock, no database.\n"
-            "- **Every decision** writes a receipt into a hash chain, and a human review joins the same chain.")
+            "- **The decision** is a function of what was found and of `rules.yaml`, nothing else. No model takes "
+            "part in it. The same file and the same rules give the same answer every time.\n"
+            "- **Reading** is done by rules: label vocabulary, page geometry and arithmetic.\n"
+            "- **Scans and photographs** are straightened and read twice with Tesseract OCR. A figure is trusted "
+            "when the arithmetic confirms it; an invoice number or a date, which no arithmetic can confirm, only "
+            "when both reads agree.\n"
+            "- **AI assist (Claude)** is used where rules cannot read: an invoice written as a letter. The model "
+            "copies text; code checks that each value is on the page, parses it, and checks the invoice's arithmetic. "
+            "The model's own confidence can lower trust and never raise it. Modes: recorded answers (the default, no "
+            "network), live with a cache and cost caps, or off.\n"
+            "- **Every decision**, by the system or by a person, is written to a tamper-evident audit trail.")
         st.subheader("Limits, stated plainly")
         st.markdown(
-            "- The reader is built for Indian GST tax invoices in English with one purchase order per invoice.\n"
-            "- A free-form invoice with no table (sample 10) is held by the rules alone; the LLM assist reads it when "
-            "a key is configured.\n"
-            "- Scan quality matters. A misread that arithmetic cannot confirm is held, not guessed.\n"
-            "- Vendor and PO data come from CSV files that stand in for an ERP.")
+            "- Built for Indian GST tax invoices in English, one purchase order per invoice. Credit notes, pro-forma "
+            "and foreign-currency invoices are recognised and routed to a person, not processed.\n"
+            "- Measured on 49 invoices made with other tools than the samples (docs/robustness_report.md): 45 "
+            "reached the right answer. The other 4, all photographs, were held for a person because a value could "
+            "not be read with certainty. None was approved wrongly.\n"
+            "- Photograph quality matters. What cannot be confirmed is held, not guessed.\n"
+            "- Vendor and PO data come from CSV files that stand in for an ERP. Reviewer names are typed, where a "
+            "real deployment would take them from the company login.")
+    st.subheader("The sample inbox")
+    C.table({"#": f"{s['order']:02d}", "Scenario": s["title"], "Kind": s.get("tag", ""),
+             "Expected decision": sample_lib.expected(s)[0] + (
+                 f" by the rules alone, {s['with_llm']['expected_verdict']} with AI assist" if "with_llm" in s else ""),
+             "What it shows": s["description"]} for s in C.manifest())

@@ -77,6 +77,50 @@ def db_path() -> Path:
     return Path(override) if override else runtime_dir() / "invoice_desk.db"
 
 
+def sandbox_mode() -> str:
+    """INVOICE_DESK_SANDBOX = shared (default) | session.
+    shared: one database for everyone who opens the app, which is what a team on one machine wants.
+    session: every browser session gets its own private copy of the books, which is what a public
+    demo link wants: two visitors cannot see or disturb each other's runs."""
+    return "session" if env("INVOICE_DESK_SANDBOX").lower() == "session" else "shared"
+
+
+def sandbox_db(sandbox_id: str) -> Path:
+    """The database of one visitor's sandbox. The id is 12 hex characters, checked by the caller."""
+    return runtime_dir() / "sandboxes" / sandbox_id / "invoice_desk.db"
+
+
+def clean_sandboxes(max_age_hours: float = 12.0, keep: str = "") -> int:
+    """Delete sandboxes nobody has touched for a while. Returns how many were removed."""
+    import shutil
+    import time
+    root = runtime_dir() / "sandboxes"
+    removed = 0
+    if not root.is_dir():
+        return 0
+    for folder in root.iterdir():
+        if not folder.is_dir() or folder.name == keep:
+            continue
+        try:
+            newest = max((p.stat().st_mtime for p in folder.rglob("*") if p.is_file()), default=folder.stat().st_mtime)
+            if time.time() - newest > max_age_hours * 3600:
+                shutil.rmtree(folder, ignore_errors=True)
+                removed += 1
+        except OSError:
+            continue
+    return removed
+
+
+def live_allowed() -> bool:
+    """May the screen offer live Claude calls? It needs a key. Where every visitor has a
+    private sandbox (a public demo) it also needs LLM_ALLOW_LIVE=1, so putting a key into
+    a published app's secrets does not by itself let strangers spend it. The daily cap
+    applies either way."""
+    if not env("ANTHROPIC_API_KEY"):
+        return False
+    return sandbox_mode() == "shared" or env("LLM_ALLOW_LIVE").lower() in {"1", "true", "yes", "on"}
+
+
 def today() -> date:
     """Today's date, or the frozen demo date in INVOICE_DESK_TODAY (YYYY-MM-DD).
     A frozen clock keeps date rules from changing the result of a rehearsed demo
@@ -105,43 +149,98 @@ def to_ist_text(iso_utc: str) -> str:
     return moment.astimezone(IST).strftime("%d-%b-%Y %H:%M IST")
 
 
+LLM_MODES = ("fixture", "cached-live", "off")
+_MODE_ALIASES = {"replay": "fixture", "fixtures": "fixture", "recorded": "fixture", "auto": "fixture", "": "fixture",
+                 "live": "cached-live", "cached_live": "cached-live", "cachedlive": "cached-live", "cached": "cached-live",
+                 "none": "off", "disabled": "off"}
+DEFAULT_MODEL = "claude-haiku-5-5"          # the fast, low-cost model; see RESEARCH.md section 14 for why
+
+
 @dataclass(frozen=True)
 class LlmConfig:
-    mode: str        # off | live | replay   (resolved; 'auto' never leaves this module)
-    base_url: str
-    api_key: str
-    model: str
-    timeout_s: float
+    """How the Claude layer behaves. Three modes:
+
+      fixture      replay recorded answers only; never touches the network (the default)
+      cached-live  use a stored answer when there is one for this file, prompt version and
+                   model; otherwise call the API once and store the answer
+      off          no model, no recordings: rules only
+    """
+    mode: str = "fixture"
+    api_key: str = ""
+    model: str = DEFAULT_MODEL
+    escalation_model: str = ""              # optional stronger model, tried once when the first answer yields nothing usable
+    timeout_s: float = 20.0
+    max_retries: int = 2
+    max_output_tokens: int = 4096
+    effort: str = ""                        # '' sends none, so the model's own default level applies (see RESEARCH.md 14)
+    per_invoice_cap_usd: float = 0.05
+    daily_cap_usd: float = 1.00
+    price_input_per_mtok: float = 0.0       # 0 = use the published price table in llm.py
+    price_output_per_mtok: float = 0.0
+    requested: str = ""                     # what LLM_MODE asked for, when it had to be changed
+
+    @property
+    def can_call(self) -> bool:
+        return self.mode == "cached-live" and bool(self.api_key)
 
     @property
     def label(self) -> str:
-        if self.mode == "live":
-            return f"LIVE ({self.model})"
-        if self.mode == "replay":
-            return "REPLAY (recorded responses)"
+        if self.mode == "cached-live":
+            return f"CACHED-LIVE ({self.model})" if self.api_key else "CACHED-LIVE without a key (recorded answers only)"
+        if self.mode == "fixture":
+            return "FIXTURE (recorded answers, no network)"
         return "OFF (rules only)"
 
+    @property
+    def explanation(self) -> str:
+        return {"fixture": "Replays answers recorded earlier from a real model. No key is needed and nothing is sent anywhere.",
+                "cached-live": "Uses a stored answer when one exists for this exact file, prompt version and model. "
+                               "Otherwise it calls the Claude API once, inside the cost caps, and stores the answer.",
+                "off": "The model is not used at all. Documents the rules cannot read are held for a person."}[self.mode]
 
-def llm_config() -> LlmConfig:
-    """LLM_MODE = auto (default) | off | live | replay.
-    auto: live when a key, base URL and model are all set, otherwise replay (which uses a
-    recorded response when one exists for the document and does nothing when none does)."""
-    mode = env("LLM_MODE", "auto").lower()
-    base_url, api_key, model = env("LLM_BASE_URL"), env("LLM_API_KEY"), env("LLM_MODEL")
+
+def _number(name: str, default: float) -> float:
     try:
-        timeout = float(env("LLM_TIMEOUT_S", "25"))
+        return float(env(name, str(default)))
     except ValueError:
-        timeout = 25.0
-    configured = bool(base_url and api_key and model)
-    if mode == "off":
-        resolved = "off"
-    elif mode == "live":
-        resolved = "live" if configured else "off"
-    elif mode == "replay":
-        resolved = "replay"
-    else:
-        resolved = "live" if configured else "replay"
-    return LlmConfig(resolved, base_url, api_key, model, timeout)
+        return default
+
+
+def normalise_llm_mode(value: str) -> str:
+    """'fixture', 'cached-live' or 'off' for anything LLM_MODE may hold. An unknown value is
+    treated as 'fixture': a typing mistake must never switch live calls on."""
+    value = (value or "").strip().lower()
+    value = _MODE_ALIASES.get(value, value)
+    return value if value in LLM_MODES else "fixture"
+
+
+def llm_config(mode: str | None = None) -> LlmConfig:
+    """Read the Claude settings from the environment (or the host's Secrets box).
+
+    LLM_MODE = fixture (default) | cached-live | off. A key on its own changes nothing:
+    live calls happen only when LLM_MODE says cached-live. `mode` overrides LLM_MODE (the
+    UI passes the mode chosen on screen)."""
+    asked = env("LLM_MODE", "fixture") if mode is None else mode
+    return LlmConfig(
+        mode=normalise_llm_mode(asked), api_key=env("ANTHROPIC_API_KEY"), model=env("LLM_MODEL", DEFAULT_MODEL),
+        escalation_model=env("LLM_ESCALATION_MODEL"), timeout_s=_number("LLM_TIMEOUT_S", 20.0),
+        max_retries=int(_number("LLM_MAX_RETRIES", 2)), max_output_tokens=int(_number("LLM_MAX_OUTPUT_TOKENS", 4096)),
+        effort=env("LLM_EFFORT", "").lower(), per_invoice_cap_usd=_number("LLM_MAX_COST_PER_INVOICE_USD", 0.05),
+        daily_cap_usd=_number("LLM_DAILY_CAP_USD", 1.00), price_input_per_mtok=_number("LLM_PRICE_INPUT_PER_MTOK", 0.0),
+        price_output_per_mtok=_number("LLM_PRICE_OUTPUT_PER_MTOK", 0.0),
+        requested=asked.strip().lower() if normalise_llm_mode(asked) != asked.strip().lower() else "")
+
+
+def llm_cache_dir() -> Path:
+    """Answers stored by cached-live mode on this machine (not part of the repository)."""
+    return runtime_dir() / "llm_cache"
+
+
+def llm_usage_db() -> Path:
+    """One spend ledger for the whole installation, so the daily cap holds across every
+    visitor's sandbox on a hosted demo."""
+    override = env("LLM_USAGE_DB")
+    return Path(override) if override else runtime_dir() / "llm_usage.db"
 
 
 def ocr_mode() -> str:

@@ -1,5 +1,12 @@
 # PLAN.md
 
+> **This is the plan of the first build (21 to 22 Nov 2026) and is kept as it was written.** The second round
+> was driven by an independent audit, a UI walkthrough and a scored rubric: see EVALUATION.md for the
+> rubric, PROGRESS.md for the phases, CHANGELOG.md for every change and DECISIONS.md (D42 to D62) for
+> the reasons. Where this plan and those documents differ, they are the current ones. Three things below
+> are out of date: the app now has six pages (a Guided demo was added), the LLM assist is a Claude layer
+> with three modes (fixture, cached-live, off), and there are 18 bundled samples.
+
 Plan for PS-1 (invoice processing, from PDF to decision). Research is in RESEARCH.md,
 the reasoning behind each choice is in DECISIONS.md, the work log is in PROGRESS.md.
 

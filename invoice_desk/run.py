@@ -60,8 +60,10 @@ def main(argv: list[str] | None = None) -> int:
         failures = 0
         if args.all:
             rows = []
+            # the samples are processed on the date they were written for, as in the app
+            sample_run = Pipeline(store=store, today=samples.business_date())
             for sample in samples.load_manifest():
-                result = pipeline.run(samples.sample_bytes(sample), Path(sample["file"]).name, source="cli")
+                result = sample_run.run(samples.sample_bytes(sample), samples.received_name(sample), source="cli")
                 codes = {f.code for f in result.decision.reasons}
                 ok, want, _ = samples.check(sample, result)      # verdict and reason codes must both match
                 failures += not ok

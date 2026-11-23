@@ -1,0 +1,73 @@
+{
+  "schema": 1,
+  "purpose": "extract",
+  "key": "390029c63ed53b896cc63736503a727b4a2f58a789272136f6d7b0af053003ed",
+  "prompt_version": "extract-v2",
+  "template_sha256": "db3555443b17c6c474dd79eb09a08bb7bf20772891e88ef3f3ae551a5f1135b2",
+  "model": "claude-haiku-5-5",
+  "recorded_at": "2026-11-23T06:00:06+00:00",
+  "request_id": "req_011ChKMCmJ3ATcipA7xGgym9",
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 1883,
+    "output_tokens": 1804,
+    "seconds": 8.74
+  },
+  "cost_usd": 0.00109,
+  "sdk": "anthropic 2.12.0",
+  "response": {
+    "document_type": "tax_invoice",
+    "fields": [
+      {
+        "name": "invoice_number",
+        "value": "DQI/26-27/1213",
+        "quote": "Subject: Tax invoice DQI/26-27/1213 for network equipment"
+      },
+      {
+        "name": "invoice_date",
+        "value": "14 November 2026",
+        "quote": "Date: 14 November 2026"
+      },
+      {
+        "name": "po_reference",
+        "value": "PO-2026-0178",
+        "quote": "With reference to your purchase order PO-2026-0178 dated 02 November 2026, we have delivered six"
+      },
+      {
+        "name": "taxable_value",
+        "value": "1,95,000.00",
+        "quote": "The taxable value of this supply is Rs. 1,95,000.00."
+      },
+      {
+        "name": "igst",
+        "value": "35,100.00",
+        "quote": "IGST at 18 percent comes to Rs. 35,100.00, so the total amount payable is Rs. 2,30,100.00 (Rupees Two Lakh Thirty Thousand One Hundred Only)."
+      },
+      {
+        "name": "total",
+        "value": "2,30,100.00",
+        "quote": "IGST at 18 percent comes to Rs. 35,100.00, so the total amount payable is Rs. 2,30,100.00 (Rupees Two Lakh Thirty Thousand One Hundred Only)."
+      }
+    ],
+    "line_items": [
+      {
+        "description": "managed network switches (24 port gigabit)",
+        "hsn": "",
+        "quantity": "six",
+        "unit_price": "18,500.00",
+        "amount": "1,11,000.00",
+        "quote": "we have delivered six managed network switches (24 port gigabit) at Rs. 18,500.00 each, amounting to Rs. 1,11,000.00, and two"
+      },
+      {
+        "description": "online UPS units of 3 kVA with batteries",
+        "hsn": "",
+        "quantity": "two",
+        "unit_price": "42,000.00",
+        "amount": "84,000.00",
+        "quote": "two online UPS units of 3 kVA with batteries at Rs. 42,000.00 each, amounting to Rs. 84,000.00."
+      }
+    ],
+    "confidence": "high",
+    "notes": "The document gives HSN codes 8517 and 8504 without assigning them to specific items, so the hsn fields are left blank; the invoice states no CGST or SGST amounts."
+  }
+}

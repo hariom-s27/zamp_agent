@@ -3,13 +3,20 @@ and what was learned from them.
 
 One short-lived connection per operation (safe with Streamlit's threads and with Windows
 file locking). `reset()` clears tables instead of deleting the file for the same reason.
+
+Writes that belong together go inside `with store.transaction():`. Every store method
+called in that block uses one connection, and the block commits as a whole or not at
+all. Posting a decision (ledger entry, receipt, run record) and recording a review are
+done that way, so the ledger and the decision can never disagree.
 """
 from __future__ import annotations
 
 import csv
 import hashlib
+import hmac
 import json
 import sqlite3
+import threading
 from contextlib import contextmanager
 from decimal import Decimal
 from pathlib import Path
@@ -24,7 +31,7 @@ CREATE TABLE IF NOT EXISTS runs (
     run_id TEXT PRIMARY KEY, seq INTEGER UNIQUE, created_at TEXT, file_name TEXT, file_sha256 TEXT,
     source TEXT, verdict TEXT, reason_codes TEXT, vendor_id TEXT, vendor_name TEXT, invoice_no TEXT,
     invoice_date TEXT, total TEXT, po_number TEXT, duration_ms REAL, scanned INTEGER DEFAULT 0,
-    review_status TEXT DEFAULT '', result_json TEXT);
+    review_status TEXT DEFAULT '', result_json TEXT, resubmission_of TEXT DEFAULT '');
 CREATE TABLE IF NOT EXISTS ledger (
     ledger_id TEXT PRIMARY KEY, run_id TEXT, origin TEXT, vendor_id TEXT, invoice_no TEXT, invoice_key TEXT,
     invoice_date TEXT, po_number TEXT, taxable TEXT, tax TEXT, total TEXT, status TEXT, file_sha256 TEXT,
@@ -33,7 +40,7 @@ CREATE TABLE IF NOT EXISTS ledger_lines (
     ledger_id TEXT, po_line_no INTEGER, description TEXT, qty TEXT, unit_price TEXT, amount TEXT);
 CREATE TABLE IF NOT EXISTS receipts (
     seq INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT, run_id TEXT, created_at TEXT, hash TEXT,
-    prev_hash TEXT, body_json TEXT);
+    prev_hash TEXT, body_json TEXT, signature TEXT DEFAULT '');
 CREATE TABLE IF NOT EXISTS reviews (
     review_id INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT, decided_at TEXT, reviewer TEXT, decision TEXT,
     note TEXT, checks_json TEXT);
@@ -43,6 +50,8 @@ CREATE TABLE IF NOT EXISTS vendor_overrides (
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
 """
 TABLES = ["runs", "ledger", "ledger_lines", "receipts", "reviews", "vendor_overrides", "meta"]
+# columns added after the first release: a database made by an older version is upgraded in place
+MIGRATIONS = [("runs", "resubmission_of", "TEXT DEFAULT ''"), ("receipts", "signature", "TEXT DEFAULT ''")]
 GENESIS = "GENESIS"
 
 
@@ -55,18 +64,36 @@ def receipt_hash(body: dict) -> str:
     return hashlib.sha256(canonical(body).encode("utf-8")).hexdigest()
 
 
+def signing_enabled() -> bool:
+    return bool(config.env("RECEIPT_SIGNING_KEY"))
+
+
+def sign(digest: str) -> str:
+    """HMAC of a receipt hash with a key that lives outside the database, or '' with no key."""
+    key = config.env("RECEIPT_SIGNING_KEY")
+    return hmac.new(key.encode("utf-8"), digest.encode("ascii"), hashlib.sha256).hexdigest() if key else ""
+
+
 class Store:
     def __init__(self, path: Optional[Path | str] = None, data_dir: Optional[Path] = None):
         self.path = str(path or config.db_path())
         self.data_dir = Path(data_dir or config.DATA_DIR)
+        self._local = threading.local()
         Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         with self._conn() as conn:
             conn.executescript(SCHEMA)
+            for table, column, kind in MIGRATIONS:
+                if column not in {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}:
+                    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {kind}")
         if self.meta("seeded") is None:
             self.seed_history()
 
     @contextmanager
     def _conn(self) -> Iterator[sqlite3.Connection]:
+        active = getattr(self._local, "conn", None)
+        if active is not None:              # inside store.transaction(): join it, commit nothing yet
+            yield active
+            return
         conn = sqlite3.connect(self.path, timeout=15)
         conn.row_factory = sqlite3.Row
         try:
@@ -74,6 +101,36 @@ class Store:
             conn.commit()
         finally:
             conn.close()
+
+    @contextmanager
+    def transaction(self) -> Iterator[None]:
+        """All store calls inside the block commit together, or none of them do."""
+        if getattr(self._local, "conn", None) is not None:      # already inside one: the outer block decides
+            yield
+            return
+        conn = sqlite3.connect(self.path, timeout=15, isolation_level=None)
+        conn.row_factory = sqlite3.Row
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            self._local.conn = conn
+            yield
+            conn.execute("COMMIT")
+        except BaseException:
+            try:
+                conn.execute("ROLLBACK")
+            except sqlite3.Error:
+                pass
+            raise
+        finally:
+            self._local.conn = None
+            conn.close()
+
+    @staticmethod
+    def _begin(conn: sqlite3.Connection) -> None:
+        """Take the write lock now (so two writers cannot both read the same 'latest' row),
+        unless a transaction is already open on this connection."""
+        if not conn.in_transaction:
+            conn.execute("BEGIN IMMEDIATE")
 
     # ---------------------------------------------------------------- meta, seed, reset
 
@@ -138,14 +195,28 @@ class Store:
         path = self.files_dir / f"{sha256}.pdf"
         return path.read_bytes() if path.is_file() else None
 
+    def save_attachment(self, content: bytes) -> str:
+        """Keep a supporting document (proof of a bank change, say) and return its fingerprint."""
+        sha256 = hashlib.sha256(content).hexdigest()
+        path = self.files_dir / f"att_{sha256}"
+        if not path.exists():
+            path.write_bytes(content)
+        return sha256
+
+    def load_attachment(self, sha256: str) -> Optional[bytes]:
+        path = self.files_dir / f"att_{sha256}"
+        return path.read_bytes() if path.is_file() else None
+
     # ---------------------------------------------------------------- runs
 
-    def allocate_run_id(self) -> str:
-        """Reserve the next run number (R-0001, R-0002, ...) in one transaction."""
+    def allocate_run_id(self, year: Optional[int] = None) -> str:
+        """Reserve the next AP reference (AP-2026-0001, AP-2026-0002, ...) in one transaction.
+        The year is the business year; the running number never restarts, so it is unique on its own."""
+        year = year or config.today().year
         with self._conn() as conn:
-            conn.execute("BEGIN IMMEDIATE")
+            self._begin(conn)
             seq = conn.execute("SELECT COALESCE(MAX(seq), 0) + 1 AS n FROM runs").fetchone()["n"]
-            run_id = f"R-{seq:04d}"
+            run_id = f"AP-{year}-{seq:04d}"
             conn.execute("INSERT INTO runs (run_id, seq, created_at) VALUES (?, ?, ?)",
                          (run_id, seq, config.now_utc().isoformat()))
         return run_id
@@ -163,23 +234,32 @@ class Store:
             conn.execute(
                 """UPDATE runs SET created_at=?, file_name=?, file_sha256=?, source=?, verdict=?, reason_codes=?,
                    vendor_id=?, vendor_name=?, invoice_no=?, invoice_date=?, total=?, po_number=?, duration_ms=?,
-                   scanned=?, review_status=?, result_json=? WHERE run_id=?""",
+                   scanned=?, review_status=?, result_json=?, resubmission_of=? WHERE run_id=?""",
                 (result.created_at, result.file_name, result.file_sha256, result.source,
                  decision.verdict if decision else None, ",".join(codes), vendor.get("vendor_id") or "",
                  vendor.get("name") or (inv.get("vendor_name") if inv else "") or "",
                  (inv.get("invoice_number") if inv else "") or "", (inv.get("invoice_date") if inv else "") or "",
                  total, (result.po or {}).get("po_number") or "",
                  result.duration_ms, 1 if any(p.get("kind", "").startswith("scan") for p in result.pages) else 0,
-                 "PENDING" if decision and decision.verdict == "HOLD" else "",
-                 result.model_dump_json(), result.run_id))
+                 "PENDING" if decision and decision.verdict == "HOLD" and not result.resubmission_of else "",
+                 result.model_dump_json(), result.resubmission_of or "", result.run_id))
 
     def list_runs(self) -> list[dict]:
         with self._conn() as conn:
             rows = conn.execute(
                 """SELECT run_id, seq, created_at, file_name, file_sha256, source, verdict, reason_codes, vendor_id,
-                          vendor_name, invoice_no, invoice_date, total, po_number, duration_ms, scanned, review_status
+                          vendor_name, invoice_no, invoice_date, total, po_number, duration_ms, scanned, review_status,
+                          resubmission_of
                    FROM runs WHERE verdict IS NOT NULL ORDER BY seq DESC""").fetchall()
         return [dict(r) for r in rows]
+
+    def original_run_for_file(self, sha256: str) -> Optional[RunResult]:
+        """The latest run that actually read this exact file (re-submissions point at it)."""
+        with self._conn() as conn:
+            row = conn.execute(
+                """SELECT result_json FROM runs WHERE file_sha256 = ? AND verdict IS NOT NULL
+                   AND COALESCE(resubmission_of, '') = '' ORDER BY seq DESC LIMIT 1""", (sha256,)).fetchone()
+        return RunResult.model_validate_json(row["result_json"]) if row and row["result_json"] else None
 
     def get_run(self, run_id: str) -> Optional[RunResult]:
         with self._conn() as conn:
@@ -279,7 +359,7 @@ class Store:
     def append_receipt(self, kind: str, run_id: str, body: dict) -> dict:
         """Add a receipt to the chain. Its hash covers its content and the previous hash."""
         with self._conn() as conn:
-            conn.execute("BEGIN IMMEDIATE")
+            self._begin(conn)
             last = conn.execute("SELECT hash FROM receipts ORDER BY seq DESC LIMIT 1").fetchone()
             body = dict(body)
             body["kind"] = kind
@@ -287,8 +367,10 @@ class Store:
             body["prev_hash"] = last["hash"] if last else GENESIS
             body.setdefault("created_at", config.now_utc().isoformat())
             digest = receipt_hash(body)
-            conn.execute("INSERT INTO receipts (kind, run_id, created_at, hash, prev_hash, body_json) VALUES (?,?,?,?,?,?)",
-                         (kind, run_id, body["created_at"], digest, body["prev_hash"], canonical(body)))
+            signature = sign(digest)
+            conn.execute("INSERT INTO receipts (kind, run_id, created_at, hash, prev_hash, body_json, signature) "
+                         "VALUES (?,?,?,?,?,?,?)",
+                         (kind, run_id, body["created_at"], digest, body["prev_hash"], canonical(body), signature))
         return {**body, "hash": digest}
 
     def receipts(self, run_id: Optional[str] = None) -> list[dict]:
@@ -298,21 +380,34 @@ class Store:
         with self._conn() as conn:
             rows = conn.execute(sql + " ORDER BY seq", args).fetchall()
         return [{"seq": r["seq"], "kind": r["kind"], "run_id": r["run_id"], "created_at": r["created_at"],
-                 "hash": r["hash"], "prev_hash": r["prev_hash"], "body": json.loads(r["body_json"])} for r in rows]
+                 "hash": r["hash"], "prev_hash": r["prev_hash"], "body": json.loads(r["body_json"]),
+                 "signature": r["signature"] or ""} for r in rows]
 
     def verify_chain(self) -> dict:
         """Recompute every receipt hash and check each link. Any edit to a stored receipt,
-        or any removed receipt, shows up as a problem."""
+        or any removed receipt, shows up as a problem. When a signing key is configured
+        (RECEIPT_SIGNING_KEY, kept outside the database) each signature is checked too,
+        which also catches a rewrite of the whole chain by someone without the key."""
         problems: list[str] = []
         previous = GENESIS
         items = self.receipts()
+        key_set = signing_enabled()
         for r in items:
             if receipt_hash(r["body"]) != r["hash"]:
                 problems.append(f"receipt {r['seq']} ({r['run_id']}): content does not match its hash")
             if r["body"].get("prev_hash") != previous or r["prev_hash"] != previous:
                 problems.append(f"receipt {r['seq']} ({r['run_id']}): does not link to the receipt before it")
+            if key_set and r["signature"] and not hmac.compare_digest(r["signature"], sign(r["hash"])):
+                problems.append(f"receipt {r['seq']} ({r['run_id']}): signature does not match the signing key")
+            if key_set and not r["signature"]:
+                problems.append(f"receipt {r['seq']} ({r['run_id']}): not signed, although a signing key is set")
             previous = r["hash"]
         return {"ok": not problems, "count": len(items), "problems": problems}
+
+    def chain_head(self) -> str:
+        """The latest receipt hash. Noted down outside the database, it pins the whole history."""
+        items = self.receipts()
+        return items[-1]["hash"] if items else GENESIS
 
     # ---------------------------------------------------------------- reviews and learning
 
@@ -327,6 +422,14 @@ class Store:
             sql, args = sql + " WHERE run_id = ?", [run_id]
         with self._conn() as conn:
             return [dict(r) for r in conn.execute(sql + " ORDER BY review_id", args).fetchall()]
+
+    def replace_run_record(self, result: RunResult) -> None:
+        """Store a changed run record (a refreshed hold) without touching its review status."""
+        decision = result.decision
+        codes = [r.code for r in decision.reasons] if decision else []
+        with self._conn() as conn:
+            conn.execute("UPDATE runs SET verdict = ?, reason_codes = ?, result_json = ? WHERE run_id = ?",
+                         (decision.verdict if decision else None, ",".join(codes), result.model_dump_json(), result.run_id))
 
     def add_override(self, vendor_id: str, kind: str, value: str, extra: str = "", source_run: str = "") -> None:
         with self._conn() as conn:

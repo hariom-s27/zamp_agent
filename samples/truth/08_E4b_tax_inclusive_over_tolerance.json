@@ -11,24 +11,24 @@
   "po_ref": "PO-2026-0229",
   "tax_inclusive": true,
   "gst_rate": "18",
-  "taxable": "97500.00",
-  "cgst": "8775.00",
-  "sgst": "8775.00",
+  "taxable": "51715.25",
+  "cgst": "4654.38",
+  "sgst": "4654.37",
   "igst": "0",
-  "tax_total": "17550.00",
-  "total": "115050.00",
+  "tax_total": "9308.75",
+  "total": "61024.00",
   "bank_account": "117700452981",
   "ifsc": "CUCB0001177",
   "lines": [
     {
       "description": "Laser Toner Cartridge 26A (Compatible)",
       "hsn": "8443",
-      "qty": "30",
+      "qty": "16",
       "uom": "Nos",
-      "unit_price": "3835.00",
-      "amount": "115050.00",
-      "unit_price_pre_tax": "3250.00",
-      "amount_pre_tax": "97500.00"
+      "unit_price": "3814.00",
+      "amount": "61024.00",
+      "unit_price_pre_tax": "3232.20",
+      "amount_pre_tax": "51715.25"
     }
   ]
 }

@@ -1,8 +1,10 @@
 """Two reads of a scanned invoice, and how they are reconciled.
 
-A scan is read twice: once from the greyscale picture and once after the picture is
-reduced to pure black and white. The engine is the same, but it sees different pixels
-and makes different mistakes. That gives two things a single read cannot:
+A scan is read twice. For a flatbed scan: once from the greyscale picture and once after
+the picture is reduced to pure black and white. For a photograph: once with the engine's
+own page layout and once enlarged in sparse-text mode. The engine is the same, but it
+sees different pixels and makes different mistakes. That gives two things a single read
+cannot:
 
   * a choice: the read whose figures add up (line amounts, tax, total, amount in words)
     is used, so a garbled number in one read does not hold the invoice when the other
@@ -24,11 +26,11 @@ from .rules import Rules
 from .validate import validate
 
 LABEL = {"bw": "black-and-white read", "gray": "greyscale read"}
+PHOTO_LABEL = {"gray": "first read", "bw": "second (enlarged) read"}
 ADD_UP = {"ARITHMETIC_MISMATCH", "AMOUNT_WORDS_MISMATCH", "MISSING_TOTAL", "LINE_ITEMS_UNREADABLE",
           "MISSING_INVOICE_DATE", "GSTIN_INVALID", "BUYER_GSTIN_MISSING", "TAX_RATE_UNUSUAL", "TAX_TYPE_MISMATCH"}
 UNCHECKABLE = ("invoice_number", "invoice_date", "po_reference")     # no arithmetic or checksum covers these
 SHOWN = ("invoice_number", "invoice_date", "po_reference", "vendor_gstin", "subtotal", "total")
-AGREED, DOUBT = 0.92, 0.50
 
 
 def _same(name: str, a: Any, b: Any) -> bool:
@@ -45,22 +47,28 @@ def problems(inv: Invoice, rules: Rules, today: date) -> int:
     return sum(1 for f in findings if f.code in ADD_UP) + sum(1 for item in inv.line_items if "line_math_mismatch" in item.flags)
 
 
-def reconcile(reads: dict[str, Invoice], rules: Rules, today: date) -> tuple[str, Invoice, dict]:
-    """reads maps 'gray' and 'bw' to the invoice extracted from each read.
+def reconcile(reads: dict[str, Invoice], rules: Rules, today: date, photo: bool = False) -> tuple[str, Invoice, dict]:
+    """reads maps 'gray' and 'bw' to the invoice extracted from each read. When both pass
+    the same checks, the black-and-white read is used for a flatbed scan and the first
+    read for a photograph (its second read is the less accurate of the two).
     Returns (the variant used, its invoice with confidences adjusted, a report for the run record)."""
+    label = PHOTO_LABEL if photo else LABEL
+    prefer = "gray" if photo else "bw"
     if len(reads) == 1:
         variant, inv = next(iter(reads.items()))
-        return variant, inv, {"used": variant, "reads": 1, "why": "only one read was available", "fields": []}
+        return variant, inv, {"used": variant, "reads": 1, "why": "only one read was available", "fields": [],
+                              "labels": label}
+    agreed, doubt = rules.reading.scan_agreed_confidence, rules.reading.scan_doubt_confidence
     score = {v: problems(inv, rules, today) for v, inv in reads.items()}
-    # fewer failed checks wins; then more line items read; then the black-and-white read
-    used = min(reads, key=lambda v: (score[v], -len(reads[v].line_items), 0 if v == "bw" else 1))
+    # fewer failed checks wins; then more line items read; then the preferred read
+    used = min(reads, key=lambda v: (score[v], -len(reads[v].line_items), 0 if v == prefer else 1))
     other = next(v for v in reads if v != used)
     chosen, second = reads[used], reads[other]
     if score[used] < score[other]:
         why = (f"its figures {'add up' if score[used] == 0 else 'fail fewer checks'} "
-               f"({score[used]} failed check(s) against {score[other]} in the {LABEL[other]})")
+               f"({score[used]} failed check(s) against {score[other]} in the {label[other]})")
     else:
-        why = f"both reads pass the same checks ({score[used]} failed); the {LABEL[used]} is the default"
+        why = f"both reads pass the same checks ({score[used]} failed); the {label[used]} is the default"
     rows = []
     for name in SHOWN:
         a, b = chosen.fields.get(name), second.fields.get(name)
@@ -69,15 +77,19 @@ def reconcile(reads: dict[str, Invoice], rules: Rules, today: date) -> tuple[str
             status = "not found in either read"
         elif va is None or vb is None:
             status = "found in one read only"
+            if name in ("invoice_number", "invoice_date") and a is not None and va is not None:
+                # nothing else on an invoice can confirm its number or its date, so one read alone is not enough
+                a.confidence = min(a.confidence, doubt)
+                a.notes.append("found in only one of the two reads of the scan")
         elif _same(name, va, vb):
             status = "same in both reads"
             if name in UNCHECKABLE or name == "vendor_gstin":
-                a.confidence = max(a.confidence, AGREED)
+                a.confidence = max(a.confidence, agreed)
                 a.notes.append("the same in both reads of the scan")
         else:
             status = "the reads differ"
             if name in UNCHECKABLE:
-                a.confidence = min(a.confidence, DOUBT)
+                a.confidence = min(a.confidence, doubt)
                 a.notes.append(f"the two reads of the scan disagree: '{va}' and '{vb}'")
         rows.append({"field": name, "label": a.label if a else (b.label if b else name), "used": va, "other": vb,
                      "status": status})
@@ -86,9 +98,12 @@ def reconcile(reads: dict[str, Invoice], rules: Rules, today: date) -> tuple[str
     rows.append({"field": "line_items", "label": "Line items", "used": f"{len(lines_used)} line(s)",
                  "other": f"{len(lines_other)} line(s)",
                  "status": "same in both reads" if lines_used == lines_other else "the reads differ"})
-    chosen.notes.append(f"The scan was read twice. The {LABEL[used]} is used: {why}.")
-    return used, chosen, {"used": used, "other": other, "reads": 2, "why": why, "failed_checks": score, "fields": rows}
+    chosen.notes.append(f"The scan was read twice. The {label[used]} is used: {why}.")
+    return used, chosen, {"used": used, "other": other, "reads": 2, "why": why, "failed_checks": score, "fields": rows,
+                          "labels": label}
 
 
 def doubtful_fields(report: Optional[dict]) -> list[str]:
-    return [r["field"] for r in (report or {}).get("fields", []) if r["status"] == "the reads differ" and r["field"] in UNCHECKABLE]
+    rows = (report or {}).get("fields", [])
+    return [r["field"] for r in rows if (r["status"] == "the reads differ" and r["field"] in UNCHECKABLE) or
+            (r["status"] == "found in one read only" and r["field"] in ("invoice_number", "invoice_date") and r["used"] is not None)]

@@ -31,7 +31,10 @@ def validate(inv: Invoice, rules: Rules, today: date) -> tuple[list[Finding], li
     # ---- required fields
     if not inv.has("invoice_number"):
         number = inv.fields.get("invoice_number")
-        blank_box = "left blank" in ((number.missing_reason if number else "") or "")
+        reason = (number.missing_reason if number else "") or ""
+        blank_box = "left blank" in reason                     # proven: a text PDF, or a scan with no ink beside the label
+        unread = "could not be read" in reason                 # a scan with something written there that OCR could not read
+        unchecked = "nothing read beside it" in reason         # a scan where the picture could not be judged
         well_read = bool(inv.line_items) and inv.has("total")
         if blank_box:
             summary = ("The invoice number is left blank on the invoice. A tax invoice must carry one, and without it "
@@ -39,6 +42,13 @@ def validate(inv: Invoice, rules: Rules, today: date) -> tuple[list[Finding], li
             question = ("Ask the vendor for a corrected invoice that carries its number. To approve this one, enter "
                         "the number the vendor gives you.")
             issue = "the invoice number is left blank (a tax invoice must carry one)"
+        elif unread or unchecked:      # our reading problem before it is anybody else's: nothing is said to the vendor
+            summary = ("Something is written beside the invoice number label on the scan, but it could not be read "
+                       "(handwriting, a stamp or a faint print)." if unread else
+                       "An invoice number label is on the scan, but no number could be read beside it.")
+            question = ("Read the invoice number from the document image and enter it when approving. If the space "
+                        "really is empty, ask the vendor for a corrected invoice.")
+            issue = None
         elif well_read:
             summary = ("No invoice number was found on the invoice. A tax invoice must carry one, and without it the "
                        "invoice cannot be tracked for duplicates.")
@@ -52,7 +62,8 @@ def validate(inv: Invoice, rules: Rules, today: date) -> tuple[list[Finding], li
             issue = None
         findings.append(Finding(
             code="MISSING_INVOICE_NUMBER", stage=STAGE, summary=summary, expected="an invoice number",
-            observed="left blank" if blank_box else "none found", question=question, vendor_issue=issue))
+            observed="left blank" if blank_box else "written but not readable" if unread else "none found",
+            question=question, vendor_issue=issue))
     _check(rows, "Invoice number present", inv.has("invoice_number"), str(inv.get("invoice_number") or "not found"))
     if not inv.has("invoice_date"):
         findings.append(Finding(
@@ -72,7 +83,7 @@ def validate(inv: Invoice, rules: Rules, today: date) -> tuple[list[Finding], li
             code="LINE_ITEMS_UNREADABLE", stage=STAGE,
             summary="No line items could be read: the document has no item table the reader recognises.",
             expected="at least one line with an amount", observed="no item table found",
-            question="Read the line items by hand, or turn on LLM assist and process the file again."))
+            question="Read the line items by hand. (With AI assist on, a document like this is read and checked automatically.)"))
     _check(rows, "Line items read", bool(inv.line_items), f"{len(inv.line_items)} line(s)")
 
     # ---- reading confidence on the fields nothing else cross-checks

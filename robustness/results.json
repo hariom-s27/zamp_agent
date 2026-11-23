@@ -1,0 +1,487 @@
+{
+  "measured_on": "2026-11-22",
+  "ocr": "Photographs read from the OCR output recorded in `fixtures/ocr/` with Tesseract 5.3.4 (two reads each), so the numbers are the same on every machine; `--ocr live` reads them with the installed engine instead, and another Tesseract build may read a photograph differently.",
+  "summary": {
+    "Tune, text PDFs": {
+      "documents": 25,
+      "approved-correct": 16,
+      "held-correct": 9,
+      "misread-held": 0,
+      "misread-approved": 0,
+      "false_alarms": 0,
+      "values": 324,
+      "values_correct": 324
+    },
+    "Tune, photographs": {
+      "documents": 7,
+      "approved-correct": 4,
+      "held-correct": 1,
+      "misread-held": 2,
+      "misread-approved": 0,
+      "false_alarms": 0,
+      "values": 88,
+      "values_correct": 85
+    },
+    "Holdout, text PDFs": {
+      "documents": 12,
+      "approved-correct": 8,
+      "held-correct": 4,
+      "misread-held": 0,
+      "misread-approved": 0,
+      "false_alarms": 0,
+      "values": 228,
+      "values_correct": 228
+    },
+    "Holdout, photographs": {
+      "documents": 5,
+      "approved-correct": 2,
+      "held-correct": 1,
+      "misread-held": 2,
+      "misread-approved": 0,
+      "false_alarms": 0,
+      "values": 65,
+      "values_correct": 56
+    },
+    "Tune, all": {
+      "documents": 32,
+      "approved-correct": 20,
+      "held-correct": 10,
+      "misread-held": 2,
+      "misread-approved": 0,
+      "false_alarms": 0,
+      "values": 412,
+      "values_correct": 409
+    },
+    "Holdout, all": {
+      "documents": 17,
+      "approved-correct": 10,
+      "held-correct": 5,
+      "misread-held": 2,
+      "misread-approved": 0,
+      "false_alarms": 0,
+      "values": 293,
+      "values_correct": 284
+    },
+    "All documents": {
+      "documents": 49,
+      "approved-correct": 30,
+      "held-correct": 15,
+      "misread-held": 4,
+      "misread-approved": 0,
+      "false_alarms": 0,
+      "values": 705,
+      "values_correct": 693
+    }
+  },
+  "documents": {
+    "tally_01": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "tally_02": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "tally_03": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "tally_04": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "tally_05": {
+      "class": "held-correct",
+      "verdict": "HOLD",
+      "reasons": [
+        "OVER_PO_BALANCE",
+        "PRICE_VARIANCE"
+      ],
+      "wrong": []
+    },
+    "tally_credit": {
+      "class": "held-correct",
+      "verdict": "HOLD",
+      "reasons": [
+        "UNSUPPORTED_DOCUMENT"
+      ],
+      "wrong": []
+    },
+    "tally_06": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "zoho_01": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "zoho_02": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "zoho_03": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "zoho_04": {
+      "class": "held-correct",
+      "verdict": "HOLD",
+      "reasons": [
+        "OVER_PO_BALANCE",
+        "QTY_OVER_PO"
+      ],
+      "wrong": []
+    },
+    "zoho_proforma": {
+      "class": "held-correct",
+      "verdict": "REJECT",
+      "reasons": [
+        "NOT_A_TAX_INVOICE"
+      ],
+      "wrong": []
+    },
+    "zoho_05": {
+      "class": "held-correct",
+      "verdict": "HOLD",
+      "reasons": [
+        "BANK_DETAILS_CHANGED"
+      ],
+      "wrong": []
+    },
+    "zoho_long": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "zoho_06": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "tally_hindi": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "excel_01": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "excel_02": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "excel_03": {
+      "class": "held-correct",
+      "verdict": "HOLD",
+      "reasons": [
+        "PO_NOT_FOUND",
+        "VENDOR_NOT_APPROVED"
+      ],
+      "wrong": []
+    },
+    "excel_04": {
+      "class": "held-correct",
+      "verdict": "HOLD",
+      "reasons": [
+        "ARITHMETIC_MISMATCH"
+      ],
+      "wrong": []
+    },
+    "retail_01": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "retail_02": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "lump_01": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "lump_02": {
+      "class": "held-correct",
+      "verdict": "HOLD",
+      "reasons": [
+        "BUNDLED_PARTIAL"
+      ],
+      "wrong": []
+    },
+    "usd_01": {
+      "class": "held-correct",
+      "verdict": "HOLD",
+      "reasons": [
+        "CURRENCY_NOT_SUPPORTED"
+      ],
+      "wrong": []
+    },
+    "busy_01": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "busy_02": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "busy_hindi": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "busy_03": {
+      "class": "held-correct",
+      "verdict": "HOLD",
+      "reasons": [
+        "PO_INFERRED"
+      ],
+      "wrong": []
+    },
+    "busy_04": {
+      "class": "held-correct",
+      "verdict": "HOLD",
+      "reasons": [
+        "GSTIN_INVALID",
+        "VENDOR_GSTIN_MISMATCH"
+      ],
+      "wrong": []
+    },
+    "word_01": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "word_02": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "word_03": {
+      "class": "held-correct",
+      "verdict": "HOLD",
+      "reasons": [
+        "ARITHMETIC_MISMATCH"
+      ],
+      "wrong": []
+    },
+    "latex_01": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "latex_02": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "latex_03": {
+      "class": "held-correct",
+      "verdict": "HOLD",
+      "reasons": [
+        "BANK_DETAILS_CHANGED"
+      ],
+      "wrong": []
+    },
+    "long_01": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "photo_tally_01": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "photo_tally_02": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "LOW_CONFIDENCE_READ",
+        "VENDOR_MATCHED_BY_NAME"
+      ],
+      "wrong": [
+        [
+          "invoice_number",
+          "SS1/2026/0463",
+          "SSI/2026/0463"
+        ],
+        [
+          "vendor_gstin",
+          "None",
+          "07ABMFS2291P1ZE"
+        ]
+      ]
+    },
+    "photo_zoho_01": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "DATE_BEFORE_PO",
+        "LOW_CONFIDENCE_READ"
+      ],
+      "wrong": [
+        [
+          "invoice_date",
+          "2026-01-12",
+          "2026-11-12"
+        ]
+      ]
+    },
+    "photo_excel_01": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "photo_sideways": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "photo_hand_total": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "photo_busy_01": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "photo_busy_fax": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "BUYER_GSTIN_MISSING",
+        "LINE_ITEMS_UNREADABLE",
+        "MISSING_INVOICE_DATE",
+        "MISSING_INVOICE_NUMBER",
+        "MISSING_VENDOR_ID"
+      ],
+      "wrong": [
+        [
+          "invoice_number",
+          "None",
+          "SLC/1108/26-27"
+        ],
+        [
+          "invoice_date",
+          "None",
+          "2026-11-13"
+        ],
+        [
+          "vendor_gstin",
+          "None",
+          "29ABEFS8804Q1ZB"
+        ],
+        [
+          "bank_account",
+          "None",
+          "501200059902"
+        ],
+        [
+          "subtotal",
+          "None",
+          "43000.00"
+        ],
+        [
+          "total",
+          "43000.00",
+          "50740.00"
+        ],
+        [
+          "line count",
+          "0",
+          "2"
+        ]
+      ]
+    },
+    "photo_word_01": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "LINE_ITEMS_UNREADABLE",
+        "MISSING_VENDOR_ID"
+      ],
+      "wrong": [
+        [
+          "vendor_gstin",
+          "None",
+          "19AAYFT3358D1ZL"
+        ],
+        [
+          "line count",
+          "0",
+          "2"
+        ]
+      ]
+    },
+    "photo_latex_01": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "photo_tally_over": {
+      "class": "held-correct",
+      "verdict": "HOLD",
+      "reasons": [
+        "OVER_PO_BALANCE",
+        "QTY_OVER_PO"
+      ],
+      "wrong": []
+    },
+    "photo_busy_price": {
+      "class": "held-correct",
+      "verdict": "HOLD",
+      "reasons": [
+        "OVER_PO_BALANCE",
+        "PRICE_VARIANCE"
+      ],
+      "wrong": []
+    }
+  }
+}

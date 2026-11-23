@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import logging
 import os
 import re
 import shutil
@@ -21,15 +22,28 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from . import config
+from . import config, straighten
+
+# pdfminer (under pdfplumber) logs a warning for every font detail it cannot parse; a PDF
+# printed from a browser produces dozens per page. They say nothing a user can act on.
+logging.getLogger("pdfminer").setLevel(logging.ERROR)
 
 SCAN_MAX_CHARS = 50          # fewer text-layer characters than this ...
 SCAN_MIN_IMAGE_SHARE = 0.5   # ... and a picture over half the page = a scan
-MAX_PAGES = 20
-MAX_BYTES = 15 * 1024 * 1024
 OCR_DPI = 300
-OCR_PSM = 6            # the page is re-laid out as one column before reading
+OCR_PSM = 6            # a flatbed scan is re-laid out as one column before reading
+# A photographed page is read differently (measured on the tune photographs of the robustness set):
+PHOTO_PSM = 3          # first read: the engine's own analysis of the page layout
+PHOTO_SECOND_PSM = 11  # second read: sparse-text mode, every piece of text wherever it is ...
+PHOTO_SECOND_SCALE = 1.4   # ... on a picture this much larger, so the two reads do not share their mistakes
+HOW_READ = {(False, "gray"): "greyscale, page re-laid out as one column",
+            (False, "bw"): "black and white, page re-laid out as one column",
+            (True, "gray"): "straightened photograph, engine's own page layout",
+            (True, "bw"): "straightened photograph, enlarged 1.4x, sparse-text mode"}
 _PUNCT_ONLY = re.compile(r"^[\W_]+$")
+# A glyph the layout library could not turn into a character: a private-use code point,
+# the replacement character, or pdfminer's '(cid:12)' placeholder.
+UNDECODED = re.compile(r"[\ue000-\uf8ff\ufffd]|\(cid:\d+\)")
 
 
 class ReaderError(Exception):
@@ -276,10 +290,10 @@ class OcrEngine:
     def label(self) -> str:
         return f"Tesseract {self.version}" if self.available else "not installed"
 
-    def words_px(self, image) -> list[Word]:
-        """OCR one image as a single column of text. Boxes are in image pixels."""
+    def words_px(self, image, psm: int = OCR_PSM, dpi: int = OCR_DPI) -> list[Word]:
+        """OCR one image (by default as a single column of text). Boxes are in image pixels."""
         import pytesseract
-        data = pytesseract.image_to_data(image, lang="eng", config=f"--psm {OCR_PSM} --dpi {OCR_DPI}",
+        data = pytesseract.image_to_data(image, lang="eng", config=f"--psm {psm} --dpi {dpi}",
                                          output_type=pytesseract.Output.DICT)
         out: list[Word] = []
         for i, raw in enumerate(data["text"]):
@@ -341,13 +355,27 @@ def page_blocks(ink) -> list[tuple[int, int, int, int]]:
 
 
 def ocr_image(engine: "OcrEngine", image, px_per_point: float = OCR_DPI / 72.0,
-              variant: str = "gray") -> tuple[list[Word], int]:
-    """OCR a straightened page: cut it into blocks, lay the blocks out one under another
-    on a fresh sheet, read that sheet in one pass, and map every word back to where it
-    was on the page. Returns (words in page points, number of blocks)."""
+              variant: str = "gray", photo: bool = False) -> tuple[list[Word], int]:
+    """OCR a straightened page. Returns (words in page points, number of blocks).
+
+    A flatbed scan: cut the page into blocks, lay the blocks out one under another on a
+    fresh sheet, read that sheet in one pass, and map every word back to where it was on
+    the page. The second read ('bw') does the same on a pure black-and-white picture.
+
+    A photograph (after straighten.py): the first read lets the engine work out the page
+    layout itself; the second is made as different from the first as one engine allows
+    (a larger picture, sparse-text mode), so the two do not share their mistakes. A digit
+    one read drops is rarely dropped again at another size and with other line finding."""
     import numpy as np
     from PIL import Image
     gray = image.convert("L")
+    if photo:
+        zoom = PHOTO_SECOND_SCALE if variant == "bw" else 1.0
+        picture = gray if zoom == 1.0 else gray.resize((int(gray.width * zoom), int(gray.height * zoom)), Image.LANCZOS)
+        found = engine.words_px(picture, psm=PHOTO_SECOND_PSM if variant == "bw" else PHOTO_PSM, dpi=int(OCR_DPI * zoom))
+        k = 1.0 / (px_per_point * zoom)
+        return [Word(w.text, round(w.x0 * k, 1), round(w.x1 * k, 1), round(w.top * k, 1), round(w.bottom * k, 1), w.conf)
+                for w in found], 1
     small = gray.resize((max(gray.width // 3, 1), max(gray.height // 3, 1)), Image.BOX)
     boxes = [(x0 * 3, y0 * 3, x1 * 3, y1 * 3) for x0, y0, x1, y1 in page_blocks(np.asarray(small) < 185)]
     boxes = [b for b in boxes if b[2] - b[0] >= 20 and b[3] - b[1] >= 12]
@@ -475,9 +503,39 @@ def _render(pdf_page, scale: float, grayscale: bool = True):
         bitmap.close()
 
 
+READABLE_WORDS, READABLE_CONF = 12, 60.0     # an OCR read with at least this many words at this mean confidence is taken as the right way up
+_PREP: dict[tuple[str, int], dict] = {}      # how each scanned page was straightened, so its second read uses the same geometry
+
+
+def _attempt(engine: "OcrEngine", image, px_per_point: float, variant: str, turns: int, photo: bool = False) -> dict:
+    """One OCR read of a page after `turns` quarter turns (counter-clockwise) and fine straightening."""
+    from PIL import Image
+    if turns:
+        image = image.rotate(90 * turns, expand=True, fillcolor=255)
+    angle = estimate_skew(image)
+    if abs(angle) >= 0.1:
+        image = image.rotate(angle, resample=Image.BICUBIC, fillcolor=255)
+    if photo:
+        image = straighten.clean_for_ocr(image)
+    words, blocks = ocr_image(engine, image, px_per_point, variant, photo)
+    confs = [w.conf for w in words if w.conf is not None]
+    return {"turns": turns, "angle": angle, "words": words, "blocks": blocks, "size": image.size,
+            "mean_conf": round(sum(confs) / len(confs), 1) if confs else 0.0}
+
+
+def _readable(read: dict) -> bool:
+    return len(read["words"]) >= READABLE_WORDS and read["mean_conf"] >= READABLE_CONF
+
+
 def _ocr_page(pdf_page, sha256: str, number: int, mode: str, record: bool,
-              variant: str = "gray") -> tuple[list[Word], Optional[dict]]:
-    """OCR one scanned page. Returns (words, info); info is None when nothing could read it."""
+              variant: str = "gray", picture: Optional[list[float]] = None) -> tuple[list[Word], Optional[dict]]:
+    """OCR one scanned page. Returns (words, info); info is None when nothing could read it.
+    `picture` is where the scanned image sits on the PDF page when it does not fill it.
+
+    A photograph is straightened first (straighten.py): the sheet is cut out of its
+    background and its perspective undone, uneven light is divided out, and a page lying
+    on its side or upside down is turned until it reads. A flatbed scan needs none of
+    that and goes straight to the fine straightening, as it always did."""
     engine = get_engine()
     fixture = load_ocr_fixture(sha256, number, variant)
     use_fixture = fixture is not None and (mode == "fixture" or (mode == "auto" and not engine.available))
@@ -485,56 +543,113 @@ def _ocr_page(pdf_page, sha256: str, number: int, mode: str, record: bool,
         words = [Word(t, x0, x1, top, bottom, conf) for t, x0, top, x1, bottom, conf in fixture["words"]]
         return words, {"engine": fixture.get("engine", "Tesseract"), "source": "recorded", "variant": variant,
                        "angle": fixture.get("angle", 0.0), "mean_conf": fixture.get("mean_conf"),
+                       "crop": fixture.get("crop"), "quad": fixture.get("quad"), "turns": fixture.get("turns", 0),
+                       "lit": fixture.get("lit", False), "photo": bool(fixture.get("photo")),
+                       "how": HOW_READ[(bool(fixture.get("photo")), variant)],
+                       "width": fixture.get("width"), "height": fixture.get("height"),
                        "seconds": 0.0, "recorded_on": fixture.get("recorded_on", "")}
     if not engine.available:
         return [], None
-    from PIL import Image
     started = time.perf_counter()
     px_per_point = safe_scale(pdf_page, OCR_DPI / 72.0)
     image = _render(pdf_page, px_per_point)
-    angle = estimate_skew(image)
-    if abs(angle) >= 0.1:
-        image = image.rotate(angle, resample=Image.BICUBIC, fillcolor=255)
-    words, blocks = ocr_image(engine, image, px_per_point, variant)
-    confs = [w.conf for w in words if w.conf is not None]
-    mean_conf = round(sum(confs) / len(confs), 1) if confs else 0.0
+    if picture:                 # the photograph, without the blank margins of the PDF page around it
+        image = image.crop((int(picture[0] * image.width), int(picture[1] * image.height),
+                            int(picture[2] * image.width), int(picture[3] * image.height)))
+    known = _PREP.get((sha256, number))
+    quad = known["quad"] if known else straighten.find_sheet(image)
+    if quad:
+        image = straighten.warp(image, quad)
+    lit = straighten.uneven_light(image)
+    if lit:
+        image = straighten.even_light(image)
+    photo = quad is not None or lit          # a camera, not a flatbed: a sheet on a background, or a shadow across the paper
+    if known:
+        best = _attempt(engine, image, px_per_point, variant, known["turns"], photo)
+    else:
+        # the likely orientation first; the others only if that read is not text
+        order = [1, 3, 0] if straighten.runs_vertically(image) else [0, 2]
+        best = None
+        for turns in order:
+            read = _attempt(engine, image, px_per_point, variant, turns, photo)
+            if best is None or (_readable(read), read["mean_conf"]) > (_readable(best), best["mean_conf"]):
+                best = read
+            if _readable(read):
+                break
+        if len(_PREP) > 256:
+            _PREP.clear()
+        _PREP[(sha256, number)] = {"quad": quad, "turns": best["turns"]}
+    words, angle, mean_conf = best["words"], best["angle"], best["mean_conf"]
+    straightened = quad is not None or best["turns"] != 0 or bool(picture)
     info = {"engine": engine.label, "source": "live", "variant": variant, "angle": angle, "mean_conf": mean_conf,
-            "blocks": blocks, "seconds": round(time.perf_counter() - started, 2)}
+            "blocks": best["blocks"], "crop": picture, "quad": quad, "turns": best["turns"], "lit": lit,
+            "photo": photo, "how": HOW_READ[(photo, variant)],
+            "width": round(best["size"][0] / px_per_point, 1) if straightened else None,
+            "height": round(best["size"][1] / px_per_point, 1) if straightened else None,
+            "seconds": round(time.perf_counter() - started, 2)}
     if record:
         save_ocr_fixture(sha256, number, {
             "sha256": sha256, "page": number, "variant": variant, "engine": engine.label, "dpi": OCR_DPI,
-            "angle": angle, "mean_conf": mean_conf, "recorded_on": config.now_utc().isoformat(),
+            "angle": angle, "mean_conf": mean_conf, "crop": picture, "quad": quad, "turns": best["turns"], "lit": lit,
+            "photo": photo, "width": info["width"], "height": info["height"], "recorded_on": config.now_utc().isoformat(),
             "words": [[w.text, w.x0, w.top, w.x1, w.bottom, w.conf] for w in words]}, variant)
     return words, info
 
 
 # --------------------------------------------------------------------------- the reader
 
-def _image_share(pdf_page, raw) -> float:
-    """Share of the page area covered by pictures."""
+def _pictures(pdf_page, raw) -> list[tuple[float, float, float, float]]:
+    """Where the pictures sit on the page: (left, bottom, right, top) in points, clipped to the page."""
     width, height = pdf_page.get_size()
-    area = max(width * height, 1.0)
-    covered = 0.0
+    out = []
     try:
         for obj in pdf_page.get_objects(filter=[raw.FPDF_PAGEOBJ_IMAGE], max_depth=4):
             getter = getattr(obj, "get_bounds", None) or getattr(obj, "get_pos")
             left, bottom, right, top = getter()
-            covered += max(0.0, min(right, width) - max(left, 0.0)) * max(0.0, min(top, height) - max(bottom, 0.0))
+            out.append((max(left, 0.0), max(bottom, 0.0), min(right, width), min(top, height)))
     except Exception:
-        return 0.0
-    return min(1.0, covered / area)
+        return []
+    return [box for box in out if box[2] > box[0] and box[3] > box[1]]
+
+
+def _image_share(pdf_page, raw) -> float:
+    """Share of the page area covered by pictures."""
+    width, height = pdf_page.get_size()
+    covered = sum((right - left) * (top - bottom) for left, bottom, right, top in _pictures(pdf_page, raw))
+    return min(1.0, covered / max(width * height, 1.0))
+
+
+def _picture_box(pdf_page, raw) -> Optional[list[float]]:
+    """A scan whose picture does not fill the PDF page (a photo placed on an A4 page keeps
+    its own shape, with blank bands beside it): the picture's place as fractions of the
+    page, [x0, y0, x1, y1] from the top-left. None when the picture fills the page, or
+    when there is more than one."""
+    width, height = pdf_page.get_size()
+    boxes = _pictures(pdf_page, raw)
+    if len(boxes) != 1 or width <= 0 or height <= 0:
+        return None
+    left, bottom, right, top = boxes[0]
+    box = [left / width, 1 - top / height, right / width, 1 - bottom / height]
+    margins = (box[0], box[1], 1 - box[2], 1 - box[3])
+    return [round(v, 4) for v in box] if max(margins) > 0.005 else None
 
 
 def read_pdf(content: bytes, record_ocr: bool = False, ocr_mode: Optional[str] = None,
-             variant: str = "gray") -> DocRead:
+             variant: str = "gray", max_bytes: Optional[int] = None, max_pages: Optional[int] = None) -> DocRead:
     """Read a PDF into pages of lines. Raises ReaderError for files that cannot be
     processed (not a PDF, damaged, password-protected, too large). `variant` chooses how a
-    scanned page is treated before OCR ('gray' or 'bw'); it makes no difference to text pages."""
+    scanned page is treated before OCR ('gray' or 'bw'); it makes no difference to text pages.
+    The size and page limits come from rules.yaml (intake) unless the caller passes them."""
+    if max_bytes is None or max_pages is None:
+        from .rules import current_rules
+        intake = current_rules().intake
+        max_bytes = intake.max_bytes if max_bytes is None else max_bytes
+        max_pages = intake.max_pages if max_pages is None else max_pages
     if not content:
         raise ReaderError("UNREADABLE_FILE", "The file is empty (0 bytes).")
-    if len(content) > MAX_BYTES:
+    if len(content) > max_bytes:
         raise ReaderError("FILE_TOO_LARGE", f"The file is {len(content) / 1048576:.1f} MB; the limit for "
-                                             f"automatic processing is {MAX_BYTES // 1048576} MB.")
+                                             f"automatic processing is {max_bytes / 1048576:g} MB.")
     if b"%PDF-" not in content[:1024]:
         raise ReaderError("UNREADABLE_FILE", "This is not a PDF file (no PDF header found).")
     import pypdfium2 as pdfium
@@ -554,9 +669,9 @@ def read_pdf(content: bytes, record_ocr: bool = False, ocr_mode: Optional[str] =
         count = len(pdf)
         if count == 0:
             raise ReaderError("UNREADABLE_FILE", "The PDF has no pages.")
-        if count > MAX_PAGES:
+        if count > max_pages:
             raise ReaderError("FILE_TOO_LARGE", f"The PDF has {count} pages; the limit for automatic "
-                                                 f"processing is {MAX_PAGES}.")
+                                                 f"processing is {max_pages}.")
         import pdfplumber
         try:
             plumber = pdfplumber.open(io.BytesIO(content))
@@ -566,19 +681,18 @@ def read_pdf(content: bytes, record_ocr: bool = False, ocr_mode: Optional[str] =
         for i in range(count):
             number = i + 1
             page = pdf[i]
+            textpage = None
             try:
                 width, height = page.get_size()
                 textpage = page.get_textpage()
-                try:
-                    plain = textpage.get_text_bounded() or ""
-                finally:
-                    textpage.close()
+                plain = textpage.get_text_bounded() or ""
                 chars = len("".join(plain.split()))
                 share = _image_share(page, pdfium_raw)
                 result = PageRead(number, "text", round(width, 1), round(height, 1), chars=chars,
                                   image_share=round(share, 2))
                 if chars < SCAN_MAX_CHARS and share > SCAN_MIN_IMAGE_SHARE:
-                    words, info = _ocr_page(page, sha, number, mode, record_ocr, variant)
+                    words, info = _ocr_page(page, sha, number, mode, record_ocr, variant,
+                                            picture=_picture_box(page, pdfium_raw))
                     if info is None:
                         result.kind = "scan_unread"
                         result.note = ("Scanned page: no OCR engine is installed and no recorded "
@@ -586,6 +700,8 @@ def read_pdf(content: bytes, record_ocr: bool = False, ocr_mode: Optional[str] =
                     else:
                         result.kind = "scan"
                         result.ocr = info
+                        if info.get("width") and info.get("height"):      # a photographed sheet, cut out and turned upright
+                            result.width, result.height = info["width"], info["height"]
                         result.lines = build_lines(words, number, index)
                 elif chars < 8:
                     result.kind = "empty"
@@ -595,10 +711,18 @@ def read_pdf(content: bytes, record_ocr: bool = False, ocr_mode: Optional[str] =
                     if not words:  # layout extraction failed: fall back to plain page text
                         words = _plain_words(plain, width, height)
                         result.note = "Layout could not be read; used plain page text."
+                    repaired, unreadable = repair_undecoded(words, textpage, height)
+                    if repaired or unreadable:
+                        result.note = (result.note + " " if result.note else "") + (
+                            f"{repaired + unreadable} word(s) use a font whose characters the layout reader could not "
+                            f"decode; {repaired} were read again with the PDF engine"
+                            + (f", {unreadable} could not be read and are not trusted." if unreadable else "."))
                     result.lines = build_lines(words, number, index)
                 index += len(result.lines)
                 pages.append(result)
             finally:
+                if textpage is not None:
+                    textpage.close()
                 page.close()
     finally:
         if plumber is not None:
@@ -619,6 +743,42 @@ def _text_words(plumber, page_index: int) -> list[Word]:
         return []  # one bad page must not stop the run (rule kept from the outcome reader)
 
 
+def _in_order(short: str, long: str) -> bool:
+    """True when the characters of `short` appear in `long` in the same order."""
+    rest = iter(long)
+    return all(ch in rest for ch in short)
+
+
+def repair_undecoded(words: list[Word], textpage, page_height: float) -> tuple[int, int]:
+    """Some embedded fonts carry no usable character map for part of their glyphs (Chrome
+    embeds a web font this way). pdfminer then returns a private-use code point for the
+    hyphen, and 'INV-000482' arrives as 'INV?000482'. The PDF engine that renders the
+    page decodes the same glyphs correctly, so each affected word is read again from the
+    engine's text for the same rectangle. The second reading is accepted only if it keeps
+    every character the first one did decode, in order, and adds no more than the glyphs
+    that were missing. A word that cannot be repaired is marked (confidence 0), so nothing
+    read from it is trusted without a person. Returns (repaired, still unreadable)."""
+    repaired = unreadable = 0
+    for word in words:
+        gaps = UNDECODED.findall(word.text)
+        if not gaps:
+            continue
+        known = UNDECODED.sub("", word.text)
+        try:
+            again = textpage.get_text_bounded(left=word.x0 - 0.3, bottom=page_height - word.bottom,
+                                              right=word.x1 + 0.3, top=page_height - word.top) or ""
+        except Exception:
+            again = ""
+        again = "".join(again.split())
+        if again and not UNDECODED.search(again) and _in_order(known, again) and len(again) <= len(known) + len(gaps):
+            word.text = again
+            repaired += 1
+        else:
+            word.conf = 0.0
+            unreadable += 1
+    return repaired, unreadable
+
+
 def _plain_words(plain: str, width: float, height: float) -> list[Word]:
     """Last resort when word boxes are unavailable: lines of text with made-up positions."""
     words: list[Word] = []
@@ -633,11 +793,12 @@ def _plain_words(plain: str, width: float, height: float) -> list[Word]:
     return words
 
 
-def render_page_image(content: bytes, page_number: int, scale: float = 1.6, angle: float = 0.0):
-    """PIL image of one page for the UI. `angle` is the straightening angle found at read
-    time, so boxes computed on the straightened scan land in the right place."""
+def render_page_image(content: bytes, page_number: int, scale: float = 1.6, angle: float = 0.0,
+                      prep: Optional[dict] = None):
+    """PIL image of one page for the UI. `angle` and `prep` (sheet outline and quarter
+    turns of a photographed page) are what was found at read time, so boxes computed on
+    the straightened scan land in the right place."""
     import pypdfium2 as pdfium
-    from PIL import Image
     pdf = pdfium.PdfDocument(content)
     try:
         page = pdf[page_number - 1]
@@ -647,6 +808,43 @@ def render_page_image(content: bytes, page_number: int, scale: float = 1.6, angl
             page.close()
     finally:
         pdf.close()
-    if abs(angle) >= 0.1:
-        image = image.rotate(angle, resample=Image.BICUBIC, fillcolor=(255, 255, 255))
-    return image
+    return straighten.apply_geometry(image, {**(prep or {}), "angle": angle}, fill=(255, 255, 255))
+
+
+def ink_share(content: bytes, page_number: int, region: list[float], page_width: float, angle: float = 0.0,
+              scale: float = 3.0, prep: Optional[dict] = None) -> Optional[float]:
+    """How much of a region of a scanned page is ink, from 0 to 1. `region` is
+    [x0, top, x1, bottom] in page points on the straightened page (the same coordinates
+    the OCR word boxes use). Ruled lines do not count: the underline of a form field or
+    the border of a box is not something written in it. Returns None when the region
+    cannot be judged (off the page, too small, page not renderable).
+
+    This is what separates "the vendor left the box empty" from "there is something
+    there that OCR could not read"; only the first is the vendor's to fix."""
+    import numpy as np
+    from PIL import ImageFilter
+    if page_width <= 0:
+        return None
+    try:
+        image = render_page_image(content, page_number, scale=scale, angle=angle, prep=prep).convert("L")
+    except Exception:
+        return None
+    k = image.width / page_width
+    x0, top = max(0, int(region[0] * k)), max(0, int(region[1] * k))
+    x1, bottom = min(image.width, int(region[2] * k)), min(image.height, int(region[3] * k))
+    if x1 - x0 < 12 or bottom - top < 6:
+        return None
+    whole = np.asarray(image)
+    hist = np.bincount(whole.ravel(), minlength=256).astype(np.float64)
+    weight_dark = np.cumsum(hist)
+    weight_light = whole.size - weight_dark
+    sum_dark = np.cumsum(hist * np.arange(256))
+    with np.errstate(divide="ignore", invalid="ignore"):
+        between = weight_dark * weight_light * (sum_dark / weight_dark - (sum_dark[-1] - sum_dark) / weight_light) ** 2
+    threshold = min(int(np.argmax(np.nan_to_num(between))), 170)       # the page's own split between ink and paper
+    crop = np.asarray(image.crop((x0, top, x1, bottom)).filter(ImageFilter.MedianFilter(3)))
+    dark = crop <= threshold
+    dark[dark.mean(axis=1) > 0.6, :] = False        # a ruled line across the field
+    dark[:, dark.mean(axis=0) > 0.8] = False        # a box border down its side
+    return float(dark.mean())
+

@@ -1,11 +1,12 @@
 """Demo-day check. Run it before an interview or a recording:
 
-    python -m scripts.preflight            # everything except a live model call
-    python -m scripts.preflight --llm      # also sends one sample to the configured model
+    python -m scripts.preflight            # everything except a live call to the Claude API
+    python -m scripts.preflight --llm      # also makes one very small live call, to prove the key and the model work
 
-It checks the environment, then runs every bundled sample through the real pipeline on a
-scratch database and compares each decision with the documented one. Exit code 0 means
-ready. Nothing in the app's own database is touched.
+It checks the environment, runs every bundled sample through the real pipeline on a scratch
+database and compares each decision with the documented one, rehearses the eleven steps of
+the guided demo in order, and opens every page of the app without a browser. Exit code 0
+means ready. Nothing in the app's own database is touched and nothing is sent anywhere.
 """
 from __future__ import annotations
 
@@ -23,7 +24,7 @@ from invoice_desk import samples as sample_lib
 
 REQUIRED = [("streamlit", "streamlit"), ("pandas", "pandas"), ("pydantic", "pydantic"), ("pdfplumber", "pdfplumber"),
             ("pypdfium2", "pypdfium2"), ("pytesseract", "pytesseract"), ("PIL", "pillow"), ("numpy", "numpy"),
-            ("rapidfuzz", "rapidfuzz"), ("yaml", "PyYAML"), ("requests", "requests"), ("dotenv", "python-dotenv"),
+            ("rapidfuzz", "rapidfuzz"), ("yaml", "PyYAML"), ("anthropic", "anthropic"), ("dotenv", "python-dotenv"),
             ("reportlab", "reportlab"), ("altair", "altair")]
 
 
@@ -115,26 +116,48 @@ def check_data(rep: Report) -> None:
         rep.line("ok", "clock", f"today is {config.today()}{frozen}")
 
 
+HTTP_CLIENT = None       # tests put an SDK http client with a fake transport here; None means the real API
+
+
 def check_llm(rep: Report, live: bool) -> None:
-    print("\nLLM assist (optional)")
+    print("\nAI assist (Claude)")
+    from invoice_desk import llm as llm_module
     cfg = config.llm_config()
-    recordings = sorted((config.FIXTURES_DIR / "llm").glob("*.json"))
-    rep.line("ok", "mode", cfg.label)
-    rep.line("ok", "recorded responses", f"{len(recordings)} in fixtures/llm" +
-             ("" if recordings else " (none yet: sample 10 is held by the rules alone until you record one, "
-                                    "see SETUP_WINDOWS.md, step 6)"))
+    rep.line("ok", "mode", f"{cfg.label}. {cfg.explanation}")
+    if cfg.requested:
+        rep.line("WARN", "LLM_MODE", f"'{cfg.requested}' is not one of fixture, cached-live, off; treated as {cfg.mode}")
+    rep.line("ok", "model", f"{cfg.model}" + (f", escalation {cfg.escalation_model}" if cfg.escalation_model else "") +
+             f"; cap ${cfg.per_invoice_cap_usd:.2f} per invoice, ${cfg.daily_cap_usd:.2f} per day")
+    rep.line("ok", "API key", "set (never shown or stored)" if cfg.api_key else "not set: recorded answers only")
+    assist = llm_module.LlmAssist(config.llm_config(mode="fixture"))
+    letter = next((s for s in sample_lib.load_manifest() if "with_llm" in s), None)
+    notes = len(list((config.FIXTURES_DIR / "llm").glob("vendor_note__*.json")))
+    if letter is not None:
+        have = assist.has_recording(reader.sha256_of(sample_lib.sample_bytes(letter)))
+        rep.line("ok" if have else "WARN", "recorded answer for the letter invoice (sample 10)",
+                 "present: the demo shows it read by Claude and approved" if have else
+                 "none yet, so sample 10 is held by the rules alone. With your key in .env run: "
+                 "python -m scripts.record_llm_fixtures")
+    rep.line("ok", "recorded vendor-note rewordings", str(notes))
     if not live:
         return
-    if cfg.mode != "live":
-        rep.line("WARN", "live call", "skipped: LLM_BASE_URL, LLM_API_KEY and LLM_MODEL are not all set")
+    if not cfg.api_key:
+        rep.line("FAIL", "live call", "ANTHROPIC_API_KEY is not set")
         return
-    from invoice_desk.llm import http_transport
     try:
-        reply = http_transport({"model": cfg.model, "temperature": 0, "max_tokens": 5,
-                                "messages": [{"role": "user", "content": "Reply with the single word: ready"}]}, cfg)
-        rep.line("ok", "live call", f"{cfg.model} answered: {str(reply).strip()[:40]!r}")
+        import anthropic
+        kwargs = {"api_key": cfg.api_key, "timeout": cfg.timeout_s, "max_retries": cfg.max_retries}
+        if HTTP_CLIENT is not None:
+            kwargs["http_client"] = HTTP_CLIENT
+        message = anthropic.Anthropic(**kwargs).messages.create(
+            model=cfg.model, max_tokens=64, messages=[{"role": "user", "content": "Reply with the single word: ready"}])
+        text = "".join(b.text for b in message.content if getattr(b, "type", "") == "text").strip()
+        cost = llm_module.cost_usd(cfg, cfg.model, message.usage.input_tokens, message.usage.output_tokens)
+        rep.line("ok", "live call", f"{cfg.model} answered {text[:30]!r}; {message.usage.input_tokens} tokens in, "
+                 f"{message.usage.output_tokens} out, ${cost:.5f}; request {getattr(message, '_request_id', '-')}")
     except Exception as exc:
-        rep.line("FAIL", "live call", f"{type(exc).__name__}: {str(exc)[:200]}")
+        status = getattr(exc, "status_code", "")
+        rep.line("FAIL", "live call", f"{type(exc).__name__}{f' (HTTP {status})' if status else ''}: {str(exc)[:160]}")
 
 
 def check_samples(rep: Report) -> None:
@@ -143,19 +166,24 @@ def check_samples(rep: Report) -> None:
     from invoice_desk.store import Store
     folder = Path(tempfile.mkdtemp(prefix="invoice_desk_preflight_"))
     try:
+        from invoice_desk.llm import LlmAssist
         store = Store(folder / "preflight.db")
-        pipeline = Pipeline(store=store)
+        mode = config.llm_config().mode
+        # preflight never spends money: with cached-live configured, the samples run on recorded answers only
+        pipeline = Pipeline(store=store, llm=LlmAssist(config.llm_config(mode="fixture" if mode == "cached-live" else mode)),
+                            today=sample_lib.business_date())
         slowest = 0.0
         for sample in sample_lib.load_manifest():
-            result = pipeline.run(sample_lib.sample_bytes(sample), Path(sample["file"]).name, "preflight")
+            result = pipeline.run(sample_lib.sample_bytes(sample), sample_lib.received_name(sample), "preflight")
             ok, want, reasons = sample_lib.check(sample, result)
             got = ", ".join(sorted(f.code for f in result.decision.reasons)) or "no blocking reason"
             slowest = max(slowest, result.duration_ms)
             hint = ""
             if not ok and sample.get("scanned") and any(p.get("ocr_source") == "live" for p in result.pages):
                 # the OCR engine on this machine reads the scan differently: does the recorded read give the documented result?
-                check = Pipeline(store=Store(folder / f"recorded_{sample['order']}.db"), ocr_mode="fixture")
-                again = check.run(sample_lib.sample_bytes(sample), Path(sample["file"]).name, "preflight")
+                check = Pipeline(store=Store(folder / f"recorded_{sample['order']}.db"), ocr_mode="fixture", llm=pipeline.llm,
+                                 today=sample_lib.business_date())
+                again = check.run(sample_lib.sample_bytes(sample), sample_lib.received_name(sample), "preflight")
                 if sample_lib.check(sample, again)[0]:
                     hint = (". The OCR engine installed here reads this scan differently from the one the sample was "
                             "built with. Add the line OCR_MODE=fixture to .env: the bundled scans then use their "
@@ -164,9 +192,75 @@ def check_samples(rep: Report) -> None:
                      f"{result.verdict} ({got}), {result.duration_ms:.0f} ms" +
                      ("" if ok else f"; documented: {want} ({', '.join(sorted(reasons)) or 'no blocking reason'})") + hint)
         chain = store.verify_chain()
-        rep.line("ok" if chain["ok"] else "FAIL", "receipt chain", f"{chain['count']} receipts verified")
+        rep.line("ok" if chain["ok"] else "FAIL", "audit trail", f"{chain['count']} receipts verified")
         rep.line("ok", "slowest sample", f"{slowest:.0f} ms")
     finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
+def check_demo(rep: Report) -> None:
+    """Rehearse the guided demo: the same eleven steps the Guided demo page runs, in order,
+    on a scratch database, each compared with its expected decision."""
+    print("\nGuided demo rehearsal (the eleven scenarios, scratch database)")
+    from invoice_desk import demo_steps
+    from invoice_desk.llm import LlmAssist
+    from invoice_desk.pipeline import Pipeline
+    from invoice_desk.store import Store
+    folder = Path(tempfile.mkdtemp(prefix="invoice_desk_demo_"))
+    try:
+        mode = config.llm_config().mode
+        pipeline = Pipeline(store=Store(folder / "demo.db"), today=sample_lib.business_date(),
+                            llm=LlmAssist(config.llm_config(mode="fixture" if mode == "cached-live" else mode)))
+        done: dict = {}
+        manifest = sample_lib.load_manifest()
+        for number, step in enumerate(demo_steps.STEPS, 1):
+            sample = demo_steps.sample_of(step, manifest)
+            result = pipeline.run(sample_lib.sample_bytes(sample), sample_lib.received_name(sample), "preflight")
+            ok, want = demo_steps.outcome(step, result, done, pipeline.rules, manifest)
+            done[step["key"]] = {"run_id": result.run_id}
+            rep.line("ok" if ok else "FAIL", f"step {number:>2} {step['short']}",
+                     f"{result.verdict}" + ("" if ok else f"; expected {want}"))
+        chain = pipeline.store.verify_chain()
+        rep.line("ok" if chain["ok"] else "FAIL", "audit trail after the demo", f"{chain['count']} entries verified")
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
+def check_pages(rep: Report) -> None:
+    """Open every page of the app without a browser, on a scratch database."""
+    print("\nEvery page of the app opens (headless, scratch database)")
+    import os
+    try:
+        from streamlit.testing.v1 import AppTest
+    except Exception as exc:                       # an old Streamlit: say so and carry on
+        rep.line("WARN", "page check skipped", f"streamlit.testing is not available ({type(exc).__name__})")
+        return
+    import logging
+    # Outside a browser session Streamlit logs "missing ScriptRunContext" for every page. It means nothing here and
+    # would bury the result lines, so its loggers are kept to errors for this check.
+    for name in list(logging.root.manager.loggerDict):
+        if name.startswith("streamlit"):
+            logging.getLogger(name).setLevel(logging.ERROR)
+    logging.getLogger("streamlit").setLevel(logging.ERROR)
+    folder = Path(tempfile.mkdtemp(prefix="invoice_desk_pages_"))
+    kept = {name: os.environ.get(name) for name in ("INVOICE_DESK_DB", "LLM_USAGE_DB")}
+    os.environ["INVOICE_DESK_DB"], os.environ["LLM_USAGE_DB"] = str(folder / "pages.db"), str(folder / "usage.db")
+    try:
+        for key, title in (("demo", "Guided demo"), ("process", "Process invoice"), ("review", "Review queue"),
+                           ("dashboard", "Dashboard"), ("reference", "Rules and data"), ("guide", "How it works")):
+            app = AppTest.from_file(str(config.ROOT / "app.py"), default_timeout=120)
+            app.session_state["goto"] = key
+            app.run()
+            problems = [str(e.value)[:120] for e in app.exception]
+            rep.line("FAIL" if problems else "ok", title, "; ".join(problems))
+    except Exception as exc:
+        rep.line("FAIL", "page check", f"{type(exc).__name__}: {str(exc)[:160]}")
+    finally:
+        for name, value in kept.items():
+            if value is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = value
         shutil.rmtree(folder, ignore_errors=True)
 
 
@@ -186,12 +280,15 @@ def main(argv: list[str] | None = None) -> int:
     check_llm(rep, args.llm)
     if rep.failed == 0:
         check_samples(rep)
+    if rep.failed == 0:
+        check_demo(rep)
+        check_pages(rep)
     print()
     if rep.failed:
         print(f"NOT READY: {rep.failed} check(s) failed. Fix the FAIL lines above and run this again.")
         return 1
     print("READY" + (f" ({rep.warned} warning(s): read the WARN lines above)" if rep.warned else "") +
-          ". Start the app with: streamlit run app.py")
+          ". Start the app with the same Python: python -m streamlit run app.py")
     return 0
 
 

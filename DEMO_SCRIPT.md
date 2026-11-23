@@ -1,109 +1,162 @@
 # Demo script
 
-Two things are here: the narration for the 5-minute video, and the exact run order for
-the live interview. Both use the same samples in the same order, so one rehearsal
-serves both.
+Two things are here: the narration for the 5-minute video, and the run order for the
+live interview, including when to show a live Claude call. Both use the **Guided demo**
+page and the same scenarios in the same order, so one rehearsal serves both.
 
 The guide asks for the happy path running live, at least one edge case, narration of
 what happens and why, five minutes at most, no slides and no editing. It also says the
 reader is a non-technical buyer. So the words below are about money and risk, not code.
 
-## Before you record or present (2 minutes)
+## Before you record or present (3 minutes)
 
-1. Start the app and open it in the browser at 100% zoom, full screen.
-2. Sidebar: press **Reset demo data**, then "Yes, reset now".
-3. Sidebar: set **Viewing pause per stage** to **0.3** for the video (0.5 for the live
-   interview, where there is more time to talk over each stage).
-4. Stay on **Process invoice**, with "Sample invoice" selected.
-5. Have a timer visible to you. Do one full dry run first.
+1. `.venv\Scripts\python -m scripts.preflight` ends in `READY` with no warning. If it
+   still warns that no answer is recorded for the letter invoice, do SETUP_WINDOWS.md
+   step 6 first, or use the alternative words for step 9 below.
+2. Start the app. Browser at 100% zoom, full screen.
+3. On **Guided demo**, scroll to the bottom and open **Demo settings and admin**. AI
+   assist mode: **FIXTURE**. "Process on the demo date": **on**. Close the panel.
+4. Press **Start a fresh demo**.
+5. **Pace of the live view**: **Normal** for the video, **Presentation** for the
+   interview, where there is more time to talk over each stage.
+6. Have a timer where you can see it. Do one full dry run first.
 
-Scanned samples (02 and 06) take about four seconds at the Read stage when the OCR
-engine is installed. That pause is real work; say so.
+The two scanned steps (2 and 5) take about five seconds at the Read stage when the OCR
+engine is installed. That pause is real work: two reads of the page. Say so.
 
 ---
 
 ## Part 1. The 5-minute video
 
-About 620 words of narration. Speak at a normal pace and do not fill the silences while
-a run is in progress: let the stages be seen.
+About 600 words. Speak at a normal pace. While a step runs, let the stages be seen; you
+do not have to fill every second.
 
-| Time | On screen | Say |
+| Time | Do | Say |
 |---|---|---|
-| **0:00** | The Process invoice page, nothing run yet | "This is my build for problem statement one: invoice processing, from PDF to decision. An accounts payable team gets hundreds of invoices a month. For each one somebody finds the purchase order, checks the numbers and decides. The expensive mistakes are quiet ones: paying twice, paying more than was ordered, paying into the wrong account. My process makes that decision, shows everything it did on the way, and stops for a person whenever it is not sure." |
-| **0:30** | Select **01 Happy path**. Press **Process this invoice**. Stages run. | "The happy path first. Nine stages, and each one lights up as it runs. It registers the file, reads the page, pulls out the fields, checks the invoice against itself, identifies the vendor, matches it to the purchase order, and looks for duplicates. Only then does it decide." |
-| **0:50** | Decision banner. Point at the boxes on the document, then open stage 6. | "Approve: pay four lakh forty-nine thousand. Every box on the document is a value it read, so nothing is taken on trust. Here is the match: three lines, quantity and price, line by line against the PO. The invoice is posted and gets a receipt." |
-| **1:15** | Select **04 E1 Split PO**. Process. | "Edge case one. A vendor splits one purchase order across several invoices. This PO is for twenty gas detectors. Two earlier invoices already billed sixteen. This one bills five more." |
-| **1:30** | HOLD banner. Open stage 6, show "Running total on PO-2026-0193". | "Nothing is wrong with this invoice on its own. The problem only shows in the running total: twenty-one of twenty, twenty-five thousand rupees over. So it is on hold, with a named owner and one question: were the extra units ordered? And here is a note to the vendor, drafted for a person to send." |
-| **2:00** | Select **05 E2 Disguised duplicate**. Process. | "Edge case two. Same vendor, same items, same amount as an invoice booked two days ago, but with a new invoice number. A check on the invoice number alone would pay this twice." |
-| **2:15** | REJECT banner. | "Rejected, and it points at the original. It can be this firm because the purchase order is already fully billed, so nothing more can be owed. If the PO still had room it would ask a person whether this is a second delivery." |
-| **2:35** | Select **06 E3 Scan**. Process. Wait for Read. | "Edge case three is a scan: a tilted photo of a page, no text in the file. It straightens the page and reads it twice, in two different ways, and uses the read whose figures add up." |
-| **2:55** | HOLD banner. Point at the blank "Bill No." on the document, then the reasons. | "Two things are missing here. The invoice number box is blank, and it does not guess one. No purchase order is quoted either, so it finds the best fit among this vendor's open orders, shows the score and the runner-up, and asks the PO owner to confirm. An inferred PO is never posted without a person." |
-| **3:25** | Select **08 E4 Tax-inclusive, outside tolerance**. Process. | "Edge case four. This vendor prints prices with tax inside; our PO is before tax. It converts them and compares. Fifty rupees over on each unit: one and a half percent, and the limit is one percent." |
-| **3:45** | HOLD banner. | "On hold, with the exact arithmetic. The sister sample is three rupees over, and that one is approved with a note. Same rule, both sides of the line." |
-| **3:55** | Click **Review queue**. On the scanned invoice, type your name and press Approve. | "Holds wait here for a person. I try to approve the invoice that had no number, and it refuses: the number has to be obtained from the vendor first, because without it the same invoice could be paid twice later." |
-| **4:15** | Click **Dashboard**. | "The dashboard: what was processed, how much went straight through, what is waiting and why. Every decision, the machine's and the person's, writes a receipt into a chain, and this line recomputes the whole chain. Any run can be opened again with all its evidence." |
-| **4:35** | Click **Rules and data**, the Decision table tab. | "And none of the policy is in code. Every threshold and every action is a line in one rules file that a process owner can change. The decision itself uses no AI model, so the same invoice always gets the same answer, and more than three hundred and fifty automated tests hold it there." |
-| **4:55** | Stop. | "That is the process. Thank you." |
+| **0:00** | Guided demo page, nothing run yet | "This is my build for problem statement one: invoice processing, from PDF to decision. An accounts payable team gets hundreds of invoices a month. For each one, somebody finds the purchase order, checks the numbers and decides. The costly mistakes are the quiet ones: paying twice, paying for more than was ordered, paying into the wrong account. My process makes that decision, shows its work, and stops for a person whenever it is not sure." |
+| **0:30** | Press **Run step 1** | "A clean invoice first. Nine stages, each lighting up as it runs: register the file, read it, pull out the fields, check the invoice against itself, identify the vendor, match the purchase order, look for duplicates. Only then does it decide. Approved, and every box on the document is a value it read." |
+| **0:52** | **Run step 2** | "The same for a scan. It reads the page twice, and trusts only what both reads and the arithmetic agree on." |
+| **1:02** | **Run step 3** | "Edge case one. This purchase order is for twenty gas detectors. Earlier invoices billed sixteen, and this one bills five more. Nothing is wrong with the invoice itself. Only the running total shows it: twenty-one of twenty. So it is on hold, for a named owner, with one question." |
+| **1:24** | **Run step 4** | "Edge case two. Same vendor, same items, same amount as an invoice booked two days ago, under a new number. A check on the number alone would pay this twice. Rejected, pointing at the original, and the reply to the vendor is already drafted." |
+| **1:44** | **Run step 5** | "Edge case three. A scan with the invoice number left blank and no purchase order quoted. It does not invent a number. It suggests the best-fitting order, with its score, and a person confirms." |
+| **2:02** | **Run step 6**, then **Run step 7** | "Edge case four. These prices include tax, and our order is before tax. It converts and compares. This one is just inside the tolerance: approved, with a note. This one is two rupees dearer per unit, just outside: held. Same rule, both sides of the line, and the limit is a number in a rules file." |
+| **2:28** | **Run step 8** | "And a fraud check. Everything matches except the bank account. That is what payment fraud looks like, so it is held." |
+| **2:38** | **Run step 9**. Scroll down to the document. | "Now the AI part. This invoice is written as a letter: no table, no labels. My rules will not guess. So Claude reads it and copies out each value with the sentence it came from. Then code checks every value against the page, character by character, and checks the arithmetic. The purple boxes are what Claude read. Claude reads. It does not decide. The decision is still the rules." |
+| **3:10** | Click **Review queue**. On the first invoice type your name, press **Approve for payment** | "Holds wait here for a person. Watch what happens if I approve the split order anyway. Refused. The order is checked again at the moment of approval, so two approvals can never overbill it. And a changed bank account takes a call-back and two different people." |
+| **3:32** | Click **Dashboard** | "The dashboard: what came in, how much went straight through, what is waiting and why. Every decision, the system's and the person's, goes into an audit trail, and this line re-checks the whole trail." |
+| **3:48** | Click **Rules and data** | "None of the policy is in code. Every threshold and every action is a line in one file that a process owner can change." |
+| **3:58** | Stay on the page | "How do I know it works? More than five hundred and fifty tests. An independent audit, whose findings I fixed. And forty-nine invoices I did not make with my own generator, in the layouts Tally and Zoho print, plus photographs. Forty-five reach the right answer, four go to a person, and none is approved wrongly. That last number is the one that matters." |
+| **4:28** | Stop | "That is the process. Thank you." |
 
-**If you are running long:** drop the Rules and data step (4:35) and close on the
-dashboard. If you are still long, drop the Review queue step. Do not drop an edge case.
+That leaves about thirty seconds of slack for the scans and for moving the mouse.
 
-**If you are running short:** after E4, also run **09 Fraud guard** and say: "A perfect
-match on the PO, but the bank account is not the one on file. That is how payment fraud
-looks, so it is held until someone calls the vendor on the number we already had."
+**Step 9 if you have not recorded Claude's answer.** The step ends in HOLD, which is the
+correct outcome without AI. Say instead: "Now a hard one. This invoice is written as a
+letter: no table, no labels. My rules will not guess, so they hold it and say exactly
+what they could not read. This is where I use Claude: it reads the letter, code checks
+every value against the page, and the rules still decide. On this machine that answer
+is not recorded yet, so you are seeing the safe default."
 
-**If a run shows "already processed":** you forgot to reset. Press Reset demo data and
-start that run again. In the video, start over; it is five minutes.
+**If you are running long:** drop the Rules and data step (3:48), then shorten the
+close to its last two sentences. Do not drop an edge case or the AI step.
+
+**If you are running short:** on the Review queue, also scroll to the bank-change
+invoice, type a name and a call note, tick the box and press **Record first approval**.
+Say: "First approval recorded. It stays on hold until a second person approves."
+
+**If a step shows "NOT the expected decision":** the books were not fresh. In the video,
+press Start a fresh demo and start over; it is five minutes.
 
 ---
 
-## Part 2. The live interview: exact run order
+## Part 2. The live interview
 
 No slides. The process runs, they ask, you explain. Budget about ten minutes for the
-runs and leave the rest for questions.
+runs and leave the rest for questions. Pace: **Presentation**.
 
-**Setup while saying hello:** Reset demo data. Viewing pause 0.5.
+**While saying hello:** Start a fresh demo. Check the sidebar says "AI assist: recorded
+answers (no network)".
 
 | # | Do | The one point to land |
 |---|---|---|
-| 1 | **01 Happy path**. Open stage 3 (fields with sources) and stage 6 (line-by-line match). | Everything it read is traceable to a place on the page. Nothing is decided until stage 8. |
-| 2 | **04 E1 Split PO**. Open stage 6, the "Running total" table. | The invoice is fine on its own; only history shows the over-billing. That is why there is a ledger. |
-| 3 | **05 E2 Disguised duplicate**. | Three tiers of duplicate control. Certain only when nothing more can be owed; otherwise it asks. |
-| 4 | **06 E3 Scan**. Open stage 2 and stage 3 ("Two reads of the scan"). | Missing stays missing. An inferred PO is a suggestion with evidence, never a match. |
-| 5 | **07 E4a**, then **08 E4b**. | The same rule on both sides of the threshold: approve with a note, hold with the arithmetic. |
-| 6 | **09 Fraud guard**. Then **Review queue**: try to approve it without ticking the call-back. | A perfect invoice can still be a fraud. The control is in the review step, and a confirmed account is remembered. |
-| 7 | **Review queue**: approve **08** with your name and a note. | A hold ends with a named person, and that decision joins the audit trail. |
-| 8 | **Dashboard**. Point at the KPIs and the audit-trail line; open one run from the history. | History, status and outputs across runs. Any decision can be reconstructed later. |
-| 9 | **Rules and data**, "What-if sandbox": sample 07, set unit price tolerance to **0.10**, "Run both ways". | The decision flips from approve to hold and the only thing that changed was a number in the rules. |
+| 1 | **Run step 1** (clean invoice). Scroll to the stages; open stage 3 (fields with sources) and stage 6 (line-by-line match). | Everything it read is traceable to a place on the page. Nothing is decided until stage 8. |
+| 2 | **Run step 2** (scan). Open stage 3, "Two reads of the scan". | Two reads. A value no arithmetic can confirm is trusted only when both agree. |
+| 3 | **Run step 3** (split PO). Open stage 6, the running total on the PO. | The invoice is fine on its own; only history shows the over-billing. That is why there is a ledger. |
+| 4 | **Run step 4** (duplicate). Show the message to the vendor and its copy icon. | Rejected on the match itself. Room on the PO is not evidence that goods came twice; a second goods receipt would be. |
+| 5 | **Run step 5** (scan, no number, no PO). | Missing stays missing. The blank box is checked on the picture before the vendor is asked. An inferred PO is a suggestion. |
+| 6 | **Run steps 6 and 7** (tolerance). Open stage 6 on step 7: the conversion table. | Two rupees apart, opposite outcomes. Both a percentage and a rupee limit must hold. |
+| 7 | **Run step 8** (bank change). | A perfect invoice can still be a fraud. |
+| 8 | **Run step 9** (letter). Scroll to the document; open stage 3, the "AI assist (Claude)" table. | Claude copies; code verifies every value against the page; rules decide. The table shows what was accepted, what was rejected and what it cost. |
+| 9 | **Run steps 10 and 11**. | The same file again returns the first record and books nothing twice. A quotation is refused with a reason. Bad input never crashes. |
+| 10 | **Review queue**. Approve the split PO: refused, with the PO as it stands now. | The control holds when a person acts, not only when the system does. There is no override; amend the PO or reject. |
+| 11 | Same page, bank change: your name, a call note, tick, **Record first approval**. Then type the same name again and try to approve. | Two different people. The first one's call record is what the second one approves. |
+| 12 | **Dashboard**. Point at straight-through processing and the audit-trail line; open one record from the history. | History, status and outputs across runs. Any decision can be reconstructed later. |
+| 13 | **Rules and data**, "What-if sandbox": sample 07, unit price tolerance to **0.90**, **Run both ways**. | The decision flips from approve to hold, and the only thing that changed was a number in the rules. |
 
-Keep these ready in case they ask:
+### When to show a live Claude call
 
-- **"Upload something that is not an invoice."** Process invoice, "Upload a file",
-  choose `samples\bad_inputs\quotation_not_invoice.pdf` (rejected as a quotation) or
-  `corrupt_file.pdf` (rejected as unreadable). It refuses with a reason and never
-  crashes. Their own file is welcome too: an unknown vendor is held as "not on the
-  approved list", a dollar invoice is held as "not in rupees".
-- **"Where is the AI?"** Run **10 AI assist** (only if you recorded a response; see
-  SETUP_WINDOWS.md step 6). Without the recording it is held by the rules alone, which
-  is also a fair thing to show: say that the rules know what they could not read.
-- **"Run them all."** "Run every sample in one go" on the Process page: fourteen runs,
-  each compared with its documented outcome.
-- **"Show me it is real."** Open a terminal: `.venv\Scripts\python -m invoice_desk.run
-  --all`, or `-m pytest`.
+Row 8 above (the letter) replays a recorded answer. That is deliberate: a demo that
+depends on a network call can break. Show a live call **after step 13**, or when they ask "is that
+really the model?" or "where is the AI?". It resets the books, which is why it comes
+last.
+
+1. Say: "What you saw was a recorded answer, replayed. Here is the same thing live."
+2. Guided demo, **Demo settings and admin**: AI assist mode **CACHED-LIVE**, then
+   switch on **Ask Claude afresh on every run**. The sidebar now says "live Claude, a
+   fresh answer on every run".
+3. Press **Start a fresh demo**.
+4. Go to **Process invoice**, choose **10 Invoice written as a letter**, press
+   **Process this invoice**. Stage 3 takes a second or two longer.
+5. Open stage 3. In the "AI assist (Claude)" table point at three lines: **Answer**
+   ("live call to the Claude API"), **Accepted** and **Tokens and cost**.
+6. Say: "Same values, same checks, same decision, and it cost a fraction of a cent. If
+   that call had failed, the recorded answer would have been used and the record would
+   say so. There is a cap per invoice and a cap per day."
+7. Set the mode back to **FIXTURE** before you go on.
+
+Do this only if you rehearsed it the same day. If you did not, say what is true: "The
+live call works the same way; I keep the demo on recorded answers so that it cannot
+break. I can show you the recording and the request that produced it." Then open a file
+in `fixtures\llm\` and run
+`.venv\Scripts\python -m scripts.record_llm_fixtures --dry-run --show-request`.
+
+### Keep these ready in case they ask
+
+- **"Upload something of mine."** Guided demo, **Try your own invoice**. A real invoice
+  is held because its vendor is not on this made-up vendor list. Say that before you
+  press the button: "It will hold it as an unknown vendor, which is what should happen."
+  Then open stage 3 to show what it read from their document.
+- **"Upload something that is not an invoice."** Process invoice, "From the sample
+  inbox": samples 11 to 18 are a quotation, a newsletter, and corrupt, empty,
+  password-protected, oversized, renamed and truncated files. Each ends in a decision
+  with a reason.
+- **"What if Claude gets it wrong?"** Open stage 3 on the letter. Every value has its
+  quote. A value whose quote is not on the page, or that the quote does not state, is
+  dropped, and there are tests for each case, including one where two digits are
+  swapped.
+- **"How did it do on invoices you did not make?"** `docs\robustness_report.md`: 45 of
+  49 right, 4 held, none approved wrongly. Say what the four are: photographs.
+- **"Run them all."** Process invoice, "Process the whole sample inbox in one go":
+  eighteen runs, each compared with its documented outcome.
+- **"Show me it is real."** A terminal: `.venv\Scripts\python -m invoice_desk.run --all`,
+  or `-m pytest`.
 
 ## If something goes wrong live
 
 | What you see | What to do, and what to say |
 |---|---|
-| A sample is rejected as "already processed" | Reset demo data, run it again. "That is the duplicate control doing its job; I had run this file already." |
-| A decision differs from what you rehearsed | Read the reasons on screen out loud. They say exactly why. Then reset and rerun. Do not guess. |
-| The scan is slow | "It is reading the page twice at 300 dpi. That is the only slow step, about four seconds." |
+| A step shows "NOT the expected decision" | Read the reasons on screen out loud; they say exactly why. Then **Start a fresh demo** and run it again. Do not guess. |
+| "These books already hold records from outside the guided demo" | Press **Start a fresh demo**. "I had processed something by hand; the demo wants a clean start." |
+| A sample says "already received" | "That is the re-submission control: the same file is never booked twice." Then start fresh if you need the run itself. |
+| The scan is slow | "It is reading the page twice. That is the only slow step, about five seconds." |
+| The live Claude call fails | The record says the stored answer was used. "The network call failed, so it fell back to the recorded answer. That is the designed behaviour." Switch back to FIXTURE. |
 | The hosted link is asleep or broken | Switch to the laptop. "The link is on a free tier that sleeps; here is the same app locally." |
-| The app shows an error box | Reload the page, reset, rerun. If it repeats, open the terminal and run `python -m invoice_desk.run samples\01_happy_path_furniture.pdf` to show the same pipeline without the UI. |
+| The app shows an error box | Reload the page, start fresh, rerun. If it repeats, open the terminal and run `.venv\Scripts\python -m invoice_desk.run samples\01_happy_path_furniture.pdf` to show the same pipeline without the UI. |
 | You do not know the answer to a question | "I do not know. Here is how I would find out." Then point at the file where the answer would live. Never invent one. |
 
 ## Words to prefer
 
 Say "holds it for a person" instead of "flags an exception". Say "the invoice bills more
 than the PO has left" instead of "three-way match variance". Say "it does not guess"
-instead of "null with a reason". They asked for an explanation a buyer can follow.
+instead of "null with a reason". Say "Claude reads, code checks, rules decide" instead
+of "LLM extraction with grounding". They asked for an explanation a buyer can follow.

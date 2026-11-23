@@ -179,3 +179,129 @@ These six became the acceptance questions in PLAN.md.
   (AFP, Ardent, FBI) were not opened.
 - GST rate examples were not checked item by item against the rate schedule; all sample
   invoices use 18%, the standard rate, to stay on safe ground.
+
+---
+
+# Round 2 research (22 Nov 2026)
+
+Added after the independent audit. Same rules as above: every external claim has a
+link, and a vendor's own page is called that.
+
+## 10. What an AI Solutions Analyst at Zamp is judged on
+
+- A current listing for the role describes it as business-driven: turn a customer's
+  process into a workflow specification, build it with AI tooling, own it from design
+  through testing and rollout, then track KPIs and ROI and explain them to technical and
+  non-technical people. The listing replaces the CV screen with an assignment
+  (https://builtin.com/job/ai-solutions-analyst/9748188, a job board copy of Zamp's post).
+- Consequence for this round: the weight goes on (a) controls that survive a person
+  acting on a hold, (b) numbers measured on inputs I did not generate, and (c) an AI
+  layer with a defined job and a measured cost, rather than more features.
+
+## 11. Controls after the hold: bank changes and approvals
+
+- **Call-back plus a second person.** The standard control for a changed bank account
+  is a call to a number already on file, a written record of the call (who called,
+  which number, who answered, when), and approval by a second person who is not the
+  one who made the change (https://www.coupa.com/blog/3-controls-stop-payment-fraud/ ,
+  https://www.stampli.com/resources/vendor-bank-change-callback-protocol/ , both vendor
+  pages). Segregation-of-duties guidance says the same: the person who changes vendor
+  bank details must not be the one who approves or releases
+  (https://www.corpay.com/resources/blog/segregation-of-duties-accounts-payable).
+- **How to ask.** On the call, the vendor should state the new details; reading them
+  out for a "yes" invites one (https://trustpair.com/?p=23760, a vendor page).
+- **ERPs build this in.** Microsoft Dynamics 365 Finance has an approval workflow for
+  proposed vendor bank account changes
+  (https://learn.microsoft.com/en-us/dynamics365/finance/accounts-payable/vendor-bank-account-workflow),
+  and SAP documents maker-checker ("dual control") for vendor bank details
+  (https://userapps.support.sap.com/sap/support/knowledge/en/3749979).
+- Design consequence (D42, D43 in DECISIONS.md): a bank change now needs two different
+  named people, the first records the call, and nothing is paid or learned until the
+  second approves. An approval from the review queue re-checks the PO at that moment.
+
+## 12. Duplicates: what "the same invoice under a new number" should do
+
+- The costly duplicates are the fuzzy ones: same vendor and amount, a different invoice
+  number or intake path. Exact-field ERP checks miss them
+  (https://www.corpay.com/resources/blog/duplicate-payment-detection, a vendor page).
+- The same source names three-way matching as what stops the second payment: an invoice
+  has to tie to a receipt, not only to a PO with money left on it.
+- Design consequence (D44): a content duplicate is rejected on the match itself, and
+  the only thing that clears it is evidence of a second delivery (goods receipts that
+  cover both). Whether the PO has room no longer matters. A weaker match, where the
+  lines could not be compared, is a question for a person.
+
+## 13. Indian GST invoices as businesses actually print them
+
+- TallyPrime lets a business choose which columns print (HSN/SAC, description, batch,
+  discount) and how the invoice looks, and fills the GST fields from its masters
+  (https://tallysolutions.com/smart-moves/expert-insights/how-tallyprime-helps-businesses-personalise-invoices-for-different-customers-and-transactions/ ,
+  https://tallysolutions.com/business-guides/create-a-professional-invoice-in-tallyprime-a-business-owners-guide/).
+  Its print configuration has a switch for a separate HSN/SAC column
+  (https://help.tallysolutions.com/article/Tally.ERP9/Maintaining_Company_Data/F12_Config/Sales_Invoice_print_conf.htm).
+- Zoho's templates let the user rename the header labels (number, date, terms, due
+  date, reference, place of supply) and restyle the item table and totals
+  (https://www.zoho.com/billing/help/settings/customisation/templates.html).
+- So two invoices from the same accounting package can differ in labels, column order
+  and which columns exist. A reader cannot assume a layout per package. *(background,
+  from invoices seen in practice and not re-checked online:)* Tally-style prints put the
+  tax ledgers (CGST, SGST, round off) as rows under the items in the same grid, add a
+  separate HSN/SAC summary table with its own taxable-value column, label the PO as
+  "Buyer's Order No." and the total as "Amount Chargeable (in words)". Zoho-style prints
+  use "Invoice#", "Sub Total", "Balance Due" and "Total In Words". Busy-style prints use
+  "S.N.", "Description of Goods", "Grand Total". The robustness set in
+  `robustness/` was built on these patterns with tools the sample generator does
+  not use.
+
+## 14. LLMs in document extraction: what makes them safe to use
+
+- **Ground every value in the source.** A value that cannot be found in the document is
+  the strongest sign of a made-up answer, and field and cross-field checks (arithmetic,
+  identifiers) catch errors that fluent reading does not
+  (https://arxiv.org/pdf/2607.17883). A backend engineering write-up gives the same rule
+  for high-stakes fields: check that the value appears in the source text
+  (https://alivedise.github.io/backend-engineering-essentials/ai-backend-patterns/llm-powered-document-processing-and-information-extraction).
+- **Deterministic checks, then people.** Pipelines that work in production pair the
+  model with arithmetic consistency checks and send low-confidence documents to a
+  reviewer (https://arxiv.org/pdf/2605.17159 , https://arxiv.org/pdf/2511.05547).
+- **Claude API facts used in the build** (checked on 22 Nov 2026):
+  - Model IDs and prices: `claude-haiku-5-5` at $0.10 input and $0.50 output per million
+    tokens for prompts up to 100,000 tokens; `claude-sonnet-5-5` at $2 and $10;
+    `claude-opus-5-5` at $4 and $20 (https://platform.claude.com/docs/en/models/overview ,
+    https://platform.claude.com/docs/en/about-claude/pricing).
+  - Haiku 5.5 is described as the model for "high-volume, latency-sensitive tasks such
+    as classification, extraction, and routing" (models overview). Its page says to omit
+    `temperature`, `top_p` and `top_k`
+    (https://platform.claude.com/docs/en/models/haiku-5-5/overview), so a repeatable
+    answer has to come from recording the response, not from a sampling setting.
+  - Structured outputs: a JSON schema in `output_config.format`, no beta header; every
+    object needs `additionalProperties: false`; numeric and length constraints are not
+    supported; a refusal or a `max_tokens` stop can still return output that does not
+    match the schema, so the code checks `stop_reason`
+    (https://platform.claude.com/docs/en/build-with-claude/structured-outputs).
+  - Python SDK: `pip install anthropic`, Python 3.10 or later, key in
+    `ANTHROPIC_API_KEY`; two retries by default on connection errors, 408, 409, 429 and
+    5xx; a per-client `timeout`; errors are subclasses of `anthropic.APIError`; the HTTP
+    layer is `httpx2`, and a custom transport goes in through `DefaultHttpxClient`
+    (https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/python). The tests use
+    that seam with the real SDK and a fake transport.
+  - Effort: `output_config.effort` is accepted by every current model, Haiku 5.5 included.
+    Haiku 5.5 defaults to `medium`, Sonnet 5.5 to `high`, and sending the default is the
+    same as sending nothing. For Haiku 5.5 the page recommends starting at `medium`,
+    `low` for simple high-volume requests, and `high` for strict instruction following;
+    thinking is on by default and counts toward `max_tokens`
+    (https://platform.claude.com/docs/en/build-with-claude/effort). So the build sends no
+    effort level unless `LLM_EFFORT` is set, reads only the text blocks of the answer,
+    and treats a `max_tokens` stop as "no usable answer".
+- Design consequence (D45 to D49): the model copies text and never calculates; code
+  parses and verifies what it copied; a recorded response is keyed by file, prompt
+  version and model; cost is capped per invoice and per day; the default mode makes no
+  network call.
+
+## 15. Limits of the round 2 research
+
+- The role description is a job-board copy, not Zamp's own careers page.
+- The Tally, Zoho and Busy layout details in section 13 marked *(background)* come from
+  experience of such invoices, not from a page I can link.
+- Claude API behaviour was read from the documentation and from the installed SDK
+  (anthropic 2.12.0). No request was sent: this build environment cannot reach the API.

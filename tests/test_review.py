@@ -1,4 +1,6 @@
 """A hold ends with a named person's decision, recorded in the same chain."""
+from decimal import Decimal
+
 import pytest
 
 from invoice_desk.review import ReviewError, apply_review, required_checks
@@ -18,7 +20,7 @@ def test_approving_a_hold_posts_it_and_writes_a_review_receipt(pipeline, store):
     receipt = apply_review(store, run.run_id, "approve", "R. Iyer", "Price increase agreed by email on 12 Nov")
     assert store.get_ledger(run.ledger_id)["status"] == "POSTED" and store.run_row(run.run_id)["review_status"] == "APPROVED"
     assert receipt["actor"] == "human" and receipt["reviewer"] == "R. Iyer" and receipt["reviews_receipt"] == run.receipt["hash"]
-    assert receipt["reasons_reviewed"] == ["OVER_PO_BALANCE", "PRICE_VARIANCE"]
+    assert receipt["reasons_reviewed"] == ["PRICE_VARIANCE"]
     assert [r["kind"] for r in store.receipts(run.run_id)] == ["decision", "review"] and store.verify_chain()["ok"]
 
 
@@ -49,19 +51,29 @@ def test_a_run_cannot_be_reviewed_twice_or_when_it_was_not_held(pipeline, store)
         apply_review(store, approved.run_id, "REJECT", "R. Iyer")
 
 
+CALL = "Called 080-5550-0118, spoke to Ms Hegde (accounts head), 21 Nov 15:10; she read out the new account"
+
+
+def approve_bank_change(store, run_id, first="N. Rao", second="S. Menon"):
+    """The two approvals a changed bank account needs (rules.yaml, review.bank_change_approvers)."""
+    apply_review(store, run_id, "APPROVE", first, CALL, {"bank_verified": True})
+    return apply_review(store, run_id, "APPROVE", second, "Call record read", {"bank_second_check": True})
+
+
 def test_bank_change_needs_a_confirmed_call_back_and_is_then_remembered(pipeline, store):
     run = held(pipeline, "09_fraud_guard_bank_change")
     assert "bank_verified" in required_checks({f.code for f in run.decision.reasons})
+    assert "bank_second_check" in required_checks({f.code for f in run.decision.reasons}, second=True)
     with pytest.raises(ReviewError, match="call-back"):
         apply_review(store, run.run_id, "APPROVE", "N. Rao")
     assert store.get_ledger(run.ledger_id)["status"] == "PENDING"            # the refused approval changed nothing
-    receipt = apply_review(store, run.run_id, "APPROVE", "N. Rao", "Spoke to their accounts head", {"bank_verified": True})
+    receipt = approve_bank_change(store, run.run_id)
     assert store.overrides("V001", "bank_account")[0]["value"] == "770031245566"
     assert any("verified account" in item for item in receipt["learned"])
 
 
 def test_after_the_call_back_the_same_account_no_longer_holds_invoices(pipeline, store):
-    """What a reviewer confirms is remembered: the next invoice to that account goes straight through."""
+    """What two reviewers confirm is remembered: the next invoice to that account goes straight through."""
     from datetime import date
     from scripts import generate_test_data as G
     bank = {"bank_name": "Chalukya Urban Bank", "bank_branch": "Yeshwanthpur", "bank_account": "770031245566", "ifsc": "CHUB0002290"}
@@ -72,8 +84,11 @@ def test_after_the_call_back_the_same_account_no_longer_holds_invoices(pipeline,
             lines=[G.line("Steel Storage Cupboard, 4 Shelf", "9403", 2, "Nos", "9800.00")]))
     before = pipeline.run(next_invoice("TOF/26-27/0450"), "before.pdf", "test")
     assert [f.code for f in before.decision.reasons] == ["BANK_DETAILS_CHANGED"]
-    apply_review(store, before.run_id, "APPROVE", "N. Rao", "Called 080-5550-0118", {"bank_verified": True})
-    after = pipeline.run(next_invoice("TOF/26-27/0451"), "after.pdf", "test")
+    apply_review(store, before.run_id, "APPROVE", "N. Rao", CALL, {"bank_verified": True})
+    meanwhile = pipeline.run(next_invoice("TOF/26-27/0451"), "meanwhile.pdf", "test")
+    assert meanwhile.verdict == "HOLD"                                     # one approval is not enough to trust the account
+    apply_review(store, before.run_id, "APPROVE", "S. Menon", "Call record read", {"bank_second_check": True})
+    after = pipeline.run(next_invoice("TOF/26-27/0452"), "after.pdf", "test")
     assert after.verdict == "APPROVE"
 
 
@@ -179,4 +194,4 @@ def test_if_the_first_was_approved_meanwhile_the_copy_can_only_be_rejected(pipel
     with pytest.raises(ReviewError, match="has since been approved"):
         apply_review(store, second.run_id, "APPROVE", "R. Iyer")
     apply_review(store, second.run_id, "REJECT", "R. Iyer")
-    assert store.po_usage("PO-2026-0229")["posted_amount"] == 97500
+    assert store.po_usage("PO-2026-0229")["posted_amount"] == Decimal("51715.25")   # sample 08: 16 x 3,814 with tax, 51,715.25 before tax

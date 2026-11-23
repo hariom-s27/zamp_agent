@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "purpose": "vendor_note",
+  "key": "3cfd5dac782d4865ae1625fe48200c0ae2330c252e9d6564b07af3f2ee275365",
+  "prompt_version": "vendor-note-v1",
+  "template_sha256": "2add7545374917fa62935e7100a1ee070f845903a6f7c9c8af797b32ae14ccad",
+  "model": "claude-haiku-5-5",
+  "recorded_at": "2026-11-23T06:00:10+00:00",
+  "request_id": "req_011ChKMDRKHACCdJEeGzwDhb",
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 627,
+    "output_tokens": 815,
+    "seconds": 4.03
+  },
+  "cost_usd": 0.00047,
+  "sdk": "anthropic 2.12.0",
+  "response": {
+    "subject": "Document received in our invoice inbox: not booked",
+    "body": "Dear Tungabhadra Office Furnishings Pvt Ltd accounts team,\n\nWe received a document from you in our invoice inbox but have not booked it, for the following reason:\n\n1. The document received is a quotation. Please send the tax invoice when the supply is made.\n\nIf it was sent by mistake, no action is needed. Otherwise, please reply with a corrected document.\n\nRegards,\nAccounts Payable\nNilgiri Precision Components Pvt Ltd"
+  }
+}

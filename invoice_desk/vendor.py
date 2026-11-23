@@ -13,11 +13,9 @@ from typing import Optional
 from . import textutil as T
 from .masterdata import MasterData, Vendor
 from .models import Finding, Invoice
+from .rules import Rules, current_rules
 
 STAGE = "vendor"
-NAME_MATCH = 0.90          # a printed name this close to a master name identifies the vendor
-NAME_SAME = 0.999          # anything short of the same words as the legal name is noted as a variant
-NAME_DOUBT = 0.60          # below this the name contradicts the GSTIN
 
 
 def _best_name(printed: str, vendor: Vendor) -> tuple[float, str]:
@@ -25,10 +23,12 @@ def _best_name(printed: str, vendor: Vendor) -> tuple[float, str]:
     return max(scored) if scored else (0.0, "")
 
 
-def check_vendor(inv: Invoice, master: MasterData, verified_accounts: Optional[dict[str, list[str]]] = None
-                 ) -> tuple[Optional[Vendor], list[Finding], list[dict], dict]:
+def check_vendor(inv: Invoice, master: MasterData, verified_accounts: Optional[dict[str, list[str]]] = None,
+                 rules: Optional[Rules] = None) -> tuple[Optional[Vendor], list[Finding], list[dict], dict]:
     """Returns (vendor or None, findings, evidence blocks, summary for the run record).
-    `verified_accounts` maps vendor id to bank accounts confirmed earlier by a reviewer."""
+    `verified_accounts` maps vendor id to bank accounts confirmed earlier by reviewers.
+    How close a printed name must be to the master comes from rules.yaml (matching)."""
+    close = (rules or current_rules()).matching
     findings: list[Finding] = []
     gstin = inv.get("vendor_gstin")
     printed = inv.get("vendor_name") or ""
@@ -40,13 +40,13 @@ def check_vendor(inv: Invoice, master: MasterData, verified_accounts: Optional[d
         if printed:
             score, matched_name = _best_name(printed, vendor)
             legal = T.name_similarity(printed, vendor.legal_name)
-            if score < NAME_DOUBT:
+            if score < close.vendor_name_doubt:
                 findings.append(Finding(
                     code="VENDOR_GSTIN_MISMATCH", stage=STAGE,
                     summary=f"GSTIN {gstin} belongs to {vendor.legal_name}, but the invoice is in the name of '{printed}'.",
                     expected=vendor.legal_name, observed=printed,
                     question="Confirm who issued this invoice before it is processed further."))
-            elif legal < NAME_SAME:
+            elif legal < close.vendor_name_same:
                 findings.append(Finding(
                     code="VENDOR_NAME_VARIANT", stage=STAGE,
                     summary=f"The invoice prints the vendor as '{printed}'. The GSTIN identifies "
@@ -60,7 +60,7 @@ def check_vendor(inv: Invoice, master: MasterData, verified_accounts: Optional[d
                 s, name = _best_name(printed, candidate)
                 if best is None or s > best[0]:
                     best = (s, name, candidate)
-        if best and best[0] >= NAME_MATCH:
+        if best and best[0] >= close.vendor_name_match:
             score, matched_name, vendor = best
             method = "name"
             if gstin:
@@ -129,10 +129,10 @@ def check_vendor(inv: Invoice, master: MasterData, verified_accounts: Optional[d
                 evidence={"master_account": vendor.bank_account, "invoice_account": account,
                           "phone_on_file": vendor.phone_on_file},
                 question=f"Call {vendor.legal_name} on {vendor.phone_on_file or 'the number on file'} (the number in the "
-                         f"vendor master, not one from this invoice or email) and confirm the new account. Do not pay "
-                         f"until a second person has approved the change."))
+                         f"vendor master, not one from this invoice or email) and ask them to state their bank account. "
+                         f"Record the call. A second, different person must then approve the change before anything is paid."))
         elif account and T.digits_only(account) != T.digits_only(vendor.bank_account):
-            bank_rows.append({"": "Note", "Bank": "", "Account": "matches an account verified earlier by a reviewer", "IFSC": ""})
+            bank_rows.append({"": "Note", "Bank": "", "Account": "matches an account verified earlier on review (call-back and second approval)", "IFSC": ""})
         elif account and ifsc and vendor.ifsc and ifsc != vendor.ifsc:
             # the account is the one on file; an IFSC that reads differently is a reading slip, and
             # payment always uses the vendor master, never what is printed on an invoice

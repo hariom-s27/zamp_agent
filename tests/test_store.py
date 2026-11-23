@@ -21,8 +21,9 @@ def test_seeding_happens_once(tmp_path):
     assert len(again.ledger_entries()) == 10
 
 
-def test_run_ids_are_sequential(store):
-    assert [store.allocate_run_id() for _ in range(3)] == ["R-0001", "R-0002", "R-0003"]
+def test_ap_references_are_sequential_and_carry_the_business_year(store):
+    assert [store.allocate_run_id(2026) for _ in range(3)] == ["AP-2026-0001", "AP-2026-0002", "AP-2026-0003"]
+    assert store.allocate_run_id(2027) == "AP-2027-0004"          # the running number never restarts, so it is unique on its own
 
 
 def test_po_usage_separates_posted_from_pending(store):
@@ -48,12 +49,12 @@ def test_canonical_form_ignores_key_order():
 
 
 def test_receipts_form_a_chain(store):
-    a = store.append_receipt("decision", "R-0001", {"verdict": "APPROVE"})
-    b = store.append_receipt("decision", "R-0002", {"verdict": "HOLD"})
-    c = store.append_receipt("review", "R-0002", {"decision": "APPROVE"})
+    a = store.append_receipt("decision", "AP-2026-0001", {"verdict": "APPROVE"})
+    b = store.append_receipt("decision", "AP-2026-0002", {"verdict": "HOLD"})
+    c = store.append_receipt("review", "AP-2026-0002", {"decision": "APPROVE"})
     assert a["prev_hash"] == GENESIS and b["prev_hash"] == a["hash"] and c["prev_hash"] == b["hash"]
     assert store.verify_chain() == {"ok": True, "count": 3, "problems": []}
-    assert [r["kind"] for r in store.receipts("R-0002")] == ["decision", "review"]
+    assert [r["kind"] for r in store.receipts("AP-2026-0002")] == ["decision", "review"]
 
 
 def _sql(store, statement, *args):
@@ -65,7 +66,7 @@ def _sql(store, statement, *args):
 
 def test_editing_a_stored_receipt_is_detected(store):
     for n in range(3):
-        store.append_receipt("decision", f"R-000{n + 1}", {"verdict": "HOLD", "total": "100.00"})
+        store.append_receipt("decision", f"AP-2026-000{n + 1}", {"verdict": "HOLD", "total": "100.00"})
     _sql(store, "UPDATE receipts SET body_json = REPLACE(body_json, 'HOLD', 'APPROVE') WHERE seq = 2")
     check = store.verify_chain()
     assert not check["ok"] and "receipt 2" in check["problems"][0] and "content does not match its hash" in check["problems"][0]
@@ -73,7 +74,7 @@ def test_editing_a_stored_receipt_is_detected(store):
 
 def test_rewriting_a_receipt_together_with_its_hash_breaks_the_next_link(store):
     for n in range(3):
-        store.append_receipt("decision", f"R-000{n + 1}", {"verdict": "HOLD"})
+        store.append_receipt("decision", f"AP-2026-000{n + 1}", {"verdict": "HOLD"})
     forged = dict(store.receipts()[1]["body"], verdict="APPROVE")
     _sql(store, "UPDATE receipts SET body_json = ?, hash = ? WHERE seq = 2", canonical(forged), receipt_hash(forged))
     check = store.verify_chain()
@@ -82,21 +83,21 @@ def test_rewriting_a_receipt_together_with_its_hash_breaks_the_next_link(store):
 
 def test_deleting_a_receipt_is_detected(store):
     for n in range(3):
-        store.append_receipt("decision", f"R-000{n + 1}", {"verdict": "HOLD"})
+        store.append_receipt("decision", f"AP-2026-000{n + 1}", {"verdict": "HOLD"})
     _sql(store, "DELETE FROM receipts WHERE seq = 2")
     assert not store.verify_chain()["ok"]
 
 
 def test_reset_returns_to_the_seeded_state(store):
     store.allocate_run_id()
-    store.append_receipt("decision", "R-0001", {"verdict": "HOLD"})
+    store.append_receipt("decision", "AP-2026-0001", {"verdict": "HOLD"})
     post(store, "T1", "V001", "PO-2026-0147", [(1, CHAIR, 1, "4500.00")])
     store.add_override("V001", "bank_account", "123")
-    store.add_review("R-0001", "APPROVE", "A. Reviewer", "", {})
+    store.add_review("AP-2026-0001", "APPROVE", "A. Reviewer", "", {})
     store.reset()
     assert store.receipts() == [] and store.overrides() == [] and store.reviews() == [] and store.list_runs() == []
-    assert len(store.ledger_entries()) == 10 and store.allocate_run_id() == "R-0001"
-    assert store.append_receipt("decision", "R-0001", {})["prev_hash"] == GENESIS
+    assert len(store.ledger_entries()) == 10 and store.allocate_run_id(2026) == "AP-2026-0001"
+    assert store.append_receipt("decision", "AP-2026-0001", {})["prev_hash"] == GENESIS
 
 
 def test_files_are_stored_by_fingerprint(store):

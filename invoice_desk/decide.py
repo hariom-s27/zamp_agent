@@ -105,7 +105,7 @@ def decide(findings: list[Finding], rules: Rules, ctx: Optional[dict[str, Any]] 
     else:
         headline = f"REJECT: {reasons[0].title.lower()}"
         explanation = " ".join(f.summary for f in reasons) + " Nothing was posted and nothing will be paid on this document."
-        next_action = "Not booked." + (" Reply to the sender with the note below." if any(f.vendor_issue for f in reasons) else "")
+        next_action = "Not booked." + (" Reply to the sender with the message drafted below." if any(f.vendor_issue for f in reasons) else "")
 
     return Decision(verdict=verdict, headline=headline, explanation=explanation, reasons=reasons, also_noted=also,
                     notes=notes, owners=owners, questions=questions, next_action=next_action,
@@ -153,3 +153,30 @@ def _vendor_note(verdict: str, reasons: list[Finding], ctx: dict) -> Optional[st
     lines += [f"  {i}. {issue[0].upper() + issue[1:]}." for i, issue in enumerate(issues, 1)]
     lines += ["", ask, "", "Regards,", "Accounts Payable", ctx.get("company_name") or ""]
     return "\n".join(lines).strip()
+
+
+def resubmission_note(ctx: Optional[dict], received_on: str, status: str) -> Optional[str]:
+    """A short reply for a vendor who sent an invoice we already have. `status` is a phrase
+    such as 'it is booked for payment'."""
+    ctx = ctx or {}
+    number, inv_date = ctx.get("invoice_number"), ctx.get("invoice_date")
+    what = f"invoice {number}" if number else "your invoice"
+    if inv_date:
+        what += f" dated {T.fmt_date(inv_date)}"
+    greeting = f"Dear {ctx['vendor_name']} accounts team," if ctx.get("vendor_name") else "Dear Sir or Madam,"
+    lines = [f"Subject: {_cap(what)}: already received", "", greeting, "",
+             f"We have received {what} again. We already had it (first received {received_on}), and {status}.",
+             "The second copy has not been booked, so there is nothing you need to do. Please do not send it again.",
+             "", "Regards,", "Accounts Payable", ctx.get("company_name") or ""]
+    return "\n".join(lines).strip()
+
+
+def note_must_keep(ctx: Optional[dict], note: Optional[str]) -> list[str]:
+    """The references a reworded vendor note has to carry over unchanged: the invoice number,
+    the PO number and the invoice total, when the original note mentions them."""
+    ctx = ctx or {}
+    wanted = [ctx.get("invoice_number"), (ctx.get("po") or {}).get("po_number")]
+    total = T.to_decimal(ctx.get("total"))
+    if total is not None:
+        wanted.append(T.fmt_inr(total, symbol=""))
+    return [str(w) for w in wanted if w and T.quote_form(str(w)) in T.quote_form(note or "")]

@@ -19,7 +19,13 @@ if str(ROOT) not in sys.path:
 from invoice_desk import config, reader  # noqa: E402
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Record OCR output for the bundled scanned samples into fixtures/ocr/. Needs Tesseract. "
+                    "The photographs of the robustness set are recorded by scripts.evaluate_robustness --record-ocr.")
+    parser.parse_args(argv)                      # no options; this only makes --help safe to type
     engine = reader.get_engine(refresh=True)
     if not engine.available:
         print("Tesseract is not installed, so nothing can be recorded.")
@@ -42,4 +48,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(main(sys.argv[1:]))

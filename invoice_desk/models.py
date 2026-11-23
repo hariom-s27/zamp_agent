@@ -159,6 +159,8 @@ class RunResult(BaseModel):
     ledger_id: Optional[str] = None
     duration_ms: float = 0.0
     pages: list[dict[str, Any]] = Field(default_factory=list)   # per page: kind, straightening angle
+    resubmission_of: Optional[str] = None    # set when this exact file was processed before: the answer is that run's
+    decision_ctx: Optional[dict[str, Any]] = None   # the display facts decide() was given, so a hold can be rebuilt later
 
     @property
     def verdict(self) -> str:

@@ -42,22 +42,27 @@ def test_the_same_number_from_another_vendor_is_not_a_duplicate(master, store, r
     assert check(inv, "V001", master, store, rules)[0] == []
 
 
-def test_same_content_new_number_with_no_room_on_the_po_is_rejected(master, store, rules):
-    inv = make_invoice(vendor="V002", number="DQI/26-27/1193", inv_date="2026-11-05", po="PO-2026-0171",
-                       lines=((LAPTOP, 8, "58500.00"), (DOCK, 8, "9200.00")))
-    findings, rows = check(inv, "V002", master, store, rules)
+def test_same_content_new_number_is_rejected_and_a_full_po_is_mentioned(master, store, rules):
+    gas = "Portable multi-gas detector, 4 gas"
+    post(store, "T1", "V004", "PO-2026-0193", [(1, gas, 4, "100000.00")], number="ASS/2026/0950", inv_date="2026-11-05")   # 20 of 20 now billed
+    inv = make_invoice(vendor="V004", number="ASS/2026/0958", inv_date="2026-11-07", po="PO-2026-0193",
+                       lines=((gas, 4, "25000.00"),), bank_account="620045871230", ifsc="SIBL0006200")
+    findings, rows = check(inv, "V004", master, store, rules)
     assert codes(findings) == {"DUPLICATE_CONTENT"}
     f = findings[0]
-    assert "DQI/26-27/1187" in f.summary and "2 day(s) apart" in f.summary and "fully billed" in f.summary
+    assert "ASS/2026/0950" in f.summary and "2 day(s) apart" in f.summary and "fully billed" in f.summary
     assert f.evidence["line_overlap"] == 1.0 and f.evidence["po_has_room"] is False and f.vendor_issue
 
 
-def test_same_content_new_number_with_room_on_the_po_asks_a_person(master, store, rules):
+def test_same_content_new_number_is_rejected_even_when_the_po_has_room(master, store, rules):
+    """Round 2: the PO having money left is not evidence that the goods came twice."""
     post(store, "T1", "V003", "PO-2026-0212", [(1, WRAP, 20, "12800.00")], number="MPP/100", inv_date="2026-11-05")
     inv = make_invoice(vendor="V003", number="MPP/107", inv_date="2026-11-10", po="PO-2026-0212", lines=((WRAP, 20, "640.00"),))
     findings, rows = check(inv, "V003", master, store, rules)
-    assert codes(findings) == {"POSSIBLE_DUPLICATE"} and rules.reason("POSSIBLE_DUPLICATE").action == "HOLD"
-    assert "second delivery" in findings[0].question and rows[2]["Result"] == "REVIEW"
+    assert codes(findings) == {"DUPLICATE_CONTENT"} and rules.reason("DUPLICATE_CONTENT").action == "REJECT"
+    f = findings[0]
+    assert f.evidence["po_has_room"] is True and "second delivery" in f.summary and "fully billed" not in f.summary
+    assert "delivery challan" in f.vendor_issue and rows[2]["Result"] == "FOUND"       # the vendor is told how to contest it
 
 
 def test_a_second_delivery_covered_by_goods_receipts_is_cleared_without_asking(master, store, rules):
@@ -78,7 +83,7 @@ def test_window_boundary(master, store, rules):
     post(store, "T1", "V003", "PO-2026-0212", [(1, WRAP, 20, "12800.00")], number="MPP/100", inv_date="2026-10-20")
     inside = make_invoice(vendor="V003", number="MPP/107", inv_date="2026-11-04", po="PO-2026-0212", lines=((WRAP, 20, "640.00"),))
     outside = make_invoice(vendor="V003", number="MPP/107", inv_date="2026-11-05", po="PO-2026-0212", lines=((WRAP, 20, "640.00"),))
-    assert codes(check(inside, "V003", master, store, rules)[0]) == {"POSSIBLE_DUPLICATE"}     # 15 days
+    assert codes(check(inside, "V003", master, store, rules)[0]) == {"DUPLICATE_CONTENT"}      # 15 days
     assert check(outside, "V003", master, store, rules)[0] == []                                # 16 days
 
 
@@ -114,4 +119,4 @@ def test_an_invoice_without_a_number_is_still_compared_on_content(master, store,
     post(store, "T1", "V003", "PO-2026-0212", [(1, WRAP, 20, "12800.00")], number="MPP/100", inv_date="2026-11-05")
     inv = make_invoice(vendor="V003", number=None, inv_date="2026-11-06", po="PO-2026-0212", lines=((WRAP, 20, "640.00"),))
     findings, rows = check(inv, "V003", master, store, rules)
-    assert rows[1]["Result"] == "n/a" and codes(findings) == {"POSSIBLE_DUPLICATE"}
+    assert rows[1]["Result"] == "n/a" and codes(findings) == {"DUPLICATE_CONTENT"}

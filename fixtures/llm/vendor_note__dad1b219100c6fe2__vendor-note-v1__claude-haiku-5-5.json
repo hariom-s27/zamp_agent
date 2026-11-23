@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "purpose": "vendor_note",
+  "key": "dad1b219100c6fe264af2083ef654de3a45b2427c701f80f1e5a79085129f70e",
+  "prompt_version": "vendor-note-v1",
+  "template_sha256": "2add7545374917fa62935e7100a1ee070f845903a6f7c9c8af797b32ae14ccad",
+  "model": "claude-haiku-5-5",
+  "recorded_at": "2026-11-23T05:59:54+00:00",
+  "request_id": "req_011ChKMCDLv48urXXkvvDGGQ",
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 650,
+    "output_tokens": 796,
+    "seconds": 4.05
+  },
+  "cost_usd": 0.000463,
+  "sdk": "anthropic 2.12.0",
+  "response": {
+    "subject": "Your invoice dated 12-Nov-2026: action needed before payment",
+    "body": "Dear Malabar Polywrap Packaging Co accounts team,\n\nWe have received your invoice dated 12-Nov-2026 for ₹2,13,934.00 against PO-2026-0212. Before we can process it, one point needs to be resolved:\n\n1. The invoice number is blank. A tax invoice must carry one.\n\nPlease reply to this email with a corrected invoice or a clarification, quoting the reference above.\n\nRegards,\nAccounts Payable\nNilgiri Precision Components Pvt Ltd"
+  }
+}

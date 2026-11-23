@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "purpose": "vendor_note",
+  "key": "d3c8c54e02f4334901130cc5a42a9552e14173415aa33e2360c06000d1854700",
+  "prompt_version": "vendor-note-v1",
+  "template_sha256": "2add7545374917fa62935e7100a1ee070f845903a6f7c9c8af797b32ae14ccad",
+  "model": "claude-haiku-5-5",
+  "recorded_at": "2026-11-23T06:00:13+00:00",
+  "request_id": "req_011ChKMDirUZauQjzCJ8DdWP",
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 607,
+    "output_tokens": 596,
+    "seconds": 3.03
+  },
+  "cost_usd": 0.000359,
+  "sdk": "anthropic 2.12.0",
+  "response": {
+    "subject": "Document received in our invoice inbox: not booked",
+    "body": "Dear Sir or Madam,\n\nWe received a document from you in our invoice inbox, but we have not booked it for the following reason:\n\n1. The attached file could not be opened. Please resend the invoice as a PDF.\n\nIf it was sent by mistake, no action is needed. Otherwise, please reply with a corrected document.\n\nRegards,\nAccounts Payable\nNilgiri Precision Components Pvt Ltd"
+  }
+}

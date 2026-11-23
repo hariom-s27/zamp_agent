@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "purpose": "vendor_note",
+  "key": "a2b3ac64ff1f93927806a2efab4a8291fe6f44e9b883d6e7b377c1f4e16e1811",
+  "prompt_version": "vendor-note-v1",
+  "template_sha256": "2add7545374917fa62935e7100a1ee070f845903a6f7c9c8af797b32ae14ccad",
+  "model": "claude-haiku-5-5",
+  "recorded_at": "2026-11-23T05:59:57+00:00",
+  "request_id": "req_011ChKMCXBiUHEBBjxBBkugb",
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 678,
+    "output_tokens": 711,
+    "seconds": 3.17
+  },
+  "cost_usd": 0.000423,
+  "sdk": "anthropic 2.12.0",
+  "response": {
+    "subject": "Invoice SIS/2327 dated 17-Nov-2026: action needed before payment",
+    "body": "Dear Sahyadri Inkwell Supplies accounts team,\n\nWe have received invoice SIS/2327 dated 17-Nov-2026 for ₹61,024.00 against PO-2026-0229. Before we can process it, one point needs to be resolved:\n\n1. Line 1 is priced ₹32.20 above the agreed ₹3,200.00 on PO-2026-0229.\n\nPlease reply to this email with a corrected invoice or a clarification, quoting the reference above.\n\nRegards,\nAccounts Payable\nNilgiri Precision Components Pvt Ltd"
+  }
+}

@@ -9,13 +9,16 @@ from PIL import Image
 
 from invoice_desk import pipeline as pipeline_module
 from invoice_desk import reader
-from invoice_desk.second_read import AGREED, DOUBT, reconcile
+from invoice_desk.rules import load_rules
+from invoice_desk.second_read import reconcile
 from invoice_desk.validate import validate
 
 from .conftest import sample_bytes
 from .helpers import codes, make_invoice
 
 TODAY = date(2026, 11, 21)
+_READING = load_rules().reading
+AGREED, DOUBT = _READING.scan_agreed_confidence, _READING.scan_doubt_confidence     # from rules.yaml, not from code
 
 
 def weak(inv, *names, confidence=0.55):

@@ -87,8 +87,9 @@ def test_a_scan_slip_in_a_price_is_repaired_by_arithmetic_and_recorded(master):
 
 def test_tax_inclusive_prices_are_converted_to_pre_tax(master):
     _, inv = _extract(sample_bytes("07_E4a_tax_inclusive_within_tolerance"), master)
-    assert inv.tax_inclusive and inv.line_items[0].unit_price == Decimal("3780.00")
-    assert inv.line_items[0].unit_price_pre_tax == Decimal("3203.39") and inv.money("subtotal") == Decimal("93867.80")
+    assert inv.tax_inclusive and inv.line_items[0].unit_price == Decimal("3812.00")
+    assert inv.line_items[0].unit_price_pre_tax == Decimal("3230.51") and inv.money("subtotal") == Decimal("51688.14")
+    assert inv.money("total") == Decimal("60992.00")              # 16 x 3,812, tax included
 
 
 def test_free_form_letter_is_not_guessed_at(master):

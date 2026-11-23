@@ -2,13 +2,20 @@
 # A process owner can change a number or an action here without touching code.
 # The file's hash is written into every decision receipt, so an auditor can tell
 # which version of the rules produced a given decision.
+#
+# Nothing here has a default in the code: a key that is missing or misspelt stops the
+# app with a message naming it, instead of quietly using some other number.
 
-version: "2026.11-1"
+version: "2026.11-2"
 
 company:                       # who "we" are: the buyer whose AP inbox this is
   name: Nilgiri Precision Components Pvt Ltd
   gstin: 29AAKCN4821M1ZX
   state_code: "29"
+
+intake:                        # what is accepted for automatic processing; anything beyond is held
+  max_file_mb: 15
+  max_pages: 20
 
 tolerances:
   rounding_inr: 1.00           # arithmetic on the invoice may be off by this much
@@ -23,9 +30,22 @@ tolerances:
 auto_approve:
   max_invoice_total_inr: 1000000   # a clean invoice above this still needs a person to sign off
 
+matching:                      # how alike two pieces of text must be (0 to 1) to count as the same thing
+  vendor_name_match: 0.90      # with no GSTIN on the invoice, a printed name this close to the master identifies the vendor
+  vendor_name_same: 0.999      # anything short of this is noted as a name variant
+  vendor_name_doubt: 0.60      # below this the printed name contradicts the GSTIN and the invoice is held
+  line_pairing_min: 0.72       # an invoice line pairs with a PO line at or above this
+  line_pairing_min_single: 0.50   # one invoice line against a one-line PO: there is nothing else to confuse it with
+  line_sharing_min: 0.90       # a second invoice line may bill a PO line that is already paired (the same item,
+                               # delivered twice) only if it matches that PO line at least this well
+
 po_inference:                  # used only when the invoice quotes no PO number
   min_confidence: 0.75         # below this no candidate is suggested
   min_margin: 0.15             # the best candidate must beat the runner-up by this much
+  weights:                     # how a candidate PO is scored against the invoice lines; must add up to 1
+    wording: 0.65              # item descriptions
+    price: 0.25                # unit price agrees with the PO
+    quantity: 0.10             # the quantity still fits what is open
   # an inferred PO is always confirmed by a person; there is deliberately no auto-accept switch
 
 duplicates:
@@ -39,6 +59,9 @@ dates:
 
 reading:
   min_confidence_critical: 0.70    # invoice number, date and total: below this a person checks the value
+  scan_agreed_confidence: 0.92     # a scanned value that comes out the same in both reads
+  scan_doubt_confidence: 0.50      # a scanned value on which the two reads disagree (below the line above: held)
+  blank_ink_max_pct: 0.8           # a field on a scan counts as left blank only if less than this share of it is ink
 
 gst:
   rates_current: [0, 5, 18, 40]            # main slabs since 22 September 2025
@@ -47,9 +70,17 @@ gst:
   rate_tolerance_pct: 0.2                  # computed rate may differ from a slab by this much
 
 llm:
-  assist: gaps                 # gaps = call the model only when rules leave a required field empty
+  assist: gaps                 # gaps = ask the model only when rules leave a required field empty
                                # always = also use it as a second reader and report disagreements
-                               # off = never call it
+                               # off = never ask it
+  confidence:                  # what a value read by the model is worth; compare with reading.min_confidence_critical
+    verified: 0.85             # its quote is on the page, the value is in the quote, and the invoice arithmetic agrees
+    quote_only: 0.75           # quote and value check out, but nothing else on the invoice confirms the value
+    from_scan: 0.60            # the page text itself came from OCR, so a person confirms the value
+    model_unsure: 0.50         # the model said it was not sure: its own doubt can only lower trust, never raise it
+
+review:
+  bank_change_approvers: 2     # how many different people must approve a changed bank account (1 or 2)
 
 # What each finding means for the decision. action: REJECT > HOLD > NOTE.
 # owner: who is asked when the action is HOLD (or who is told, for REJECT).
@@ -104,7 +135,7 @@ reasons:
   PO_REFERENCE_CORRECTED: {action: NOTE,   owner: "",                  title: PO number matched after a reading correction}
   READ_CORRECTED:         {action: NOTE,   owner: "",                  title: A scanned figure was corrected by arithmetic}
   SCAN_READS_DIFFER:      {action: NOTE,   owner: "",                  title: "Two reads of the scan differed, the consistent one was used"}
-  LLM_ASSISTED:           {action: NOTE,   owner: "",                  title: Some fields were read with LLM assist}
+  LLM_ASSISTED:           {action: NOTE,   owner: "",                  title: Some fields were read with AI assist}
   # --- duplicates
   DUPLICATE_FILE:         {action: REJECT, owner: AP analyst,          title: This exact file was already processed}
   DUPLICATE_INVOICE_NUMBER: {action: REJECT, owner: AP analyst,        title: Invoice number already on record for this vendor}

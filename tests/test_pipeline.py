@@ -62,19 +62,21 @@ def test_happy_path_posts_to_the_ledger_with_evidence_at_every_stage(pipeline, s
     assert store.load_file(r.file_sha256) == sample_bytes("01_happy_path_furniture")
 
 
-def test_the_same_file_twice_is_rejected_the_second_time(pipeline, store):
+def test_the_same_file_twice_is_booked_once_and_answered_the_same_way(pipeline, store):
+    """Round 2 changed what the second run says (it used to be a REJECT for a duplicate file); it did
+    not change what matters: the invoice is in the ledger once. Details in tests/test_round2_audit.py."""
     first = pipeline.run(sample_bytes("01_happy_path_furniture"), "a.pdf", "test")
     second = pipeline.run(sample_bytes("01_happy_path_furniture"), "renamed_copy.pdf", "test")
-    assert first.verdict == "APPROVE" and second.verdict == "REJECT" and reasons(second) == {"DUPLICATE_FILE"}
+    assert first.verdict == "APPROVE" and second.verdict == "APPROVE" and second.resubmission_of == first.run_id
     assert first.run_id in second.decision.explanation
     assert store.po_usage("PO-2026-0147")["posted_amount"] == 381300          # booked once
-    assert store.get_ledger(second.ledger_id)["status"] == "REJECTED"
+    assert second.ledger_id is None
 
 
 def test_a_held_invoice_sent_again_is_not_queued_twice(pipeline, store):
     first = pipeline.run(sample_bytes("09_fraud_guard_bank_change"), "a.pdf", "test")
     second = pipeline.run(sample_bytes("09_fraud_guard_bank_change"), "a.pdf", "test")
-    assert first.verdict == "HOLD" and second.verdict == "REJECT" and "DUPLICATE_FILE" in reasons(second)
+    assert first.verdict == "HOLD" and second.verdict == "HOLD" and second.resubmission_of == first.run_id
     assert [r["review_status"] for r in store.list_runs()] == ["", "PENDING"]
 
 

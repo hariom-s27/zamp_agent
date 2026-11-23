@@ -7,10 +7,24 @@ one statement of what "correct" means for every sample.
 from __future__ import annotations
 
 import json
+from datetime import date
 from typing import Optional
 
 from . import config
 from .models import RunResult
+
+
+# The business date the bundled samples were written for. The app processes on this date
+# unless INVOICE_DESK_TODAY says otherwise or the demo clock is switched off, so the dated
+# checks (invoice older than a year, dated in the future, dated before its PO) give the same
+# answer in a rehearsal, in the interview and a year from now.
+DEMO_TODAY = date(2026, 11, 21)
+
+
+def business_date() -> date:
+    """The date the bundled samples are processed on, on screen, on the command line and in
+    the scripts: INVOICE_DESK_TODAY when it is set, otherwise the demo date."""
+    return config.today() if config.env("INVOICE_DESK_TODAY") else DEMO_TODAY
 
 
 def load_manifest() -> list[dict]:
@@ -22,6 +36,12 @@ def load_manifest() -> list[dict]:
 
 def sample_bytes(sample: dict) -> bytes:
     return (config.SAMPLES_DIR / sample["file"]).read_bytes()
+
+
+def received_name(sample: dict) -> str:
+    """The name a sample is processed under everywhere (screen, command line, scripts):
+    the attachment name it would arrive with, not the tidy name it has in the samples folder."""
+    return sample.get("received_as") or str(sample["file"]).replace("\\", "/").split("/")[-1]
 
 
 def llm_supplied_values(result: RunResult) -> bool:

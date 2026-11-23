@@ -5,9 +5,11 @@ Three tiers (D11):
   2. the same vendor and the same normalised number       -> certain when the earlier one
      is booked; when the earlier one is still on hold, the newcomer is probably a
      corrected copy and is held for a person to choose between the two
-  3. the same vendor, amount and lines under a new number -> certain only when the PO has
-     no room left for it (then nothing more can be owed); otherwise a person is asked
-     whether it is a second delivery. Recorded goods receipts can clear it without asking.
+  3. the same vendor, amount and lines under a new number -> rejected on that match
+     itself. Whether the PO still has money on it does not matter: a PO with room does not
+     show that the goods came twice. The one thing that clears it is evidence of a second
+     delivery (goods receipts that cover both invoices). When the lines could not be read,
+     the match is weaker, and a person is asked instead.
 The exact-key idea is the fingerprint check from my ef-recon project; tiers 2 and 3
 exist because a real duplicate rarely arrives with identical fields.
 """
@@ -129,38 +131,53 @@ def check_duplicates(inv: Invoice, vendor: Optional[Vendor], file_sha256: str, s
             same_po = bool(po_summary) and e["po_number"] == po_summary["po_number"]
             no_room = bool(po_codes & NO_ROOM)
             received_twice = _receipts_cover(allocations, po_summary, master, store)
+            tracked = _receipts_tracked(allocations, po_summary, master)
             evidence = {"original_ledger_id": e["ledger_id"], "original_run_id": e.get("run_id"),
                         "original_invoice_no": e["invoice_no"], "days_apart": days, "line_overlap": round(overlap, 2),
-                        "same_po": same_po, "po_has_room": not no_room}
+                        "same_po": same_po, "po_has_room": not no_room, "receipts_tracked": tracked}
             base = (f"This looks like invoice {e['invoice_no'] or '(no number)'} dated {T.fmt_date(e['invoice_date'])} "
                     f"({_where(e)}, {e['status'].lower()}): same vendor, same total {T.fmt_inr(total)}, "
                     f"{'the same line items' if allocations else 'line items not readable'}, dated {days} day(s) apart, "
                     f"under a different invoice number ({number or 'none'}).")
-            if same_po and no_room:
-                findings.append(Finding(
-                    code="DUPLICATE_CONTENT", stage=STAGE,
-                    summary=base + f" {po_summary['po_number']} is already fully billed by the earlier invoice, so "
-                                   f"nothing further can be owed on it.",
-                    expected="an invoice for goods or services not billed before", observed=f"repeat of {e['invoice_no']}",
-                    evidence=evidence,
-                    vendor_issue=f"this appears to be a second copy of invoice {e['invoice_no']} dated "
-                                 f"{T.fmt_date(e['invoice_date'])}, which is already booked"))
-                result, detail = "FOUND", f"matches {e['invoice_no']} and the PO has no room left"
-            elif received_twice:
+            if received_twice:
                 result, detail = "clear", (f"same amount as {e['invoice_no']} {days} day(s) earlier, but goods receipts "
                                            f"cover both deliveries")
+            elif allocations:
+                why = ("Stores have recorded no second delivery of these goods" if tracked else
+                       "Nothing on record shows a second delivery")
+                room = (f" {po_summary['po_number']} is also fully billed by the earlier invoice." if same_po and no_room
+                        else " That the PO still has money on it is not evidence that the goods came twice."
+                        if po_summary else "")
+                findings.append(Finding(
+                    code="DUPLICATE_CONTENT", stage=STAGE,
+                    summary=base + f" {why}, so this is treated as a second copy of the same invoice." + room,
+                    expected="an invoice for goods or services not billed before, or a recorded second delivery",
+                    observed=f"repeat of {e['invoice_no']}", evidence=evidence,
+                    vendor_issue=f"this appears to be a second copy of invoice {e['invoice_no']} dated "
+                                 f"{T.fmt_date(e['invoice_date'])}, which we already have; if it is a separate supply, "
+                                 f"reply with the delivery challan for it"))
+                result, detail = "FOUND", f"matches {e['invoice_no']} line for line; no second delivery on record"
             else:
                 findings.append(Finding(
                     code="POSSIBLE_DUPLICATE", stage=STAGE,
-                    summary=base + " The PO still has room for it, so it may be a second delivery.",
-                    expected="evidence of a second delivery", observed=f"same content as {e['invoice_no']}",
-                    evidence=evidence,
+                    summary=base + " The lines could not be compared, so the match rests on vendor, amount and date alone.",
+                    expected="line items that can be compared, or evidence of a second delivery",
+                    observed=f"same vendor, amount and date window as {e['invoice_no']}", evidence=evidence,
                     question=f"Is this a second delivery, or a re-send of invoice {e['invoice_no']}? Check the delivery "
                              f"challan or goods receipt before approving."))
-                result, detail = "REVIEW", f"same content as {e['invoice_no']}; second delivery not confirmed"
+                result, detail = "REVIEW", f"same vendor and amount as {e['invoice_no']}; lines could not be compared"
             break
     rows.append({"Check": f"Same content under another number (within {cfg.window_days} days)", "Result": result, "Detail": detail})
     return findings, [{"type": "table", "title": "Duplicate checks", "rows": rows}]
+
+
+def _receipts_tracked(allocations: list[dict], po_summary: Optional[dict], master: MasterData) -> bool:
+    """True when stores record receipts for every PO line this invoice bills."""
+    po = master.pos.get(po_summary["po_number"]) if po_summary else None
+    if po is None or not allocations:
+        return False
+    lines = [po.line(a["po_line_no"]) if a["po_line_no"] is not None else None for a in allocations]
+    return all(pl is not None and pl.qty_received is not None for pl in lines)
 
 
 def _receipts_cover(allocations: list[dict], po_summary: Optional[dict], master: MasterData, store) -> bool:

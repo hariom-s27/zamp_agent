@@ -1,0 +1,916 @@
+{
+  "measured_on": "2026-11-22",
+  "ocr": "Photographs read live by Tesseract 5.3.4, twice each (greyscale and black and white).",
+  "summary": {
+    "Tune, text PDFs": {
+      "documents": 25,
+      "approved-correct": 3,
+      "held-correct": 4,
+      "misread-held": 18,
+      "misread-approved": 0,
+      "false_alarms": 0,
+      "values": 324,
+      "values_correct": 294
+    },
+    "Tune, photographs": {
+      "documents": 7,
+      "approved-correct": 0,
+      "held-correct": 0,
+      "misread-held": 7,
+      "misread-approved": 0,
+      "false_alarms": 0,
+      "values": 88,
+      "values_correct": 61
+    },
+    "Holdout, text PDFs": {
+      "documents": 12,
+      "approved-correct": 2,
+      "held-correct": 4,
+      "misread-held": 6,
+      "misread-approved": 0,
+      "false_alarms": 5,
+      "values": 228,
+      "values_correct": 226
+    },
+    "Holdout, photographs": {
+      "documents": 5,
+      "approved-correct": 0,
+      "held-correct": 0,
+      "misread-held": 5,
+      "misread-approved": 0,
+      "false_alarms": 0,
+      "values": 65,
+      "values_correct": 47
+    },
+    "Tune, all": {
+      "documents": 32,
+      "approved-correct": 3,
+      "held-correct": 4,
+      "misread-held": 25,
+      "misread-approved": 0,
+      "false_alarms": 0,
+      "values": 412,
+      "values_correct": 355
+    },
+    "Holdout, all": {
+      "documents": 17,
+      "approved-correct": 2,
+      "held-correct": 4,
+      "misread-held": 11,
+      "misread-approved": 0,
+      "false_alarms": 5,
+      "values": 293,
+      "values_correct": 273
+    },
+    "All documents": {
+      "documents": 49,
+      "approved-correct": 5,
+      "held-correct": 8,
+      "misread-held": 36,
+      "misread-approved": 0,
+      "false_alarms": 5,
+      "values": 705,
+      "values_correct": 628
+    }
+  },
+  "documents": {
+    "tally_01": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "LINE_NOT_ON_PO",
+        "OVER_PO_BALANCE"
+      ],
+      "wrong": [
+        [
+          "subtotal",
+          "34526.80",
+          "29260.00"
+        ],
+        [
+          "line count",
+          "5",
+          "3"
+        ]
+      ]
+    },
+    "tally_02": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "LINE_NOT_ON_PO",
+        "OVER_PO_BALANCE"
+      ],
+      "wrong": [
+        [
+          "subtotal",
+          "53373.76",
+          "45232.00"
+        ],
+        [
+          "line count",
+          "3",
+          "2"
+        ]
+      ]
+    },
+    "tally_03": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "LINE_NOT_ON_PO",
+        "OVER_PO_BALANCE"
+      ],
+      "wrong": [
+        [
+          "subtotal",
+          "120832.00",
+          "102400.00"
+        ],
+        [
+          "line count",
+          "4",
+          "2"
+        ]
+      ]
+    },
+    "tally_04": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "LINE_NOT_ON_PO",
+        "OVER_PO_BALANCE"
+      ],
+      "wrong": [
+        [
+          "subtotal",
+          "93491.40",
+          "79230.00"
+        ],
+        [
+          "line count",
+          "5",
+          "4"
+        ]
+      ]
+    },
+    "tally_05": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "LINE_NOT_ON_PO",
+        "OVER_PO_BALANCE",
+        "PRICE_VARIANCE"
+      ],
+      "wrong": [
+        [
+          "subtotal",
+          "44486.00",
+          "37700.00"
+        ],
+        [
+          "line count",
+          "4",
+          "2"
+        ]
+      ]
+    },
+    "tally_credit": {
+      "class": "held-correct",
+      "verdict": "HOLD",
+      "reasons": [
+        "UNSUPPORTED_DOCUMENT"
+      ],
+      "wrong": []
+    },
+    "tally_06": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "LINE_NOT_ON_PO",
+        "OVER_PO_BALANCE"
+      ],
+      "wrong": [
+        [
+          "subtotal",
+          "53595.60",
+          "45420.00"
+        ],
+        [
+          "line count",
+          "4",
+          "3"
+        ]
+      ]
+    },
+    "zoho_01": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "MISSING_INVOICE_NUMBER"
+      ],
+      "wrong": [
+        [
+          "invoice_number",
+          "None",
+          "INV-000482"
+        ]
+      ]
+    },
+    "zoho_02": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "MISSING_INVOICE_NUMBER"
+      ],
+      "wrong": [
+        [
+          "invoice_number",
+          "None",
+          "INV-001204"
+        ]
+      ]
+    },
+    "zoho_03": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "MISSING_INVOICE_NUMBER"
+      ],
+      "wrong": [
+        [
+          "invoice_number",
+          "None",
+          "SCA-INV-0931"
+        ]
+      ]
+    },
+    "zoho_04": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "MISSING_INVOICE_NUMBER",
+        "OVER_PO_BALANCE",
+        "QTY_OVER_PO"
+      ],
+      "wrong": [
+        [
+          "invoice_number",
+          "None",
+          "INV-000497"
+        ]
+      ]
+    },
+    "zoho_proforma": {
+      "class": "held-correct",
+      "verdict": "REJECT",
+      "reasons": [
+        "NOT_A_TAX_INVOICE"
+      ],
+      "wrong": []
+    },
+    "zoho_05": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "BANK_DETAILS_CHANGED",
+        "MISSING_INVOICE_NUMBER"
+      ],
+      "wrong": [
+        [
+          "invoice_number",
+          "None",
+          "INV-000503"
+        ]
+      ]
+    },
+    "zoho_long": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "MISSING_INVOICE_NUMBER"
+      ],
+      "wrong": [
+        [
+          "invoice_number",
+          "None",
+          "INV-001219"
+        ]
+      ]
+    },
+    "zoho_06": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "MISSING_INVOICE_NUMBER"
+      ],
+      "wrong": [
+        [
+          "invoice_number",
+          "None",
+          "INV-000077"
+        ]
+      ]
+    },
+    "tally_hindi": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "LINE_NOT_ON_PO",
+        "OVER_PO_BALANCE"
+      ],
+      "wrong": [
+        [
+          "subtotal",
+          "37403.64",
+          "31698.00"
+        ],
+        [
+          "line count",
+          "3",
+          "2"
+        ]
+      ]
+    },
+    "excel_01": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "AMOUNT_WORDS_MISMATCH"
+      ],
+      "wrong": [
+        [
+          "subtotal",
+          "None",
+          "19780.00"
+        ],
+        [
+          "total",
+          "19780.00",
+          "23340.40"
+        ]
+      ]
+    },
+    "excel_02": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "AMOUNT_WORDS_MISMATCH"
+      ],
+      "wrong": [
+        [
+          "subtotal",
+          "None",
+          "150600.00"
+        ],
+        [
+          "total",
+          "150600.00",
+          "158130.00"
+        ]
+      ]
+    },
+    "excel_03": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "AMOUNT_WORDS_MISMATCH",
+        "LOW_CONFIDENCE_READ",
+        "NO_PO_FOUND",
+        "VENDOR_NOT_APPROVED"
+      ],
+      "wrong": [
+        [
+          "po_reference",
+          "None",
+          "PO-2026-0512"
+        ],
+        [
+          "subtotal",
+          "None",
+          "6700.00"
+        ],
+        [
+          "total",
+          "6700.00",
+          "7906.00"
+        ]
+      ]
+    },
+    "excel_04": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "AMOUNT_WORDS_MISMATCH"
+      ],
+      "wrong": [
+        [
+          "subtotal",
+          "None",
+          "106665.00"
+        ],
+        [
+          "total",
+          "106665.00",
+          "126864.70"
+        ]
+      ]
+    },
+    "retail_01": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "retail_02": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "lump_01": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "lump_02": {
+      "class": "held-correct",
+      "verdict": "HOLD",
+      "reasons": [
+        "BUNDLED_PARTIAL"
+      ],
+      "wrong": []
+    },
+    "usd_01": {
+      "class": "held-correct",
+      "verdict": "HOLD",
+      "reasons": [
+        "CURRENCY_NOT_SUPPORTED"
+      ],
+      "wrong": []
+    },
+    "busy_01": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "ARITHMETIC_MISMATCH"
+      ],
+      "wrong": []
+    },
+    "busy_02": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "ARITHMETIC_MISMATCH"
+      ],
+      "wrong": []
+    },
+    "busy_hindi": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "ARITHMETIC_MISMATCH"
+      ],
+      "wrong": []
+    },
+    "busy_03": {
+      "class": "held-correct",
+      "verdict": "HOLD",
+      "reasons": [
+        "ARITHMETIC_MISMATCH",
+        "PO_INFERRED"
+      ],
+      "wrong": []
+    },
+    "busy_04": {
+      "class": "held-correct",
+      "verdict": "HOLD",
+      "reasons": [
+        "ARITHMETIC_MISMATCH",
+        "GSTIN_INVALID",
+        "VENDOR_GSTIN_MISMATCH"
+      ],
+      "wrong": []
+    },
+    "word_01": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "ARITHMETIC_MISMATCH"
+      ],
+      "wrong": []
+    },
+    "word_02": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "ARITHMETIC_MISMATCH"
+      ],
+      "wrong": []
+    },
+    "word_03": {
+      "class": "held-correct",
+      "verdict": "HOLD",
+      "reasons": [
+        "ARITHMETIC_MISMATCH"
+      ],
+      "wrong": []
+    },
+    "latex_01": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "latex_02": {
+      "class": "approved-correct",
+      "verdict": "APPROVE",
+      "reasons": [],
+      "wrong": []
+    },
+    "latex_03": {
+      "class": "held-correct",
+      "verdict": "HOLD",
+      "reasons": [
+        "BANK_DETAILS_CHANGED"
+      ],
+      "wrong": []
+    },
+    "long_01": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "LINE_NOT_ON_PO",
+        "OVER_PO_BALANCE"
+      ],
+      "wrong": [
+        [
+          "subtotal",
+          "155366.41",
+          "131666.45"
+        ],
+        [
+          "line count",
+          "29",
+          "28"
+        ]
+      ]
+    },
+    "photo_tally_01": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "LINE_NOT_ON_PO",
+        "OVER_PO_BALANCE",
+        "VENDOR_GSTIN_MISMATCH"
+      ],
+      "wrong": [
+        [
+          "subtotal",
+          "None",
+          "18125.00"
+        ],
+        [
+          "total",
+          "3262.50",
+          "21387.50"
+        ],
+        [
+          "line count",
+          "5",
+          "2"
+        ]
+      ]
+    },
+    "photo_tally_02": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "LINE_NOT_ON_PO",
+        "OVER_PO_BALANCE"
+      ],
+      "wrong": [
+        [
+          "invoice_number",
+          "SS1/2026/0463",
+          "SSI/2026/0463"
+        ],
+        [
+          "subtotal",
+          "None",
+          "20479.00"
+        ],
+        [
+          "total",
+          "3686.22",
+          "24165.22"
+        ],
+        [
+          "line count",
+          "3",
+          "2"
+        ]
+      ]
+    },
+    "photo_zoho_01": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "LINE_ITEMS_UNREADABLE",
+        "LOW_CONFIDENCE_READ",
+        "MISSING_INVOICE_NUMBER"
+      ],
+      "wrong": [
+        [
+          "invoice_number",
+          "None",
+          "INV-000489"
+        ],
+        [
+          "subtotal",
+          "None",
+          "86727.50"
+        ],
+        [
+          "line count",
+          "0",
+          "2"
+        ]
+      ]
+    },
+    "photo_excel_01": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "LINE_ITEMS_UNREADABLE",
+        "MISSING_TOTAL"
+      ],
+      "wrong": [
+        [
+          "subtotal",
+          "None",
+          "10815.00"
+        ],
+        [
+          "total",
+          "None",
+          "12761.70"
+        ],
+        [
+          "line count",
+          "0",
+          "2"
+        ]
+      ]
+    },
+    "photo_sideways": {
+      "class": "misread-held",
+      "verdict": "REJECT",
+      "reasons": [
+        "NOT_AN_INVOICE"
+      ],
+      "wrong": [
+        [
+          "invoice_number",
+          "None",
+          "KBT/26-27/1195"
+        ],
+        [
+          "invoice_date",
+          "None",
+          "2026-11-15"
+        ],
+        [
+          "po_reference",
+          "None",
+          "PO-2026-0535"
+        ],
+        [
+          "vendor_gstin",
+          "None",
+          "29AAFCK4410J1ZI"
+        ],
+        [
+          "bank_account",
+          "None",
+          "501200047731"
+        ],
+        [
+          "subtotal",
+          "None",
+          "11680.00"
+        ],
+        [
+          "total",
+          "None",
+          "13782.40"
+        ],
+        [
+          "line count",
+          "0",
+          "1"
+        ]
+      ]
+    },
+    "photo_hand_total": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "LINE_NOT_ON_PO",
+        "OVER_PO_BALANCE"
+      ],
+      "wrong": [
+        [
+          "subtotal",
+          "None",
+          "22045.00"
+        ],
+        [
+          "total",
+          "3968.10",
+          "26013.10"
+        ],
+        [
+          "line count",
+          "4",
+          "2"
+        ]
+      ]
+    },
+    "photo_busy_01": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "BUNDLED_PARTIAL",
+        "LINE_NOT_ON_PO"
+      ],
+      "wrong": [
+        [
+          "subtotal",
+          "None",
+          "56460.00"
+        ],
+        [
+          "line count",
+          "3",
+          "2"
+        ]
+      ]
+    },
+    "photo_busy_fax": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "BUYER_GSTIN_MISSING",
+        "LINE_ITEMS_UNREADABLE",
+        "MISSING_INVOICE_DATE",
+        "MISSING_INVOICE_NUMBER",
+        "NO_PO_FOUND",
+        "VENDOR_NOT_APPROVED"
+      ],
+      "wrong": [
+        [
+          "invoice_number",
+          "None",
+          "SLC/1108/26-27"
+        ],
+        [
+          "invoice_date",
+          "None",
+          "2026-11-13"
+        ],
+        [
+          "po_reference",
+          "None",
+          "PO-2026-0542"
+        ],
+        [
+          "vendor_gstin",
+          "None",
+          "29ABEFS8804Q1ZB"
+        ],
+        [
+          "bank_account",
+          "None",
+          "501200059902"
+        ],
+        [
+          "subtotal",
+          "None",
+          "43000.00"
+        ],
+        [
+          "total",
+          "43000.00",
+          "50740.00"
+        ],
+        [
+          "line count",
+          "0",
+          "2"
+        ]
+      ]
+    },
+    "photo_word_01": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "ARITHMETIC_MISMATCH",
+        "LINE_ITEMS_UNREADABLE",
+        "LOW_CONFIDENCE_READ",
+        "MISSING_VENDOR_ID"
+      ],
+      "wrong": [
+        [
+          "invoice_number",
+          "TPP/2026-",
+          "TPP/2026-27/219"
+        ],
+        [
+          "vendor_gstin",
+          "None",
+          "19AAYFT3358D1ZL"
+        ],
+        [
+          "line count",
+          "0",
+          "2"
+        ]
+      ]
+    },
+    "photo_latex_01": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "LINE_ITEMS_UNREADABLE"
+      ],
+      "wrong": [
+        [
+          "bank_account",
+          "None",
+          "270300418876"
+        ],
+        [
+          "line count",
+          "0",
+          "2"
+        ]
+      ]
+    },
+    "photo_tally_over": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "LINE_NOT_ON_PO",
+        "OVER_PO_BALANCE",
+        "QTY_OVER_PO"
+      ],
+      "wrong": [
+        [
+          "subtotal",
+          "None",
+          "54960.00"
+        ],
+        [
+          "total",
+          "9892.80",
+          "64852.80"
+        ],
+        [
+          "line count",
+          "4",
+          "2"
+        ]
+      ]
+    },
+    "photo_busy_price": {
+      "class": "misread-held",
+      "verdict": "HOLD",
+      "reasons": [
+        "BUNDLED_PARTIAL",
+        "LINE_NOT_ON_PO",
+        "LOW_CONFIDENCE_READ",
+        "OVER_PO_BALANCE",
+        "PRICE_VARIANCE"
+      ],
+      "wrong": [
+        [
+          "invoice_number",
+          "Vc/2026-27/1040",
+          "VC/2026-27/1040"
+        ],
+        [
+          "subtotal",
+          "94720.96",
+          "80272.00"
+        ],
+        [
+          "line count",
+          "3",
+          "2"
+        ]
+      ]
+    }
+  }
+}

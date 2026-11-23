@@ -18,7 +18,7 @@ from invoice_desk.rules import load_rules  # noqa: E402
 from invoice_desk.store import Store  # noqa: E402
 
 TODAY = date(2026, 11, 21)
-LLM_OFF = config.LlmConfig("off", "", "", "", 5.0)
+LLM_OFF = config.LlmConfig(mode="off")
 # What an OCR engine reads from a noisy scan differs between builds and platforms. Tests
 # that run the live engine therefore assert what must hold on ANY engine: the documented
 # outcome, or a hold for a reading reason, never a wrong approval. Exact-value assertions
@@ -26,13 +26,15 @@ LLM_OFF = config.LlmConfig("off", "", "", "", 5.0)
 # project was built in (Tesseract 5.3.4). Exact reading of the bundled scans is pinned
 # on every machine by the recorded OCR output in fixtures/ocr.
 STRICT_OCR = os.environ.get("INVOICE_DESK_STRICT_OCR") == "1"
-# holds that mean "the page was not read with certainty", as opposed to a business exception
+# Holds that mean "the page was not read with certainty". Business exceptions (a price over
+# tolerance, a quantity over the PO, a changed bank account) are deliberately not here: a
+# live-OCR run that ends in one of those when the documented outcome is different is a
+# misread, and the test must fail on it.
 READING_HOLDS = {"LOW_CONFIDENCE_READ", "ARITHMETIC_MISMATCH", "AMOUNT_WORDS_MISMATCH", "MISSING_TOTAL",
                  "MISSING_INVOICE_DATE", "MISSING_INVOICE_NUMBER", "LINE_ITEMS_UNREADABLE", "GSTIN_INVALID",
                  "BUYER_GSTIN_MISSING", "MISSING_VENDOR_ID", "VENDOR_NOT_APPROVED", "VENDOR_MATCHED_BY_NAME",
-                 "PO_NOT_FOUND", "NO_PO_FOUND", "PO_INFERRED", "LINE_NOT_ON_PO", "PRICE_VARIANCE", "QTY_OVER_PO",
-                 "OVER_PO_BALANCE", "BUNDLED_PARTIAL", "BANK_DETAILS_CHANGED", "TAX_RATE_UNUSUAL", "TAX_TYPE_MISMATCH",
-                 "DATE_IN_FUTURE", "DATE_TOO_OLD"}
+                 "PO_NOT_FOUND", "NO_PO_FOUND", "PO_INFERRED", "LINE_NOT_ON_PO", "TAX_RATE_UNUSUAL", "TAX_TYPE_MISMATCH",
+                 "DATE_IN_FUTURE", "DATE_TOO_OLD", "SCAN_NOT_READ"}
 
 
 def sample_bytes(name: str) -> bytes:

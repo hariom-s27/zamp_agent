@@ -1,0 +1,4227 @@
+[
+  {
+    "id": "tally_01",
+    "file": "documents/tally_01.pdf",
+    "family": "tally",
+    "tool": "chrome",
+    "font": "Liberation Sans",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "label stacked over value",
+      "tax ledgers as rows in the item grid",
+      "HSN summary table",
+      "two 'Dated' boxes",
+      "quantity printed with its unit",
+      "2-digit year",
+      "rupee sign from a fallback font"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R01",
+      "legal_name": "Kaveri Bearings & Transmission Pvt Ltd",
+      "gstin": "29AAFCK4410J1ZI",
+      "state_code": "29",
+      "bank_name": "Tunga Valley Bank",
+      "bank_account": "501200047731",
+      "ifsc": "TVBL0005012",
+      "phone": "080-5550-0161",
+      "email": "accounts@kaveribearings.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0501",
+      "po_date": "2026-10-22",
+      "lines": [
+        {
+          "description": "Deep Groove Ball Bearing 6205 2RS",
+          "hsn": "84821011",
+          "uom": "Nos",
+          "qty": "40",
+          "unit_price": "385.00"
+        },
+        {
+          "description": "Taper Roller Bearing 32208",
+          "hsn": "84822011",
+          "uom": "Nos",
+          "qty": "6",
+          "unit_price": "1460.00"
+        },
+        {
+          "description": "V-Belt B-52 Wrapped",
+          "hsn": "40103110",
+          "uom": "Nos",
+          "qty": "24",
+          "unit_price": "212.50"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "KBT/26-27/1184",
+      "invoice_date": "2026-11-12",
+      "po_reference": "PO-2026-0501",
+      "vendor_gstin": "29AAFCK4410J1ZI",
+      "bank_account": "501200047731",
+      "taxable": "29260.00",
+      "total": "34526.80",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Deep Groove Ball Bearing 6205 2RS",
+          "hsn": "84821011",
+          "uom": "Nos",
+          "qty": "40",
+          "unit_price": "385.00",
+          "amount": "15400.00"
+        },
+        {
+          "description": "Taper Roller Bearing 32208",
+          "hsn": "84822011",
+          "uom": "Nos",
+          "qty": "6",
+          "unit_price": "1460.00",
+          "amount": "8760.00"
+        },
+        {
+          "description": "V-Belt B-52 Wrapped",
+          "hsn": "40103110",
+          "uom": "Nos",
+          "qty": "24",
+          "unit_price": "212.50",
+          "amount": "5100.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "e1ed6a121806a46ce4e97555a0c1811402c53d9b9ee2f00cefdc1aec79e388d6"
+  },
+  {
+    "id": "tally_02",
+    "file": "documents/tally_02.pdf",
+    "family": "tally",
+    "tool": "chrome",
+    "font": "Liberation Sans",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "IGST",
+      "tax ledgers as rows in the item grid",
+      "HSN summary table"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R02",
+      "legal_name": "Shivalik Switchgear Industries",
+      "gstin": "07ABMFS2291P1ZE",
+      "state_code": "07",
+      "bank_name": "Yamuna Mercantile Bank",
+      "bank_account": "730011902284",
+      "ifsc": "YMBL0007300",
+      "phone": "011-5550-0143",
+      "email": "billing@shivalikswitchgear.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0502",
+      "po_date": "2026-10-19",
+      "lines": [
+        {
+          "description": "MCB 32A Triple Pole C Curve",
+          "hsn": "85362030",
+          "uom": "Nos",
+          "qty": "36",
+          "unit_price": "742.00"
+        },
+        {
+          "description": "Contactor 3 Pole 40A 415V Coil",
+          "hsn": "85364900",
+          "uom": "Nos",
+          "qty": "8",
+          "unit_price": "2315.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "SSI/2026/0457",
+      "invoice_date": "2026-11-09",
+      "po_reference": "PO-2026-0502",
+      "vendor_gstin": "07ABMFS2291P1ZE",
+      "bank_account": "730011902284",
+      "taxable": "45232.00",
+      "total": "53373.76",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "MCB 32A Triple Pole C Curve",
+          "hsn": "85362030",
+          "uom": "Nos",
+          "qty": "36",
+          "unit_price": "742.00",
+          "amount": "26712.00"
+        },
+        {
+          "description": "Contactor 3 Pole 40A 415V Coil",
+          "hsn": "85364900",
+          "uom": "Nos",
+          "qty": "8",
+          "unit_price": "2315.00",
+          "amount": "18520.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "20a75df70dc8c9ee1f1882db679ae7628e329c9ef9da885816ef0454c592b920"
+  },
+  {
+    "id": "tally_03",
+    "file": "documents/tally_03.pdf",
+    "family": "tally",
+    "tool": "chrome",
+    "font": "DejaVu Sans",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "round off line",
+      "HSN summary table",
+      "8-digit HSN"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R08",
+      "legal_name": "Sharavathi Lubricants & Chemicals",
+      "gstin": "29ABEFS8804Q1ZB",
+      "state_code": "29",
+      "bank_name": "Tunga Valley Bank",
+      "bank_account": "501200059902",
+      "ifsc": "TVBL0005012",
+      "phone": "080-5550-0194",
+      "email": "billing@sharavathilubes.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0503",
+      "po_date": "2026-10-24",
+      "lines": [
+        {
+          "description": "Hydraulic Oil ISO VG 68, 210 L Barrel",
+          "hsn": "27101980",
+          "uom": "Barrel",
+          "qty": "2",
+          "unit_price": "38750.00"
+        },
+        {
+          "description": "Lithium Grease EP2, 18 kg Pail",
+          "hsn": "27101990",
+          "uom": "Pail",
+          "qty": "5",
+          "unit_price": "4980.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "SLC/1097/26-27",
+      "invoice_date": "2026-11-14",
+      "po_reference": "PO-2026-0503",
+      "vendor_gstin": "29ABEFS8804Q1ZB",
+      "bank_account": "501200059902",
+      "taxable": "102400.00",
+      "total": "120832.00",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Hydraulic Oil ISO VG 68, 210 L Barrel",
+          "hsn": "27101980",
+          "uom": "Barrel",
+          "qty": "2",
+          "unit_price": "38750.00",
+          "amount": "77500.00"
+        },
+        {
+          "description": "Lithium Grease EP2, 18 kg Pail",
+          "hsn": "27101990",
+          "uom": "Pail",
+          "qty": "5",
+          "unit_price": "4980.00",
+          "amount": "24900.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "a4b8cec84e99cccf840b2ebbc1462070e1a30a107fb5430707477246cbab36b9"
+  },
+  {
+    "id": "tally_04",
+    "file": "documents/tally_04.pdf",
+    "family": "tally",
+    "tool": "chrome",
+    "font": "Liberation Sans",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "four lines",
+      "small unit prices",
+      "HSN summary with several rows"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R04",
+      "legal_name": "Narmada Fasteners Pvt Ltd",
+      "gstin": "24AAGCN6032H1ZN",
+      "state_code": "24",
+      "bank_name": "Vishwamitri Urban Bank",
+      "bank_account": "240700915562",
+      "ifsc": "VUBL0002407",
+      "phone": "0265-555-0188",
+      "email": "sales@narmadafasteners.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0504",
+      "po_date": "2026-10-16",
+      "lines": [
+        {
+          "description": "Hex Bolt M16 x 75 Grade 8.8",
+          "hsn": "73181500",
+          "uom": "Nos",
+          "qty": "1500",
+          "unit_price": "34.60"
+        },
+        {
+          "description": "Spring Washer M16",
+          "hsn": "73182100",
+          "uom": "Nos",
+          "qty": "3000",
+          "unit_price": "3.25"
+        },
+        {
+          "description": "Timing Belt HTD 1120-8M-30",
+          "hsn": "40103999",
+          "uom": "Nos",
+          "qty": "4",
+          "unit_price": "1875.00"
+        },
+        {
+          "description": "Solenoid Valve 5/2 Way 1/4 inch",
+          "hsn": "84812000",
+          "uom": "Nos",
+          "qty": "6",
+          "unit_price": "1680.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "NF/26-27/3321",
+      "invoice_date": "2026-11-06",
+      "po_reference": "PO-2026-0504",
+      "vendor_gstin": "24AAGCN6032H1ZN",
+      "bank_account": "240700915562",
+      "taxable": "79230.00",
+      "total": "93491.40",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Hex Bolt M16 x 75 Grade 8.8",
+          "hsn": "73181500",
+          "uom": "Nos",
+          "qty": "1500",
+          "unit_price": "34.60",
+          "amount": "51900.00"
+        },
+        {
+          "description": "Spring Washer M16",
+          "hsn": "73182100",
+          "uom": "Nos",
+          "qty": "3000",
+          "unit_price": "3.25",
+          "amount": "9750.00"
+        },
+        {
+          "description": "Timing Belt HTD 1120-8M-30",
+          "hsn": "40103999",
+          "uom": "Nos",
+          "qty": "4",
+          "unit_price": "1875.00",
+          "amount": "7500.00"
+        },
+        {
+          "description": "Solenoid Valve 5/2 Way 1/4 inch",
+          "hsn": "84812000",
+          "uom": "Nos",
+          "qty": "6",
+          "unit_price": "1680.00",
+          "amount": "10080.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "f5becde442b6b25a5ea6840958c540fc3a1cfd58a7e54f9563d6075ecd158f48"
+  },
+  {
+    "id": "tally_05",
+    "file": "documents/tally_05.pdf",
+    "family": "tally",
+    "tool": "chrome",
+    "font": "Liberation Sans",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "price 3% above the PO"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R01",
+      "legal_name": "Kaveri Bearings & Transmission Pvt Ltd",
+      "gstin": "29AAFCK4410J1ZI",
+      "state_code": "29",
+      "bank_name": "Tunga Valley Bank",
+      "bank_account": "501200047731",
+      "ifsc": "TVBL0005012",
+      "phone": "080-5550-0161",
+      "email": "accounts@kaveribearings.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0505",
+      "po_date": "2026-10-12",
+      "lines": [
+        {
+          "description": "Deep Groove Ball Bearing 6205 2RS",
+          "hsn": "84821011",
+          "uom": "Nos",
+          "qty": "60",
+          "unit_price": "373.45"
+        },
+        {
+          "description": "Taper Roller Bearing 32208",
+          "hsn": "84822011",
+          "uom": "Nos",
+          "qty": "10",
+          "unit_price": "1416.20"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "KBT/26-27/1201",
+      "invoice_date": "2026-11-17",
+      "po_reference": "PO-2026-0505",
+      "vendor_gstin": "29AAFCK4410J1ZI",
+      "bank_account": "501200047731",
+      "taxable": "37700.00",
+      "total": "44486.00",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Deep Groove Ball Bearing 6205 2RS",
+          "hsn": "84821011",
+          "uom": "Nos",
+          "qty": "60",
+          "unit_price": "385.00",
+          "amount": "23100.00"
+        },
+        {
+          "description": "Taper Roller Bearing 32208",
+          "hsn": "84822011",
+          "uom": "Nos",
+          "qty": "10",
+          "unit_price": "1460.00",
+          "amount": "14600.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "HOLD",
+      "reason": "PRICE_VARIANCE"
+    },
+    "sha256": "4a08308e3837fa73b1c49407c01fbf061b48fd311d269268726c92c36d1a7c32"
+  },
+  {
+    "id": "tally_credit",
+    "file": "documents/tally_credit.pdf",
+    "family": "tally",
+    "tool": "chrome",
+    "font": "Liberation Sans",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "credit note"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R01",
+      "legal_name": "Kaveri Bearings & Transmission Pvt Ltd",
+      "gstin": "29AAFCK4410J1ZI",
+      "state_code": "29",
+      "bank_name": "Tunga Valley Bank",
+      "bank_account": "501200047731",
+      "ifsc": "TVBL0005012",
+      "phone": "080-5550-0161",
+      "email": "accounts@kaveribearings.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0501",
+      "po_date": "2026-10-13",
+      "lines": [
+        {
+          "description": "Deep Groove Ball Bearing 6205 2RS",
+          "hsn": "84821011",
+          "uom": "Nos",
+          "qty": "4",
+          "unit_price": "385.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "KBT/CN/26-27/019",
+      "invoice_date": "2026-11-18",
+      "po_reference": "PO-2026-0501",
+      "vendor_gstin": "29AAFCK4410J1ZI",
+      "bank_account": "501200047731",
+      "taxable": "1540.00",
+      "total": "1817.20",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Deep Groove Ball Bearing 6205 2RS",
+          "hsn": "84821011",
+          "uom": "Nos",
+          "qty": "4",
+          "unit_price": "385.00",
+          "amount": "1540.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "HOLD",
+      "reason": "UNSUPPORTED_DOCUMENT"
+    },
+    "sha256": "acc4a9fc1a5684941bb28416e28971906faeecd951114f6a5b394d2f552f748c"
+  },
+  {
+    "id": "tally_06",
+    "file": "documents/tally_06.pdf",
+    "family": "tally",
+    "tool": "chrome",
+    "font": "Liberation Sans",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "the same item billed on two lines (two deliveries)",
+      "PO has it on one line"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R04",
+      "legal_name": "Narmada Fasteners Pvt Ltd",
+      "gstin": "24AAGCN6032H1ZN",
+      "state_code": "24",
+      "bank_name": "Vishwamitri Urban Bank",
+      "bank_account": "240700915562",
+      "ifsc": "VUBL0002407",
+      "phone": "0265-555-0188",
+      "email": "sales@narmadafasteners.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0517",
+      "po_date": "2026-10-19",
+      "lines": [
+        {
+          "description": "Hex Bolt M16 x 75 Grade 8.8",
+          "hsn": "73181500",
+          "uom": "Nos",
+          "qty": "1200",
+          "unit_price": "34.60"
+        },
+        {
+          "description": "Spring Washer M16",
+          "hsn": "73182100",
+          "uom": "Nos",
+          "qty": "1200",
+          "unit_price": "3.25"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "NF/26-27/3329",
+      "invoice_date": "2026-11-09",
+      "po_reference": "PO-2026-0517",
+      "vendor_gstin": "24AAGCN6032H1ZN",
+      "bank_account": "240700915562",
+      "taxable": "45420.00",
+      "total": "53595.60",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Hex Bolt M16 x 75 Grade 8.8",
+          "hsn": "73181500",
+          "uom": "Nos",
+          "qty": "800",
+          "unit_price": "34.60",
+          "amount": "27680.00"
+        },
+        {
+          "description": "Hex Bolt M16 x 75 Grade 8.8",
+          "hsn": "73181500",
+          "uom": "Nos",
+          "qty": "400",
+          "unit_price": "34.60",
+          "amount": "13840.00"
+        },
+        {
+          "description": "Spring Washer M16",
+          "hsn": "73182100",
+          "uom": "Nos",
+          "qty": "1200",
+          "unit_price": "3.25",
+          "amount": "3900.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "d521369cb0c789ceeee70664da7aaef9131de3898eac0fc89a1be32e9986991b"
+  },
+  {
+    "id": "zoho_01",
+    "file": "documents/zoho_01.pdf",
+    "family": "zoho",
+    "tool": "chrome",
+    "font": "Inter",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "per-line tax columns",
+      "white text on a dark header",
+      "'Balance Due' repeats the total",
+      "label 'Invoice#' is only '#'",
+      "dd/mm/yyyy"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R03",
+      "legal_name": "Godavari Polymers LLP",
+      "gstin": "36AARFG7715C1ZA",
+      "state_code": "36",
+      "bank_name": "Musi Co-operative Bank",
+      "bank_account": "118800236640",
+      "ifsc": "MCBL0001188",
+      "phone": "040-5550-0112",
+      "email": "ar@godavaripolymers.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0506",
+      "po_date": "2026-10-21",
+      "lines": [
+        {
+          "description": "HDPE Granules Blow Grade",
+          "hsn": "39012000",
+          "uom": "Kg",
+          "qty": "850",
+          "unit_price": "118.40"
+        },
+        {
+          "description": "Corrugated Box 5 Ply 450x300x300 mm",
+          "hsn": "48191010",
+          "uom": "Nos",
+          "qty": "400",
+          "unit_price": "62.75"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "INV-000482",
+      "invoice_date": "2026-11-11",
+      "po_reference": "PO-2026-0506",
+      "vendor_gstin": "36AARFG7715C1ZA",
+      "bank_account": "118800236640",
+      "taxable": "125740.00",
+      "total": "148373.20",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "HDPE Granules Blow Grade",
+          "hsn": "39012000",
+          "uom": "Kg",
+          "qty": "850",
+          "unit_price": "118.40",
+          "amount": "100640.00"
+        },
+        {
+          "description": "Corrugated Box 5 Ply 450x300x300 mm",
+          "hsn": "48191010",
+          "uom": "Nos",
+          "qty": "400",
+          "unit_price": "62.75",
+          "amount": "25100.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "b199758d5cdc58008a4b9cea36569d63ca6e0db155f0c4ceba00f5f6ddec0d95"
+  },
+  {
+    "id": "zoho_02",
+    "file": "documents/zoho_02.pdf",
+    "family": "zoho",
+    "tool": "chrome",
+    "font": "Inter",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "CGST and SGST columns per line",
+      "quantity and unit on two lines"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R08",
+      "legal_name": "Sharavathi Lubricants & Chemicals",
+      "gstin": "29ABEFS8804Q1ZB",
+      "state_code": "29",
+      "bank_name": "Tunga Valley Bank",
+      "bank_account": "501200059902",
+      "ifsc": "TVBL0005012",
+      "phone": "080-5550-0194",
+      "email": "billing@sharavathilubes.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0507",
+      "po_date": "2026-10-23",
+      "lines": [
+        {
+          "description": "Lithium Grease EP2, 18 kg Pail",
+          "hsn": "27101990",
+          "uom": "Pail",
+          "qty": "12",
+          "unit_price": "4980.00"
+        },
+        {
+          "description": "Hydraulic Oil ISO VG 68, 210 L Barrel",
+          "hsn": "27101980",
+          "uom": "Barrel",
+          "qty": "1",
+          "unit_price": "38750.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "INV-001204",
+      "invoice_date": "2026-11-13",
+      "po_reference": "PO-2026-0507",
+      "vendor_gstin": "29ABEFS8804Q1ZB",
+      "bank_account": "501200059902",
+      "taxable": "98510.00",
+      "total": "116241.80",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Lithium Grease EP2, 18 kg Pail",
+          "hsn": "27101990",
+          "uom": "Pail",
+          "qty": "12",
+          "unit_price": "4980.00",
+          "amount": "59760.00"
+        },
+        {
+          "description": "Hydraulic Oil ISO VG 68, 210 L Barrel",
+          "hsn": "27101980",
+          "uom": "Barrel",
+          "qty": "1",
+          "unit_price": "38750.00",
+          "amount": "38750.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "7b24d6043514a4458ea32a3be725f3731b5e19fcbc0cf673d9398447b0aef966"
+  },
+  {
+    "id": "zoho_03",
+    "file": "documents/zoho_03.pdf",
+    "family": "zoho",
+    "tool": "chrome",
+    "font": "Poppins",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "per-line tax columns",
+      "three lines"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R05",
+      "legal_name": "Sabarmati Controls & Automation",
+      "gstin": "24ACDFS9140L1ZV",
+      "state_code": "24",
+      "bank_name": "Vishwamitri Urban Bank",
+      "bank_account": "240911003478",
+      "ifsc": "VUBL0002409",
+      "phone": "079-5550-0126",
+      "email": "accounts@sabarmaticontrols.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0508",
+      "po_date": "2026-10-20",
+      "lines": [
+        {
+          "description": "Proximity Sensor Inductive M18 PNP",
+          "hsn": "85365090",
+          "uom": "Nos",
+          "qty": "25",
+          "unit_price": "1295.00"
+        },
+        {
+          "description": "Solenoid Valve 5/2 Way 1/4 inch",
+          "hsn": "84812000",
+          "uom": "Nos",
+          "qty": "10",
+          "unit_price": "1680.00"
+        },
+        {
+          "description": "Contactor 3 Pole 40A 415V Coil",
+          "hsn": "85364900",
+          "uom": "Nos",
+          "qty": "4",
+          "unit_price": "2315.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "SCA-INV-0931",
+      "invoice_date": "2026-11-10",
+      "po_reference": "PO-2026-0508",
+      "vendor_gstin": "24ACDFS9140L1ZV",
+      "bank_account": "240911003478",
+      "taxable": "58435.00",
+      "total": "68953.30",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Proximity Sensor Inductive M18 PNP",
+          "hsn": "85365090",
+          "uom": "Nos",
+          "qty": "25",
+          "unit_price": "1295.00",
+          "amount": "32375.00"
+        },
+        {
+          "description": "Solenoid Valve 5/2 Way 1/4 inch",
+          "hsn": "84812000",
+          "uom": "Nos",
+          "qty": "10",
+          "unit_price": "1680.00",
+          "amount": "16800.00"
+        },
+        {
+          "description": "Contactor 3 Pole 40A 415V Coil",
+          "hsn": "85364900",
+          "uom": "Nos",
+          "qty": "4",
+          "unit_price": "2315.00",
+          "amount": "9260.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "04a0f3458e897303cf1168893bdacf01ff213377904af63b2488a5227ed5a552"
+  },
+  {
+    "id": "zoho_04",
+    "file": "documents/zoho_04.pdf",
+    "family": "zoho",
+    "tool": "chrome",
+    "font": "Inter",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "bills more than the PO has"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R03",
+      "legal_name": "Godavari Polymers LLP",
+      "gstin": "36AARFG7715C1ZA",
+      "state_code": "36",
+      "bank_name": "Musi Co-operative Bank",
+      "bank_account": "118800236640",
+      "ifsc": "MCBL0001188",
+      "phone": "040-5550-0112",
+      "email": "ar@godavaripolymers.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0509",
+      "po_date": "2026-10-11",
+      "lines": [
+        {
+          "description": "HDPE Granules Blow Grade",
+          "hsn": "39012000",
+          "uom": "Kg",
+          "qty": "900",
+          "unit_price": "118.40"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "INV-000497",
+      "invoice_date": "2026-11-16",
+      "po_reference": "PO-2026-0509",
+      "vendor_gstin": "36AARFG7715C1ZA",
+      "bank_account": "118800236640",
+      "taxable": "142080.00",
+      "total": "167654.40",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "HDPE Granules Blow Grade",
+          "hsn": "39012000",
+          "uom": "Kg",
+          "qty": "1200",
+          "unit_price": "118.40",
+          "amount": "142080.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "HOLD",
+      "reason": "QTY_OVER_PO"
+    },
+    "sha256": "149d00149271111805c4b7060efc5f6dd7a4beb25187893ffb315aa14aa995ad"
+  },
+  {
+    "id": "zoho_proforma",
+    "file": "documents/zoho_proforma.pdf",
+    "family": "zoho",
+    "tool": "chrome",
+    "font": "Inter",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "proforma invoice"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R05",
+      "legal_name": "Sabarmati Controls & Automation",
+      "gstin": "24ACDFS9140L1ZV",
+      "state_code": "24",
+      "bank_name": "Vishwamitri Urban Bank",
+      "bank_account": "240911003478",
+      "ifsc": "VUBL0002409",
+      "phone": "079-5550-0126",
+      "email": "accounts@sabarmaticontrols.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0508",
+      "po_date": "2026-10-18",
+      "lines": [
+        {
+          "description": "Proximity Sensor Inductive M18 PNP",
+          "hsn": "85365090",
+          "uom": "Nos",
+          "qty": "25",
+          "unit_price": "1295.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "PI-0214",
+      "invoice_date": "2026-11-08",
+      "po_reference": "PO-2026-0508",
+      "vendor_gstin": "24ACDFS9140L1ZV",
+      "bank_account": "240911003478",
+      "taxable": "32375.00",
+      "total": "38202.50",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Proximity Sensor Inductive M18 PNP",
+          "hsn": "85365090",
+          "uom": "Nos",
+          "qty": "25",
+          "unit_price": "1295.00",
+          "amount": "32375.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "REJECT",
+      "reason": "NOT_A_TAX_INVOICE"
+    },
+    "sha256": "8496a845d446199bc6ecd679af61f0619e85d22f6cadaeda6d585a80868550d5"
+  },
+  {
+    "id": "zoho_05",
+    "file": "documents/zoho_05.pdf",
+    "family": "zoho",
+    "tool": "chrome",
+    "font": "Inter",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "bank account is not the one in the vendor master"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R03",
+      "legal_name": "Godavari Polymers LLP",
+      "gstin": "36AARFG7715C1ZA",
+      "state_code": "36",
+      "bank_name": "Musi Co-operative Bank",
+      "bank_account": "118800236640",
+      "ifsc": "MCBL0001188",
+      "phone": "040-5550-0112",
+      "email": "ar@godavaripolymers.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0518",
+      "po_date": "2026-10-12",
+      "lines": [
+        {
+          "description": "HDPE Granules Blow Grade",
+          "hsn": "39012000",
+          "uom": "Kg",
+          "qty": "500",
+          "unit_price": "118.40"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "INV-000503",
+      "invoice_date": "2026-11-17",
+      "po_reference": "PO-2026-0518",
+      "vendor_gstin": "36AARFG7715C1ZA",
+      "bank_account": "118800771209",
+      "taxable": "59200.00",
+      "total": "69856.00",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "HDPE Granules Blow Grade",
+          "hsn": "39012000",
+          "uom": "Kg",
+          "qty": "500",
+          "unit_price": "118.40",
+          "amount": "59200.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "HOLD",
+      "reason": "BANK_DETAILS_CHANGED"
+    },
+    "sha256": "73680b51fb9aa818da85223491a152c5b207a14250eee0be52c26dbec66c9bfe"
+  },
+  {
+    "id": "zoho_long",
+    "file": "documents/zoho_long.pdf",
+    "family": "zoho",
+    "tool": "chrome",
+    "font": "Inter",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "16 lines over two pages",
+      "table header repeated on the second page",
+      "totals on the last page"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R08",
+      "legal_name": "Sharavathi Lubricants & Chemicals",
+      "gstin": "29ABEFS8804Q1ZB",
+      "state_code": "29",
+      "bank_name": "Tunga Valley Bank",
+      "bank_account": "501200059902",
+      "ifsc": "TVBL0005012",
+      "phone": "080-5550-0194",
+      "email": "billing@sharavathilubes.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0519",
+      "po_date": "2026-10-10",
+      "lines": [
+        {
+          "description": "Deep Groove Ball Bearing 6205 2RS",
+          "hsn": "84821011",
+          "uom": "Nos",
+          "qty": "2",
+          "unit_price": "385.00"
+        },
+        {
+          "description": "Contactor 3 Pole 40A 415V Coil",
+          "hsn": "85364900",
+          "uom": "Nos",
+          "qty": "5",
+          "unit_price": "2315.00"
+        },
+        {
+          "description": "Hydraulic Oil ISO VG 68, 210 L Barrel",
+          "hsn": "27101980",
+          "uom": "Barrel",
+          "qty": "8",
+          "unit_price": "38750.00"
+        },
+        {
+          "description": "Solenoid Valve 5/2 Way 1/4 inch",
+          "hsn": "84812000",
+          "uom": "Nos",
+          "qty": "11",
+          "unit_price": "1680.00"
+        },
+        {
+          "description": "MCB 32A Triple Pole C Curve",
+          "hsn": "85362030",
+          "uom": "Nos",
+          "qty": "14",
+          "unit_price": "742.00"
+        },
+        {
+          "description": "Spring Washer M16",
+          "hsn": "73182100",
+          "uom": "Nos",
+          "qty": "17",
+          "unit_price": "3.25"
+        },
+        {
+          "description": "Thermal Transfer Ribbon 110 mm x 300 m",
+          "hsn": "96121010",
+          "uom": "Roll",
+          "qty": "3",
+          "unit_price": "418.00"
+        },
+        {
+          "description": "Timing Belt HTD 1120-8M-30",
+          "hsn": "40103999",
+          "uom": "Nos",
+          "qty": "6",
+          "unit_price": "1875.00"
+        },
+        {
+          "description": "Hex Bolt M16 x 75 Grade 8.8",
+          "hsn": "73181500",
+          "uom": "Nos",
+          "qty": "9",
+          "unit_price": "34.60"
+        },
+        {
+          "description": "Corrugated Box 5 Ply 450x300x300 mm",
+          "hsn": "48191010",
+          "uom": "Nos",
+          "qty": "12",
+          "unit_price": "62.75"
+        },
+        {
+          "description": "V-Belt B-52 Wrapped",
+          "hsn": "40103110",
+          "uom": "Nos",
+          "qty": "15",
+          "unit_price": "212.50"
+        },
+        {
+          "description": "HDPE Granules Blow Grade",
+          "hsn": "39012000",
+          "uom": "Kg",
+          "qty": "18",
+          "unit_price": "118.40"
+        },
+        {
+          "description": "Proximity Sensor Inductive M18 PNP",
+          "hsn": "85365090",
+          "uom": "Nos",
+          "qty": "4",
+          "unit_price": "1295.00"
+        },
+        {
+          "description": "Taper Roller Bearing 32208",
+          "hsn": "84822011",
+          "uom": "Nos",
+          "qty": "7",
+          "unit_price": "1460.00"
+        },
+        {
+          "description": "PVC Insulated Copper Cable 4 sq mm x 90 m",
+          "hsn": "85444999",
+          "uom": "Coil",
+          "qty": "10",
+          "unit_price": "6840.00"
+        },
+        {
+          "description": "Lithium Grease EP2, 18 kg Pail",
+          "hsn": "27101990",
+          "uom": "Pail",
+          "qty": "13",
+          "unit_price": "4980.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "INV-001219",
+      "invoice_date": "2026-11-15",
+      "po_reference": "PO-2026-0519",
+      "vendor_gstin": "29ABEFS8804Q1ZB",
+      "bank_account": "501200059902",
+      "taxable": "518695.35",
+      "total": "612060.51",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Deep Groove Ball Bearing 6205 2RS",
+          "hsn": "84821011",
+          "uom": "Nos",
+          "qty": "2",
+          "unit_price": "385.00",
+          "amount": "770.00"
+        },
+        {
+          "description": "Contactor 3 Pole 40A 415V Coil",
+          "hsn": "85364900",
+          "uom": "Nos",
+          "qty": "5",
+          "unit_price": "2315.00",
+          "amount": "11575.00"
+        },
+        {
+          "description": "Hydraulic Oil ISO VG 68, 210 L Barrel",
+          "hsn": "27101980",
+          "uom": "Barrel",
+          "qty": "8",
+          "unit_price": "38750.00",
+          "amount": "310000.00"
+        },
+        {
+          "description": "Solenoid Valve 5/2 Way 1/4 inch",
+          "hsn": "84812000",
+          "uom": "Nos",
+          "qty": "11",
+          "unit_price": "1680.00",
+          "amount": "18480.00"
+        },
+        {
+          "description": "MCB 32A Triple Pole C Curve",
+          "hsn": "85362030",
+          "uom": "Nos",
+          "qty": "14",
+          "unit_price": "742.00",
+          "amount": "10388.00"
+        },
+        {
+          "description": "Spring Washer M16",
+          "hsn": "73182100",
+          "uom": "Nos",
+          "qty": "17",
+          "unit_price": "3.25",
+          "amount": "55.25"
+        },
+        {
+          "description": "Thermal Transfer Ribbon 110 mm x 300 m",
+          "hsn": "96121010",
+          "uom": "Roll",
+          "qty": "3",
+          "unit_price": "418.00",
+          "amount": "1254.00"
+        },
+        {
+          "description": "Timing Belt HTD 1120-8M-30",
+          "hsn": "40103999",
+          "uom": "Nos",
+          "qty": "6",
+          "unit_price": "1875.00",
+          "amount": "11250.00"
+        },
+        {
+          "description": "Hex Bolt M16 x 75 Grade 8.8",
+          "hsn": "73181500",
+          "uom": "Nos",
+          "qty": "9",
+          "unit_price": "34.60",
+          "amount": "311.40"
+        },
+        {
+          "description": "Corrugated Box 5 Ply 450x300x300 mm",
+          "hsn": "48191010",
+          "uom": "Nos",
+          "qty": "12",
+          "unit_price": "62.75",
+          "amount": "753.00"
+        },
+        {
+          "description": "V-Belt B-52 Wrapped",
+          "hsn": "40103110",
+          "uom": "Nos",
+          "qty": "15",
+          "unit_price": "212.50",
+          "amount": "3187.50"
+        },
+        {
+          "description": "HDPE Granules Blow Grade",
+          "hsn": "39012000",
+          "uom": "Kg",
+          "qty": "18",
+          "unit_price": "118.40",
+          "amount": "2131.20"
+        },
+        {
+          "description": "Proximity Sensor Inductive M18 PNP",
+          "hsn": "85365090",
+          "uom": "Nos",
+          "qty": "4",
+          "unit_price": "1295.00",
+          "amount": "5180.00"
+        },
+        {
+          "description": "Taper Roller Bearing 32208",
+          "hsn": "84822011",
+          "uom": "Nos",
+          "qty": "7",
+          "unit_price": "1460.00",
+          "amount": "10220.00"
+        },
+        {
+          "description": "PVC Insulated Copper Cable 4 sq mm x 90 m",
+          "hsn": "85444999",
+          "uom": "Coil",
+          "qty": "10",
+          "unit_price": "6840.00",
+          "amount": "68400.00"
+        },
+        {
+          "description": "Lithium Grease EP2, 18 kg Pail",
+          "hsn": "27101990",
+          "uom": "Pail",
+          "qty": "13",
+          "unit_price": "4980.00",
+          "amount": "64740.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "0f28ce6fe56d933eb6463b13e82f9d3458bdc4012e88de1ab0ef4410dc87f327"
+  },
+  {
+    "id": "zoho_06",
+    "file": "documents/zoho_06.pdf",
+    "family": "zoho",
+    "tool": "chrome",
+    "font": "Inter",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "GST at 5%: 'CGST2.5 (2.5%)'",
+      "per-line tax columns"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R10",
+      "legal_name": "Hemavathi Stationers",
+      "gstin": "29ACQFH1173R1ZE",
+      "state_code": "29",
+      "bank_name": "Tunga Valley Bank",
+      "bank_account": "501200061145",
+      "ifsc": "TVBL0005012",
+      "phone": "080-5550-0107",
+      "email": "hemavathi@stationers.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0540",
+      "po_date": "2026-10-19",
+      "lines": [
+        {
+          "description": "Corrugated Box 5 Ply 450x300x300 mm",
+          "hsn": "48191010",
+          "uom": "Nos",
+          "qty": "600",
+          "unit_price": "62.75"
+        },
+        {
+          "description": "A4 Copier Paper 75 GSM (Ream of 500)",
+          "hsn": "48025690",
+          "uom": "Ream",
+          "qty": "40",
+          "unit_price": "268.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "INV-000077",
+      "invoice_date": "2026-11-09",
+      "po_reference": "PO-2026-0540",
+      "vendor_gstin": "29ACQFH1173R1ZE",
+      "bank_account": "501200061145",
+      "taxable": "48370.00",
+      "total": "50788.50",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Corrugated Box 5 Ply 450x300x300 mm",
+          "hsn": "48191010",
+          "uom": "Nos",
+          "qty": "600",
+          "unit_price": "62.75",
+          "amount": "37650.00"
+        },
+        {
+          "description": "A4 Copier Paper 75 GSM (Ream of 500)",
+          "hsn": "48025690",
+          "uom": "Ream",
+          "qty": "40",
+          "unit_price": "268.00",
+          "amount": "10720.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "88a353cfe5e2effa80b868363e0d62fe3db8dbc4df676628215f75eef6b982fe"
+  },
+  {
+    "id": "tally_hindi",
+    "file": "documents/tally_hindi.pdf",
+    "family": "tally",
+    "tool": "chrome",
+    "font": "Liberation Sans",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "Hindi invocation line on top",
+      "labels in English and Hindi",
+      "Devanagari from a fallback font"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R02",
+      "legal_name": "Shivalik Switchgear Industries",
+      "gstin": "07ABMFS2291P1ZE",
+      "state_code": "07",
+      "bank_name": "Yamuna Mercantile Bank",
+      "bank_account": "730011902284",
+      "ifsc": "YMBL0007300",
+      "phone": "011-5550-0143",
+      "email": "billing@shivalikswitchgear.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0545",
+      "po_date": "2026-10-23",
+      "lines": [
+        {
+          "description": "Contactor 3 Pole 40A 415V Coil",
+          "hsn": "85364900",
+          "uom": "Nos",
+          "qty": "6",
+          "unit_price": "2315.00"
+        },
+        {
+          "description": "MCB 32A Triple Pole C Curve",
+          "hsn": "85362030",
+          "uom": "Nos",
+          "qty": "24",
+          "unit_price": "742.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "SSI/2026/0466",
+      "invoice_date": "2026-11-13",
+      "po_reference": "PO-2026-0545",
+      "vendor_gstin": "07ABMFS2291P1ZE",
+      "bank_account": "730011902284",
+      "taxable": "31698.00",
+      "total": "37403.64",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Contactor 3 Pole 40A 415V Coil",
+          "hsn": "85364900",
+          "uom": "Nos",
+          "qty": "6",
+          "unit_price": "2315.00",
+          "amount": "13890.00"
+        },
+        {
+          "description": "MCB 32A Triple Pole C Curve",
+          "hsn": "85362030",
+          "uom": "Nos",
+          "qty": "24",
+          "unit_price": "742.00",
+          "amount": "17808.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "10cc38a51670b851f276bd8ee78e7376b5ab178bc1bf1b2770f0dd1689d64f0a"
+  },
+  {
+    "id": "excel_01",
+    "file": "documents/excel_01.pdf",
+    "family": "excel",
+    "tool": "libreoffice calc",
+    "font": "Carlito",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "rate column before quantity",
+      "western digit grouping",
+      "merged cells",
+      "'Bill No' and 'G. Total'",
+      "dd.mm.yyyy"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R10",
+      "legal_name": "Hemavathi Stationers",
+      "gstin": "29ACQFH1173R1ZE",
+      "state_code": "29",
+      "bank_name": "Tunga Valley Bank",
+      "bank_account": "501200061145",
+      "ifsc": "TVBL0005012",
+      "phone": "080-5550-0107",
+      "email": "hemavathi@stationers.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0510",
+      "po_date": "2026-10-22",
+      "lines": [
+        {
+          "description": "A4 Copier Paper 75 GSM (Ream of 500)",
+          "hsn": "48025690",
+          "uom": "Ream",
+          "qty": "60",
+          "unit_price": "268.00"
+        },
+        {
+          "description": "Whiteboard Marker (Box of 10)",
+          "hsn": "96082000",
+          "uom": "Box",
+          "qty": "20",
+          "unit_price": "185.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "HS/564",
+      "invoice_date": "2026-11-12",
+      "po_reference": "PO-2026-0510",
+      "vendor_gstin": "29ACQFH1173R1ZE",
+      "bank_account": "501200061145",
+      "taxable": "19780.00",
+      "total": "23340.40",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "A4 Copier Paper 75 GSM (Ream of 500)",
+          "hsn": "48025690",
+          "uom": "Ream",
+          "qty": "60",
+          "unit_price": "268.00",
+          "amount": "16080.00"
+        },
+        {
+          "description": "Whiteboard Marker (Box of 10)",
+          "hsn": "96082000",
+          "uom": "Box",
+          "qty": "20",
+          "unit_price": "185.00",
+          "amount": "3700.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "8d953ed5a24e79898bd98b2f4ce2c69fe154df7edb025d523b74945e65a119d5"
+  },
+  {
+    "id": "excel_02",
+    "file": "documents/excel_02.pdf",
+    "family": "excel",
+    "tool": "libreoffice calc",
+    "font": "Carlito",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "rate column before quantity",
+      "western digit grouping",
+      "IGST at 5%",
+      "round off"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R06",
+      "legal_name": "Teesta Print & Pack",
+      "gstin": "19AAYFT3358D1ZL",
+      "state_code": "19",
+      "bank_name": "Hooghly Peoples Bank",
+      "bank_account": "190045118203",
+      "ifsc": "HPBL0001900",
+      "phone": "033-5550-0171",
+      "email": "office@teestaprintpack.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0511",
+      "po_date": "2026-10-17",
+      "lines": [
+        {
+          "description": "Corrugated Box 5 Ply 450x300x300 mm",
+          "hsn": "48191010",
+          "uom": "Nos",
+          "qty": "2400",
+          "unit_price": "62.75"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "TPP/2026-27/208",
+      "invoice_date": "2026-11-07",
+      "po_reference": "PO-2026-0511",
+      "vendor_gstin": "19AAYFT3358D1ZL",
+      "bank_account": "190045118203",
+      "taxable": "150600.00",
+      "total": "158130.00",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Corrugated Box 5 Ply 450x300x300 mm",
+          "hsn": "48191010",
+          "uom": "Nos",
+          "qty": "2400",
+          "unit_price": "62.75",
+          "amount": "150600.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "2b87f33ff63d8fe8700a05abcec1959236499741294d9f3538a6e373dcb90760"
+  },
+  {
+    "id": "excel_03",
+    "file": "documents/excel_03.pdf",
+    "family": "excel",
+    "tool": "libreoffice calc",
+    "font": "Liberation Sans",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "vendor not in the master"
+    ],
+    "tax_inclusive": false,
+    "vendor": null,
+    "po": {
+      "po_number": "PO-2026-0512",
+      "po_date": "2026-10-10",
+      "lines": [
+        {
+          "description": "A4 Copier Paper 75 GSM (Ream of 500)",
+          "hsn": "48025690",
+          "uom": "Ream",
+          "qty": "25",
+          "unit_price": "268.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "HS/571",
+      "invoice_date": "2026-11-15",
+      "po_reference": "PO-2026-0512",
+      "vendor_gstin": "29ACQFH1173R1ZE",
+      "bank_account": "501200061145",
+      "taxable": "6700.00",
+      "total": "7906.00",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "A4 Copier Paper 75 GSM (Ream of 500)",
+          "hsn": "48025690",
+          "uom": "Ream",
+          "qty": "25",
+          "unit_price": "268.00",
+          "amount": "6700.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "HOLD",
+      "reason": "VENDOR_NOT_APPROVED"
+    },
+    "sha256": "fe7899f7607ae13c8ec71815566cba9234521c67ecd584aa879bcc52b8303402"
+  },
+  {
+    "id": "excel_04",
+    "file": "documents/excel_04.pdf",
+    "family": "excel",
+    "tool": "libreoffice calc",
+    "font": "Carlito",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "grand total typed by hand and wrong by 1,000"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R06",
+      "legal_name": "Teesta Print & Pack",
+      "gstin": "19AAYFT3358D1ZL",
+      "state_code": "19",
+      "bank_name": "Hooghly Peoples Bank",
+      "bank_account": "190045118203",
+      "ifsc": "HPBL0001900",
+      "phone": "033-5550-0171",
+      "email": "office@teestaprintpack.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0520",
+      "po_date": "2026-10-20",
+      "lines": [
+        {
+          "description": "Corrugated Box 5 Ply 450x300x300 mm",
+          "hsn": "48191010",
+          "uom": "Nos",
+          "qty": "1500",
+          "unit_price": "62.75"
+        },
+        {
+          "description": "Thermal Transfer Ribbon 110 mm x 300 m",
+          "hsn": "96121010",
+          "uom": "Roll",
+          "qty": "30",
+          "unit_price": "418.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "TPP/2026-27/211",
+      "invoice_date": "2026-11-10",
+      "po_reference": "PO-2026-0520",
+      "vendor_gstin": "19AAYFT3358D1ZL",
+      "bank_account": "190045118203",
+      "taxable": "106665.00",
+      "total": "126864.70",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Corrugated Box 5 Ply 450x300x300 mm",
+          "hsn": "48191010",
+          "uom": "Nos",
+          "qty": "1500",
+          "unit_price": "62.75",
+          "amount": "94125.00"
+        },
+        {
+          "description": "Thermal Transfer Ribbon 110 mm x 300 m",
+          "hsn": "96121010",
+          "uom": "Roll",
+          "qty": "30",
+          "unit_price": "418.00",
+          "amount": "12540.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "HOLD",
+      "reason": "ARITHMETIC_MISMATCH"
+    },
+    "sha256": "da49d970061703eb5d46faee3bea851182dcbb52631bc4f861752c4c14848cf5"
+  },
+  {
+    "id": "retail_01",
+    "file": "documents/retail_01.pdf",
+    "family": "retail",
+    "tool": "chrome",
+    "font": "Poppins",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "prices include GST",
+      "A5 page",
+      "'Net Amount Payable'",
+      "HSN under the description"
+    ],
+    "tax_inclusive": true,
+    "vendor": {
+      "vendor_id": "R10",
+      "legal_name": "Hemavathi Stationers",
+      "gstin": "29ACQFH1173R1ZE",
+      "state_code": "29",
+      "bank_name": "Tunga Valley Bank",
+      "bank_account": "501200061145",
+      "ifsc": "TVBL0005012",
+      "phone": "080-5550-0107",
+      "email": "hemavathi@stationers.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0513",
+      "po_date": "2026-10-23",
+      "lines": [
+        {
+          "description": "A4 Copier Paper 75 GSM (Ream of 500)",
+          "hsn": "48025690",
+          "uom": "Ream",
+          "qty": "40",
+          "unit_price": "227.12"
+        },
+        {
+          "description": "Whiteboard Marker (Box of 10)",
+          "hsn": "96082000",
+          "uom": "Box",
+          "qty": "12",
+          "unit_price": "156.78"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "CR-4471",
+      "invoice_date": "2026-11-13",
+      "po_reference": "PO-2026-0513",
+      "vendor_gstin": "29ACQFH1173R1ZE",
+      "bank_account": "501200061145",
+      "taxable": "10966.10",
+      "total": "12940.00",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "A4 Copier Paper 75 GSM (Ream of 500)",
+          "hsn": "48025690",
+          "uom": "Ream",
+          "qty": "40",
+          "unit_price": "268.00",
+          "amount": "10720.00"
+        },
+        {
+          "description": "Whiteboard Marker (Box of 10)",
+          "hsn": "96082000",
+          "uom": "Box",
+          "qty": "12",
+          "unit_price": "185.00",
+          "amount": "2220.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "bc17cf2dedd1d90716f39e1d6c4dac46543be137eb75477b2c4dcd00cdb77ec9"
+  },
+  {
+    "id": "retail_02",
+    "file": "documents/retail_02.pdf",
+    "family": "retail",
+    "tool": "chrome",
+    "font": "Poppins",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "prices include GST",
+      "A5 page",
+      "three lines"
+    ],
+    "tax_inclusive": true,
+    "vendor": {
+      "vendor_id": "R10",
+      "legal_name": "Hemavathi Stationers",
+      "gstin": "29ACQFH1173R1ZE",
+      "state_code": "29",
+      "bank_name": "Tunga Valley Bank",
+      "bank_account": "501200061145",
+      "ifsc": "TVBL0005012",
+      "phone": "080-5550-0107",
+      "email": "hemavathi@stationers.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0529",
+      "po_date": "2026-10-11",
+      "lines": [
+        {
+          "description": "Whiteboard Marker (Box of 10)",
+          "hsn": "96082000",
+          "uom": "Box",
+          "qty": "30",
+          "unit_price": "156.78"
+        },
+        {
+          "description": "A4 Copier Paper 75 GSM (Ream of 500)",
+          "hsn": "48025690",
+          "uom": "Ream",
+          "qty": "15",
+          "unit_price": "227.12"
+        },
+        {
+          "description": "Thermal Transfer Ribbon 110 mm x 300 m",
+          "hsn": "96121010",
+          "uom": "Roll",
+          "qty": "6",
+          "unit_price": "354.24"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "CR-4490",
+      "invoice_date": "2026-11-16",
+      "po_reference": "PO-2026-0529",
+      "vendor_gstin": "29ACQFH1173R1ZE",
+      "bank_account": "501200061145",
+      "taxable": "10235.59",
+      "total": "12078.00",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Whiteboard Marker (Box of 10)",
+          "hsn": "96082000",
+          "uom": "Box",
+          "qty": "30",
+          "unit_price": "185.00",
+          "amount": "5550.00"
+        },
+        {
+          "description": "A4 Copier Paper 75 GSM (Ream of 500)",
+          "hsn": "48025690",
+          "uom": "Ream",
+          "qty": "15",
+          "unit_price": "268.00",
+          "amount": "4020.00"
+        },
+        {
+          "description": "Thermal Transfer Ribbon 110 mm x 300 m",
+          "hsn": "96121010",
+          "uom": "Roll",
+          "qty": "6",
+          "unit_price": "418.00",
+          "amount": "2508.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "baab95f72c9fa2234e82edb05084df9bfee74348d6c376a1eed176f3b570d214"
+  },
+  {
+    "id": "lump_01",
+    "file": "documents/lump_01.pdf",
+    "family": "lump",
+    "tool": "chrome",
+    "font": "Liberation Serif",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "one bundled line, no quantities",
+      "equals what is open on the PO"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R05",
+      "legal_name": "Sabarmati Controls & Automation",
+      "gstin": "24ACDFS9140L1ZV",
+      "state_code": "24",
+      "bank_name": "Vishwamitri Urban Bank",
+      "bank_account": "240911003478",
+      "ifsc": "VUBL0002409",
+      "phone": "079-5550-0126",
+      "email": "accounts@sabarmaticontrols.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0514",
+      "po_date": "2026-10-24",
+      "lines": [
+        {
+          "description": "Proximity Sensor Inductive M18 PNP",
+          "hsn": "85365090",
+          "uom": "Nos",
+          "qty": "30",
+          "unit_price": "1295.00"
+        },
+        {
+          "description": "Solenoid Valve 5/2 Way 1/4 inch",
+          "hsn": "84812000",
+          "uom": "Nos",
+          "qty": "12",
+          "unit_price": "1680.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "SCA/26-27/0458",
+      "invoice_date": "2026-11-14",
+      "po_reference": "PO-2026-0514",
+      "vendor_gstin": "24ACDFS9140L1ZV",
+      "bank_account": "240911003478",
+      "taxable": "59010.00",
+      "total": "69631.80",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Supply and commissioning of sensors and valves as per your purchase order",
+          "hsn": "9987",
+          "uom": null,
+          "qty": null,
+          "unit_price": null,
+          "amount": "59010.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "4d345b5b6f5e2c58f6668efb9d837ac5251a924b9c44616ecc36d4c49588f455"
+  },
+  {
+    "id": "lump_02",
+    "file": "documents/lump_02.pdf",
+    "family": "lump",
+    "tool": "chrome",
+    "font": "Liberation Serif",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "one bundled line",
+      "covers only part of the PO"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R05",
+      "legal_name": "Sabarmati Controls & Automation",
+      "gstin": "24ACDFS9140L1ZV",
+      "state_code": "24",
+      "bank_name": "Vishwamitri Urban Bank",
+      "bank_account": "240911003478",
+      "ifsc": "VUBL0002409",
+      "phone": "079-5550-0126",
+      "email": "accounts@sabarmaticontrols.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0515",
+      "po_date": "2026-10-11",
+      "lines": [
+        {
+          "description": "Proximity Sensor Inductive M18 PNP",
+          "hsn": "85365090",
+          "uom": "Nos",
+          "qty": "30",
+          "unit_price": "1295.00"
+        },
+        {
+          "description": "Solenoid Valve 5/2 Way 1/4 inch",
+          "hsn": "84812000",
+          "uom": "Nos",
+          "qty": "12",
+          "unit_price": "1680.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "SCA/26-27/0461",
+      "invoice_date": "2026-11-16",
+      "po_reference": "PO-2026-0515",
+      "vendor_gstin": "24ACDFS9140L1ZV",
+      "bank_account": "240911003478",
+      "taxable": "30000.00",
+      "total": "35400.00",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Part supply against your purchase order",
+          "hsn": "9987",
+          "uom": null,
+          "qty": null,
+          "unit_price": null,
+          "amount": "30000.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "HOLD",
+      "reason": "BUNDLED_PARTIAL"
+    },
+    "sha256": "5c1ada3dfbf582482fb094b2a4e60bbf7496457b53875a6110c3050b9b56e862"
+  },
+  {
+    "id": "usd_01",
+    "file": "documents/usd_01.pdf",
+    "family": "usd",
+    "tool": "chrome",
+    "font": "Liberation Sans",
+    "split": "tune",
+    "kind": "text",
+    "quirks": [
+      "US dollars",
+      "no GSTIN",
+      "month-first date"
+    ],
+    "tax_inclusive": false,
+    "vendor": null,
+    "po": null,
+    "truth": {
+      "invoice_number": "LMS-88213",
+      "invoice_date": "2026-11-10",
+      "po_reference": "PO-2026-0516",
+      "vendor_gstin": null,
+      "bank_account": "730011902284",
+      "taxable": "24200.00",
+      "total": "28556.00",
+      "currency": "USD",
+      "lines": [
+        {
+          "description": "Timing Belt HTD 1120-8M-30",
+          "hsn": "40103999",
+          "uom": "Nos",
+          "qty": "6",
+          "unit_price": "1875.00",
+          "amount": "11250.00"
+        },
+        {
+          "description": "Proximity Sensor Inductive M18 PNP",
+          "hsn": "85365090",
+          "uom": "Nos",
+          "qty": "10",
+          "unit_price": "1295.00",
+          "amount": "12950.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "HOLD",
+      "reason": "CURRENCY_NOT_SUPPORTED"
+    },
+    "sha256": "45d037e03182fbab5e5ec71bb243ac394817705b24ef9383fc0441404796eada"
+  },
+  {
+    "id": "busy_01",
+    "file": "documents/busy_01.pdf",
+    "family": "busy",
+    "tool": "wkhtmltopdf",
+    "font": "DejaVu Sans",
+    "split": "holdout",
+    "kind": "text",
+    "quirks": [
+      "quantities to three decimals",
+      "'Add : IGST @ 18.00 %'",
+      "order number and its date in one cell",
+      "tax summary under the items"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R07",
+      "legal_name": "Vaigai Cables Pvt Ltd",
+      "gstin": "33AAHCV5527N1ZW",
+      "state_code": "33",
+      "bank_name": "Thamirabarani Bank",
+      "bank_account": "330120076418",
+      "ifsc": "TBBL0003301",
+      "phone": "0452-555-0134",
+      "email": "finance@vaigaicables.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0521",
+      "po_date": "2026-10-22",
+      "lines": [
+        {
+          "description": "PVC Insulated Copper Cable 4 sq mm x 90 m",
+          "hsn": "85444999",
+          "uom": "Coil",
+          "qty": "8",
+          "unit_price": "6840.00"
+        },
+        {
+          "description": "MCB 32A Triple Pole C Curve",
+          "hsn": "85362030",
+          "uom": "Nos",
+          "qty": "20",
+          "unit_price": "742.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "VC/2026-27/1021",
+      "invoice_date": "2026-11-12",
+      "po_reference": "PO-2026-0521",
+      "vendor_gstin": "33AAHCV5527N1ZW",
+      "bank_account": "330120076418",
+      "taxable": "69560.00",
+      "total": "82080.80",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "PVC Insulated Copper Cable 4 sq mm x 90 m",
+          "hsn": "85444999",
+          "uom": "Coil",
+          "qty": "8",
+          "unit_price": "6840.00",
+          "amount": "54720.00"
+        },
+        {
+          "description": "MCB 32A Triple Pole C Curve",
+          "hsn": "85362030",
+          "uom": "Nos",
+          "qty": "20",
+          "unit_price": "742.00",
+          "amount": "14840.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "5bd82dd4e9e50ef3f1bd63c3250da92fddecde5d921dcb73f1c0c3b9d31c8c70"
+  },
+  {
+    "id": "busy_02",
+    "file": "documents/busy_02.pdf",
+    "family": "busy",
+    "tool": "wkhtmltopdf",
+    "font": "DejaVu Sans",
+    "split": "holdout",
+    "kind": "text",
+    "quirks": [
+      "CGST and SGST at 2.50 % added below the total",
+      "rounded off"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R10",
+      "legal_name": "Hemavathi Stationers",
+      "gstin": "29ACQFH1173R1ZE",
+      "state_code": "29",
+      "bank_name": "Tunga Valley Bank",
+      "bank_account": "501200061145",
+      "ifsc": "TVBL0005012",
+      "phone": "080-5550-0107",
+      "email": "hemavathi@stationers.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0522",
+      "po_date": "2026-10-20",
+      "lines": [
+        {
+          "description": "Corrugated Box 5 Ply 450x300x300 mm",
+          "hsn": "48191010",
+          "uom": "Nos",
+          "qty": "900",
+          "unit_price": "62.75"
+        },
+        {
+          "description": "A4 Copier Paper 75 GSM (Ream of 500)",
+          "hsn": "48025690",
+          "uom": "Ream",
+          "qty": "12",
+          "unit_price": "268.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "HS/26-27/0588",
+      "invoice_date": "2026-11-10",
+      "po_reference": "PO-2026-0522",
+      "vendor_gstin": "29ACQFH1173R1ZE",
+      "bank_account": "501200061145",
+      "taxable": "59691.00",
+      "total": "62676.00",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Corrugated Box 5 Ply 450x300x300 mm",
+          "hsn": "48191010",
+          "uom": "Nos",
+          "qty": "900",
+          "unit_price": "62.75",
+          "amount": "56475.00"
+        },
+        {
+          "description": "A4 Copier Paper 75 GSM (Ream of 500)",
+          "hsn": "48025690",
+          "uom": "Ream",
+          "qty": "12",
+          "unit_price": "268.00",
+          "amount": "3216.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "bdf826fd88bbe53a1f2361a7adcdf084f6659eb4e1402e3a594689a2f4506dd6"
+  },
+  {
+    "id": "busy_hindi",
+    "file": "documents/busy_hindi.pdf",
+    "family": "busy",
+    "tool": "wkhtmltopdf",
+    "font": "DejaVu Sans",
+    "split": "holdout",
+    "kind": "text",
+    "quirks": [
+      "Hindi invocation line on top",
+      "labels in Hindi and English"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R02",
+      "legal_name": "Shivalik Switchgear Industries",
+      "gstin": "07ABMFS2291P1ZE",
+      "state_code": "07",
+      "bank_name": "Yamuna Mercantile Bank",
+      "bank_account": "730011902284",
+      "ifsc": "YMBL0007300",
+      "phone": "011-5550-0143",
+      "email": "billing@shivalikswitchgear.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0539",
+      "po_date": "2026-10-24",
+      "lines": [
+        {
+          "description": "MCB 32A Triple Pole C Curve",
+          "hsn": "85362030",
+          "uom": "Nos",
+          "qty": "18",
+          "unit_price": "742.00"
+        },
+        {
+          "description": "Contactor 3 Pole 40A 415V Coil",
+          "hsn": "85364900",
+          "uom": "Nos",
+          "qty": "3",
+          "unit_price": "2315.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "SSI/2026/0471",
+      "invoice_date": "2026-11-14",
+      "po_reference": "PO-2026-0539",
+      "vendor_gstin": "07ABMFS2291P1ZE",
+      "bank_account": "730011902284",
+      "taxable": "20301.00",
+      "total": "23955.18",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "MCB 32A Triple Pole C Curve",
+          "hsn": "85362030",
+          "uom": "Nos",
+          "qty": "18",
+          "unit_price": "742.00",
+          "amount": "13356.00"
+        },
+        {
+          "description": "Contactor 3 Pole 40A 415V Coil",
+          "hsn": "85364900",
+          "uom": "Nos",
+          "qty": "3",
+          "unit_price": "2315.00",
+          "amount": "6945.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "7dd346ce2943767e52ab57f4b581d89d1e84484fb9376f8aa733c4e4c18fa4da"
+  },
+  {
+    "id": "busy_03",
+    "file": "documents/busy_03.pdf",
+    "family": "busy",
+    "tool": "wkhtmltopdf",
+    "font": "Liberation Mono",
+    "split": "holdout",
+    "kind": "text",
+    "quirks": [
+      "monospaced type",
+      "no PO quoted"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R04",
+      "legal_name": "Narmada Fasteners Pvt Ltd",
+      "gstin": "24AAGCN6032H1ZN",
+      "state_code": "24",
+      "bank_name": "Vishwamitri Urban Bank",
+      "bank_account": "240700915562",
+      "ifsc": "VUBL0002407",
+      "phone": "0265-555-0188",
+      "email": "sales@narmadafasteners.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0523",
+      "po_date": "2026-10-10",
+      "lines": [
+        {
+          "description": "Hex Bolt M16 x 75 Grade 8.8",
+          "hsn": "73181500",
+          "uom": "Nos",
+          "qty": "2000",
+          "unit_price": "34.60"
+        },
+        {
+          "description": "Spring Washer M16",
+          "hsn": "73182100",
+          "uom": "Nos",
+          "qty": "2000",
+          "unit_price": "3.25"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "NF/26-27/3340",
+      "invoice_date": "2026-11-15",
+      "po_reference": null,
+      "vendor_gstin": "24AAGCN6032H1ZN",
+      "bank_account": "240700915562",
+      "taxable": "75700.00",
+      "total": "89326.00",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Hex Bolt M16 x 75 Grade 8.8",
+          "hsn": "73181500",
+          "uom": "Nos",
+          "qty": "2000",
+          "unit_price": "34.60",
+          "amount": "69200.00"
+        },
+        {
+          "description": "Spring Washer M16",
+          "hsn": "73182100",
+          "uom": "Nos",
+          "qty": "2000",
+          "unit_price": "3.25",
+          "amount": "6500.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "HOLD",
+      "reason": "PO_INFERRED"
+    },
+    "sha256": "a2fe00f841b57e1324fffaebae3c4a2f677bf6a5845d9bfe4c08fa8b7dd51498"
+  },
+  {
+    "id": "busy_04",
+    "file": "documents/busy_04.pdf",
+    "family": "busy",
+    "tool": "wkhtmltopdf",
+    "font": "DejaVu Sans",
+    "split": "holdout",
+    "kind": "text",
+    "quirks": [
+      "one digit of the vendor GSTIN is typed wrong"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R07",
+      "legal_name": "Vaigai Cables Pvt Ltd",
+      "gstin": "33AAHCV5527N1ZW",
+      "state_code": "33",
+      "bank_name": "Thamirabarani Bank",
+      "bank_account": "330120076418",
+      "ifsc": "TBBL0003301",
+      "phone": "0452-555-0134",
+      "email": "finance@vaigaicables.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0530",
+      "po_date": "2026-10-11",
+      "lines": [
+        {
+          "description": "PVC Insulated Copper Cable 4 sq mm x 90 m",
+          "hsn": "85444999",
+          "uom": "Coil",
+          "qty": "4",
+          "unit_price": "6840.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "VC/2026-27/1034",
+      "invoice_date": "2026-11-16",
+      "po_reference": "PO-2026-0530",
+      "vendor_gstin": "33AAHCV6527N1ZW",
+      "bank_account": "330120076418",
+      "taxable": "27360.00",
+      "total": "32284.80",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "PVC Insulated Copper Cable 4 sq mm x 90 m",
+          "hsn": "85444999",
+          "uom": "Coil",
+          "qty": "4",
+          "unit_price": "6840.00",
+          "amount": "27360.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "HOLD",
+      "reason": "GSTIN_INVALID"
+    },
+    "sha256": "81ce3a848efe6866b5a9846697a84e7914dadf8791a34ccf660a5c3ddfbef103"
+  },
+  {
+    "id": "word_01",
+    "file": "documents/word_01.pdf",
+    "family": "word",
+    "tool": "libreoffice writer",
+    "font": "Caladea",
+    "split": "holdout",
+    "kind": "text",
+    "quirks": [
+      "header facts inside sentences",
+      "ordinal dates ('11th November 2026')",
+      "'Rs.' before every amount",
+      "quantity and unit in one cell",
+      "US Letter page"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R06",
+      "legal_name": "Teesta Print & Pack",
+      "gstin": "19AAYFT3358D1ZL",
+      "state_code": "19",
+      "bank_name": "Hooghly Peoples Bank",
+      "bank_account": "190045118203",
+      "ifsc": "HPBL0001900",
+      "phone": "033-5550-0171",
+      "email": "office@teestaprintpack.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0524",
+      "po_date": "2026-10-21",
+      "lines": [
+        {
+          "description": "Corrugated Box 5 Ply 450x300x300 mm",
+          "hsn": "48191010",
+          "uom": "Nos",
+          "qty": "1800",
+          "unit_price": "62.75"
+        },
+        {
+          "description": "Thermal Transfer Ribbon 110 mm x 300 m",
+          "hsn": "96121010",
+          "uom": "Roll",
+          "qty": "40",
+          "unit_price": "418.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "TPP/2026-27/214",
+      "invoice_date": "2026-11-11",
+      "po_reference": "PO-2026-0524",
+      "vendor_gstin": "19AAYFT3358D1ZL",
+      "bank_account": "190045118203",
+      "taxable": "129670.00",
+      "total": "153010.60",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Corrugated Box 5 Ply 450x300x300 mm",
+          "hsn": "48191010",
+          "uom": "Nos",
+          "qty": "1800",
+          "unit_price": "62.75",
+          "amount": "112950.00"
+        },
+        {
+          "description": "Thermal Transfer Ribbon 110 mm x 300 m",
+          "hsn": "96121010",
+          "uom": "Roll",
+          "qty": "40",
+          "unit_price": "418.00",
+          "amount": "16720.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "f2665dddf6750e01cae70297f09cbcb6fafabb3b33d195cd1d6f5ec780aec1fa"
+  },
+  {
+    "id": "word_02",
+    "file": "documents/word_02.pdf",
+    "family": "word",
+    "tool": "libreoffice writer",
+    "font": "Liberation Serif",
+    "split": "holdout",
+    "kind": "text",
+    "quirks": [
+      "CGST and SGST as right-aligned sentences",
+      "ordinal dates",
+      "US Letter page"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R08",
+      "legal_name": "Sharavathi Lubricants & Chemicals",
+      "gstin": "29ABEFS8804Q1ZB",
+      "state_code": "29",
+      "bank_name": "Tunga Valley Bank",
+      "bank_account": "501200059902",
+      "ifsc": "TVBL0005012",
+      "phone": "080-5550-0194",
+      "email": "billing@sharavathilubes.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0525",
+      "po_date": "2026-10-19",
+      "lines": [
+        {
+          "description": "Lithium Grease EP2, 18 kg Pail",
+          "hsn": "27101990",
+          "uom": "Pail",
+          "qty": "6",
+          "unit_price": "4980.00"
+        },
+        {
+          "description": "Hydraulic Oil ISO VG 68, 210 L Barrel",
+          "hsn": "27101980",
+          "uom": "Barrel",
+          "qty": "1",
+          "unit_price": "38750.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "SLC/1111/26-27",
+      "invoice_date": "2026-11-09",
+      "po_reference": "PO-2026-0525",
+      "vendor_gstin": "29ABEFS8804Q1ZB",
+      "bank_account": "501200059902",
+      "taxable": "68630.00",
+      "total": "80983.40",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Lithium Grease EP2, 18 kg Pail",
+          "hsn": "27101990",
+          "uom": "Pail",
+          "qty": "6",
+          "unit_price": "4980.00",
+          "amount": "29880.00"
+        },
+        {
+          "description": "Hydraulic Oil ISO VG 68, 210 L Barrel",
+          "hsn": "27101980",
+          "uom": "Barrel",
+          "qty": "1",
+          "unit_price": "38750.00",
+          "amount": "38750.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "0d99a5f7f2bd48a15985cb9e2fad8f2045ac049e98f1a03f167674367c2364aa"
+  },
+  {
+    "id": "word_03",
+    "file": "documents/word_03.pdf",
+    "family": "word",
+    "tool": "libreoffice writer",
+    "font": "Caladea",
+    "split": "holdout",
+    "kind": "text",
+    "quirks": [
+      "invoice total typed wrong by 900"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R06",
+      "legal_name": "Teesta Print & Pack",
+      "gstin": "19AAYFT3358D1ZL",
+      "state_code": "19",
+      "bank_name": "Hooghly Peoples Bank",
+      "bank_account": "190045118203",
+      "ifsc": "HPBL0001900",
+      "phone": "033-5550-0171",
+      "email": "office@teestaprintpack.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0537",
+      "po_date": "2026-10-12",
+      "lines": [
+        {
+          "description": "Corrugated Box 5 Ply 450x300x300 mm",
+          "hsn": "48191010",
+          "uom": "Nos",
+          "qty": "600",
+          "unit_price": "62.75"
+        },
+        {
+          "description": "Thermal Transfer Ribbon 110 mm x 300 m",
+          "hsn": "96121010",
+          "uom": "Roll",
+          "qty": "10",
+          "unit_price": "418.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "TPP/2026-27/222",
+      "invoice_date": "2026-11-17",
+      "po_reference": "PO-2026-0537",
+      "vendor_gstin": "19AAYFT3358D1ZL",
+      "bank_account": "190045118203",
+      "taxable": "41830.00",
+      "total": "50259.40",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Corrugated Box 5 Ply 450x300x300 mm",
+          "hsn": "48191010",
+          "uom": "Nos",
+          "qty": "600",
+          "unit_price": "62.75",
+          "amount": "37650.00"
+        },
+        {
+          "description": "Thermal Transfer Ribbon 110 mm x 300 m",
+          "hsn": "96121010",
+          "uom": "Roll",
+          "qty": "10",
+          "unit_price": "418.00",
+          "amount": "4180.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "HOLD",
+      "reason": "ARITHMETIC_MISMATCH"
+    },
+    "sha256": "f8b3c81baa73e6dd69cd89efe3c1182a9cf52b651ab2da4b6bf1269383e3766b"
+  },
+  {
+    "id": "latex_01",
+    "file": "documents/latex_01.pdf",
+    "family": "latex",
+    "tool": "pdflatex",
+    "font": "Computer Modern",
+    "split": "holdout",
+    "kind": "text",
+    "quirks": [
+      "ligatures in the text layer",
+      "ruled table without vertical lines",
+      "'Total due (INR)'",
+      "services with SAC codes"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R09",
+      "legal_name": "Indrayani Process Consultants LLP",
+      "gstin": "27AAOFI2206B1ZS",
+      "state_code": "27",
+      "bank_name": "Mula Mutha Bank",
+      "bank_account": "270300418876",
+      "ifsc": "MMBL0002703",
+      "phone": "020-5550-0158",
+      "email": "accounts@indrayaniconsult.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0526",
+      "po_date": "2026-10-23",
+      "lines": [
+        {
+          "description": "Process audit of CNC cell, on-site days",
+          "hsn": "998311",
+          "uom": "Days",
+          "qty": "4",
+          "unit_price": "18500.00"
+        },
+        {
+          "description": "Preparation of control plan and PFMEA documentation",
+          "hsn": "998311",
+          "uom": "Lot",
+          "qty": "1",
+          "unit_price": "42000.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "IPC-2026-041",
+      "invoice_date": "2026-11-13",
+      "po_reference": "PO-2026-0526",
+      "vendor_gstin": "27AAOFI2206B1ZS",
+      "bank_account": "270300418876",
+      "taxable": "116000.00",
+      "total": "136880.00",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Process audit of CNC cell, on-site days",
+          "hsn": "998311",
+          "uom": "Days",
+          "qty": "4",
+          "unit_price": "18500.00",
+          "amount": "74000.00"
+        },
+        {
+          "description": "Preparation of control plan and PFMEA documentation",
+          "hsn": "998311",
+          "uom": "Lot",
+          "qty": "1",
+          "unit_price": "42000.00",
+          "amount": "42000.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "a0c0f93de9dc3d3f92e51f930e587d8ebfde12757f6b74664923c072d13faff8"
+  },
+  {
+    "id": "latex_02",
+    "file": "documents/latex_02.pdf",
+    "family": "latex",
+    "tool": "pdflatex",
+    "font": "Computer Modern",
+    "split": "holdout",
+    "kind": "text",
+    "quirks": [
+      "ligatures",
+      "three-word invoice label ('Invoice number:')"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R09",
+      "legal_name": "Indrayani Process Consultants LLP",
+      "gstin": "27AAOFI2206B1ZS",
+      "state_code": "27",
+      "bank_name": "Mula Mutha Bank",
+      "bank_account": "270300418876",
+      "ifsc": "MMBL0002703",
+      "phone": "020-5550-0158",
+      "email": "accounts@indrayaniconsult.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0527",
+      "po_date": "2026-10-12",
+      "lines": [
+        {
+          "description": "Process audit of CNC cell, on-site days",
+          "hsn": "998311",
+          "uom": "Days",
+          "qty": "2",
+          "unit_price": "18500.00"
+        },
+        {
+          "description": "Operator training workshop, half day",
+          "hsn": "999293",
+          "uom": "Session",
+          "qty": "3",
+          "unit_price": "9500.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "IPC-2026-044",
+      "invoice_date": "2026-11-17",
+      "po_reference": "PO-2026-0527",
+      "vendor_gstin": "27AAOFI2206B1ZS",
+      "bank_account": "270300418876",
+      "taxable": "65500.00",
+      "total": "77290.00",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Process audit of CNC cell, on-site days",
+          "hsn": "998311",
+          "uom": "Days",
+          "qty": "2",
+          "unit_price": "18500.00",
+          "amount": "37000.00"
+        },
+        {
+          "description": "Operator training workshop, half day",
+          "hsn": "999293",
+          "uom": "Session",
+          "qty": "3",
+          "unit_price": "9500.00",
+          "amount": "28500.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "df937cb8a1555015bf9d0adb7e3fdccb502940d5338713d720784e8b5ae1a549"
+  },
+  {
+    "id": "latex_03",
+    "file": "documents/latex_03.pdf",
+    "family": "latex",
+    "tool": "pdflatex",
+    "font": "Computer Modern",
+    "split": "holdout",
+    "kind": "text",
+    "quirks": [
+      "bank account is not the one in the vendor master"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R09",
+      "legal_name": "Indrayani Process Consultants LLP",
+      "gstin": "27AAOFI2206B1ZS",
+      "state_code": "27",
+      "bank_name": "Mula Mutha Bank",
+      "bank_account": "270300418876",
+      "ifsc": "MMBL0002703",
+      "phone": "020-5550-0158",
+      "email": "accounts@indrayaniconsult.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0538",
+      "po_date": "2026-10-13",
+      "lines": [
+        {
+          "description": "Operator training workshop, half day",
+          "hsn": "999293",
+          "uom": "Session",
+          "qty": "2",
+          "unit_price": "9500.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "IPC-2026-049",
+      "invoice_date": "2026-11-18",
+      "po_reference": "PO-2026-0538",
+      "vendor_gstin": "27AAOFI2206B1ZS",
+      "bank_account": "270300990012",
+      "taxable": "19000.00",
+      "total": "22420.00",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Operator training workshop, half day",
+          "hsn": "999293",
+          "uom": "Session",
+          "qty": "2",
+          "unit_price": "9500.00",
+          "amount": "19000.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "HOLD",
+      "reason": "BANK_DETAILS_CHANGED"
+    },
+    "sha256": "978305474b68ea6ffdc5ec5f3dfa571b8c5f880517c7fd8767862883b1bdf496"
+  },
+  {
+    "id": "long_01",
+    "file": "documents/long_01.pdf",
+    "family": "tally",
+    "tool": "chrome",
+    "font": "Liberation Sans",
+    "split": "holdout",
+    "kind": "text",
+    "quirks": [
+      "28 lines over two pages",
+      "table header repeated on each page",
+      "the same item on several lines"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R04",
+      "legal_name": "Narmada Fasteners Pvt Ltd",
+      "gstin": "24AAGCN6032H1ZN",
+      "state_code": "24",
+      "bank_name": "Vishwamitri Urban Bank",
+      "bank_account": "240700915562",
+      "ifsc": "VUBL0002407",
+      "phone": "0265-555-0188",
+      "email": "sales@narmadafasteners.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0528",
+      "po_date": "2026-10-11",
+      "lines": [
+        {
+          "description": "Deep Groove Ball Bearing 6205 2RS",
+          "hsn": "84821011",
+          "uom": "Nos",
+          "qty": "15",
+          "unit_price": "385.00"
+        },
+        {
+          "description": "Timing Belt HTD 1120-8M-30",
+          "hsn": "40103999",
+          "uom": "Nos",
+          "qty": "18",
+          "unit_price": "1875.00"
+        },
+        {
+          "description": "Spring Washer M16",
+          "hsn": "73182100",
+          "uom": "Nos",
+          "qty": "12",
+          "unit_price": "3.25"
+        },
+        {
+          "description": "Proximity Sensor Inductive M18 PNP",
+          "hsn": "85365090",
+          "uom": "Nos",
+          "qty": "8",
+          "unit_price": "1295.00"
+        },
+        {
+          "description": "Solenoid Valve 5/2 Way 1/4 inch",
+          "hsn": "84812000",
+          "uom": "Nos",
+          "qty": "13",
+          "unit_price": "1680.00"
+        },
+        {
+          "description": "V-Belt B-52 Wrapped",
+          "hsn": "40103110",
+          "uom": "Nos",
+          "qty": "9",
+          "unit_price": "212.50"
+        },
+        {
+          "description": "Contactor 3 Pole 40A 415V Coil",
+          "hsn": "85364900",
+          "uom": "Nos",
+          "qty": "14",
+          "unit_price": "2315.00"
+        },
+        {
+          "description": "Hex Bolt M16 x 75 Grade 8.8",
+          "hsn": "73181500",
+          "uom": "Nos",
+          "qty": "10",
+          "unit_price": "34.60"
+        },
+        {
+          "description": "Thermal Transfer Ribbon 110 mm x 300 m",
+          "hsn": "96121010",
+          "uom": "Roll",
+          "qty": "11",
+          "unit_price": "418.00"
+        },
+        {
+          "description": "Taper Roller Bearing 32208",
+          "hsn": "84822011",
+          "uom": "Nos",
+          "qty": "7",
+          "unit_price": "1460.00"
+        },
+        {
+          "description": "MCB 32A Triple Pole C Curve",
+          "hsn": "85362030",
+          "uom": "Nos",
+          "qty": "12",
+          "unit_price": "742.00"
+        },
+        {
+          "description": "HDPE Granules Blow Grade",
+          "hsn": "39012000",
+          "uom": "Kg",
+          "qty": "8",
+          "unit_price": "118.40"
+        },
+        {
+          "description": "Corrugated Box 5 Ply 450x300x300 mm",
+          "hsn": "48191010",
+          "uom": "Nos",
+          "qty": "9",
+          "unit_price": "62.75"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "NF/26-27/3352",
+      "invoice_date": "2026-11-16",
+      "po_reference": "PO-2026-0528",
+      "vendor_gstin": "24AAGCN6032H1ZN",
+      "bank_account": "240700915562",
+      "taxable": "131666.45",
+      "total": "155366.41",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Deep Groove Ball Bearing 6205 2RS",
+          "hsn": "84821011",
+          "uom": "Nos",
+          "qty": "1",
+          "unit_price": "385.00",
+          "amount": "385.00"
+        },
+        {
+          "description": "Timing Belt HTD 1120-8M-30",
+          "hsn": "40103999",
+          "uom": "Nos",
+          "qty": "8",
+          "unit_price": "1875.00",
+          "amount": "15000.00"
+        },
+        {
+          "description": "Spring Washer M16",
+          "hsn": "73182100",
+          "uom": "Nos",
+          "qty": "4",
+          "unit_price": "3.25",
+          "amount": "13.00"
+        },
+        {
+          "description": "Proximity Sensor Inductive M18 PNP",
+          "hsn": "85365090",
+          "uom": "Nos",
+          "qty": "2",
+          "unit_price": "1295.00",
+          "amount": "2590.00"
+        },
+        {
+          "description": "Solenoid Valve 5/2 Way 1/4 inch",
+          "hsn": "84812000",
+          "uom": "Nos",
+          "qty": "9",
+          "unit_price": "1680.00",
+          "amount": "15120.00"
+        },
+        {
+          "description": "V-Belt B-52 Wrapped",
+          "hsn": "40103110",
+          "uom": "Nos",
+          "qty": "7",
+          "unit_price": "212.50",
+          "amount": "1487.50"
+        },
+        {
+          "description": "Contactor 3 Pole 40A 415V Coil",
+          "hsn": "85364900",
+          "uom": "Nos",
+          "qty": "5",
+          "unit_price": "2315.00",
+          "amount": "11575.00"
+        },
+        {
+          "description": "Hex Bolt M16 x 75 Grade 8.8",
+          "hsn": "73181500",
+          "uom": "Nos",
+          "qty": "3",
+          "unit_price": "34.60",
+          "amount": "103.80"
+        },
+        {
+          "description": "Thermal Transfer Ribbon 110 mm x 300 m",
+          "hsn": "96121010",
+          "uom": "Roll",
+          "qty": "8",
+          "unit_price": "418.00",
+          "amount": "3344.00"
+        },
+        {
+          "description": "Taper Roller Bearing 32208",
+          "hsn": "84822011",
+          "uom": "Nos",
+          "qty": "6",
+          "unit_price": "1460.00",
+          "amount": "8760.00"
+        },
+        {
+          "description": "MCB 32A Triple Pole C Curve",
+          "hsn": "85362030",
+          "uom": "Nos",
+          "qty": "4",
+          "unit_price": "742.00",
+          "amount": "2968.00"
+        },
+        {
+          "description": "HDPE Granules Blow Grade",
+          "hsn": "39012000",
+          "uom": "Kg",
+          "qty": "2",
+          "unit_price": "118.40",
+          "amount": "236.80"
+        },
+        {
+          "description": "Corrugated Box 5 Ply 450x300x300 mm",
+          "hsn": "48191010",
+          "uom": "Nos",
+          "qty": "7",
+          "unit_price": "62.75",
+          "amount": "439.25"
+        },
+        {
+          "description": "Deep Groove Ball Bearing 6205 2RS",
+          "hsn": "84821011",
+          "uom": "Nos",
+          "qty": "5",
+          "unit_price": "385.00",
+          "amount": "1925.00"
+        },
+        {
+          "description": "Timing Belt HTD 1120-8M-30",
+          "hsn": "40103999",
+          "uom": "Nos",
+          "qty": "3",
+          "unit_price": "1875.00",
+          "amount": "5625.00"
+        },
+        {
+          "description": "Spring Washer M16",
+          "hsn": "73182100",
+          "uom": "Nos",
+          "qty": "8",
+          "unit_price": "3.25",
+          "amount": "26.00"
+        },
+        {
+          "description": "Proximity Sensor Inductive M18 PNP",
+          "hsn": "85365090",
+          "uom": "Nos",
+          "qty": "6",
+          "unit_price": "1295.00",
+          "amount": "7770.00"
+        },
+        {
+          "description": "Solenoid Valve 5/2 Way 1/4 inch",
+          "hsn": "84812000",
+          "uom": "Nos",
+          "qty": "4",
+          "unit_price": "1680.00",
+          "amount": "6720.00"
+        },
+        {
+          "description": "V-Belt B-52 Wrapped",
+          "hsn": "40103110",
+          "uom": "Nos",
+          "qty": "2",
+          "unit_price": "212.50",
+          "amount": "425.00"
+        },
+        {
+          "description": "Contactor 3 Pole 40A 415V Coil",
+          "hsn": "85364900",
+          "uom": "Nos",
+          "qty": "9",
+          "unit_price": "2315.00",
+          "amount": "20835.00"
+        },
+        {
+          "description": "Hex Bolt M16 x 75 Grade 8.8",
+          "hsn": "73181500",
+          "uom": "Nos",
+          "qty": "7",
+          "unit_price": "34.60",
+          "amount": "242.20"
+        },
+        {
+          "description": "Thermal Transfer Ribbon 110 mm x 300 m",
+          "hsn": "96121010",
+          "uom": "Roll",
+          "qty": "3",
+          "unit_price": "418.00",
+          "amount": "1254.00"
+        },
+        {
+          "description": "Taper Roller Bearing 32208",
+          "hsn": "84822011",
+          "uom": "Nos",
+          "qty": "1",
+          "unit_price": "1460.00",
+          "amount": "1460.00"
+        },
+        {
+          "description": "MCB 32A Triple Pole C Curve",
+          "hsn": "85362030",
+          "uom": "Nos",
+          "qty": "8",
+          "unit_price": "742.00",
+          "amount": "5936.00"
+        },
+        {
+          "description": "HDPE Granules Blow Grade",
+          "hsn": "39012000",
+          "uom": "Kg",
+          "qty": "6",
+          "unit_price": "118.40",
+          "amount": "710.40"
+        },
+        {
+          "description": "Corrugated Box 5 Ply 450x300x300 mm",
+          "hsn": "48191010",
+          "uom": "Nos",
+          "qty": "2",
+          "unit_price": "62.75",
+          "amount": "125.50"
+        },
+        {
+          "description": "Deep Groove Ball Bearing 6205 2RS",
+          "hsn": "84821011",
+          "uom": "Nos",
+          "qty": "9",
+          "unit_price": "385.00",
+          "amount": "3465.00"
+        },
+        {
+          "description": "Timing Belt HTD 1120-8M-30",
+          "hsn": "40103999",
+          "uom": "Nos",
+          "qty": "7",
+          "unit_price": "1875.00",
+          "amount": "13125.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "063bfcba7cab95e610a1bf55181652093fbd74ee1ef2ced692977cec24ab9353"
+  },
+  {
+    "id": "photo_tally_01",
+    "file": "documents/photo_tally_01.pdf",
+    "family": "tally",
+    "tool": "chrome, then photographed",
+    "font": "Liberation Sans",
+    "split": "tune",
+    "kind": "scan",
+    "quirks": [
+      "phone photo",
+      "mild perspective"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R01",
+      "legal_name": "Kaveri Bearings & Transmission Pvt Ltd",
+      "gstin": "29AAFCK4410J1ZI",
+      "state_code": "29",
+      "bank_name": "Tunga Valley Bank",
+      "bank_account": "501200047731",
+      "ifsc": "TVBL0005012",
+      "phone": "080-5550-0161",
+      "email": "accounts@kaveribearings.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0531",
+      "po_date": "2026-10-23",
+      "lines": [
+        {
+          "description": "Deep Groove Ball Bearing 6205 2RS",
+          "hsn": "84821011",
+          "uom": "Nos",
+          "qty": "25",
+          "unit_price": "385.00"
+        },
+        {
+          "description": "V-Belt B-52 Wrapped",
+          "hsn": "40103110",
+          "uom": "Nos",
+          "qty": "40",
+          "unit_price": "212.50"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "KBT/26-27/1190",
+      "invoice_date": "2026-11-13",
+      "po_reference": "PO-2026-0531",
+      "vendor_gstin": "29AAFCK4410J1ZI",
+      "bank_account": "501200047731",
+      "taxable": "18125.00",
+      "total": "21387.50",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Deep Groove Ball Bearing 6205 2RS",
+          "hsn": "84821011",
+          "uom": "Nos",
+          "qty": "25",
+          "unit_price": "385.00",
+          "amount": "9625.00"
+        },
+        {
+          "description": "V-Belt B-52 Wrapped",
+          "hsn": "40103110",
+          "uom": "Nos",
+          "qty": "40",
+          "unit_price": "212.50",
+          "amount": "8500.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "4b0d52061e282bc2f11cdd92d0bf61538c4c40cf9252743bdc0cf986a959496f"
+  },
+  {
+    "id": "photo_tally_02",
+    "file": "documents/photo_tally_02.pdf",
+    "family": "tally",
+    "tool": "chrome, then photographed",
+    "font": "Liberation Sans",
+    "split": "tune",
+    "kind": "scan",
+    "quirks": [
+      "phone photo",
+      "stronger tilt and shadow"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R02",
+      "legal_name": "Shivalik Switchgear Industries",
+      "gstin": "07ABMFS2291P1ZE",
+      "state_code": "07",
+      "bank_name": "Yamuna Mercantile Bank",
+      "bank_account": "730011902284",
+      "ifsc": "YMBL0007300",
+      "phone": "011-5550-0143",
+      "email": "billing@shivalikswitchgear.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0532",
+      "po_date": "2026-10-21",
+      "lines": [
+        {
+          "description": "MCB 32A Triple Pole C Curve",
+          "hsn": "85362030",
+          "uom": "Nos",
+          "qty": "12",
+          "unit_price": "742.00"
+        },
+        {
+          "description": "Contactor 3 Pole 40A 415V Coil",
+          "hsn": "85364900",
+          "uom": "Nos",
+          "qty": "5",
+          "unit_price": "2315.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "SSI/2026/0463",
+      "invoice_date": "2026-11-11",
+      "po_reference": "PO-2026-0532",
+      "vendor_gstin": "07ABMFS2291P1ZE",
+      "bank_account": "730011902284",
+      "taxable": "20479.00",
+      "total": "24165.22",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "MCB 32A Triple Pole C Curve",
+          "hsn": "85362030",
+          "uom": "Nos",
+          "qty": "12",
+          "unit_price": "742.00",
+          "amount": "8904.00"
+        },
+        {
+          "description": "Contactor 3 Pole 40A 415V Coil",
+          "hsn": "85364900",
+          "uom": "Nos",
+          "qty": "5",
+          "unit_price": "2315.00",
+          "amount": "11575.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "d1366efd04a6ee6f752919de0d6edfd55d0e30aafbbf8a8ece74ff6268771efe"
+  },
+  {
+    "id": "photo_zoho_01",
+    "file": "documents/photo_zoho_01.pdf",
+    "family": "zoho",
+    "tool": "chrome, then photographed",
+    "font": "Inter",
+    "split": "tune",
+    "kind": "scan",
+    "quirks": [
+      "phone photo",
+      "dark table header"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R03",
+      "legal_name": "Godavari Polymers LLP",
+      "gstin": "36AARFG7715C1ZA",
+      "state_code": "36",
+      "bank_name": "Musi Co-operative Bank",
+      "bank_account": "118800236640",
+      "ifsc": "MCBL0001188",
+      "phone": "040-5550-0112",
+      "email": "ar@godavaripolymers.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0533",
+      "po_date": "2026-10-22",
+      "lines": [
+        {
+          "description": "HDPE Granules Blow Grade",
+          "hsn": "39012000",
+          "uom": "Kg",
+          "qty": "600",
+          "unit_price": "118.40"
+        },
+        {
+          "description": "Corrugated Box 5 Ply 450x300x300 mm",
+          "hsn": "48191010",
+          "uom": "Nos",
+          "qty": "250",
+          "unit_price": "62.75"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "INV-000489",
+      "invoice_date": "2026-11-12",
+      "po_reference": "PO-2026-0533",
+      "vendor_gstin": "36AARFG7715C1ZA",
+      "bank_account": "118800236640",
+      "taxable": "86727.50",
+      "total": "102338.45",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "HDPE Granules Blow Grade",
+          "hsn": "39012000",
+          "uom": "Kg",
+          "qty": "600",
+          "unit_price": "118.40",
+          "amount": "71040.00"
+        },
+        {
+          "description": "Corrugated Box 5 Ply 450x300x300 mm",
+          "hsn": "48191010",
+          "uom": "Nos",
+          "qty": "250",
+          "unit_price": "62.75",
+          "amount": "15687.50"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "942a8b9ed847a75d3a7cf8680eb1efca244302af52845db2fab3b0cf9ae6b147"
+  },
+  {
+    "id": "photo_excel_01",
+    "file": "documents/photo_excel_01.pdf",
+    "family": "excel",
+    "tool": "libreoffice calc, then photographed",
+    "font": "Carlito",
+    "split": "tune",
+    "kind": "scan",
+    "quirks": [
+      "phone photo of a spreadsheet print"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R10",
+      "legal_name": "Hemavathi Stationers",
+      "gstin": "29ACQFH1173R1ZE",
+      "state_code": "29",
+      "bank_name": "Tunga Valley Bank",
+      "bank_account": "501200061145",
+      "ifsc": "TVBL0005012",
+      "phone": "080-5550-0107",
+      "email": "hemavathi@stationers.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0534",
+      "po_date": "2026-10-24",
+      "lines": [
+        {
+          "description": "A4 Copier Paper 75 GSM (Ream of 500)",
+          "hsn": "48025690",
+          "uom": "Ream",
+          "qty": "30",
+          "unit_price": "268.00"
+        },
+        {
+          "description": "Whiteboard Marker (Box of 10)",
+          "hsn": "96082000",
+          "uom": "Box",
+          "qty": "15",
+          "unit_price": "185.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "HS/569",
+      "invoice_date": "2026-11-14",
+      "po_reference": "PO-2026-0534",
+      "vendor_gstin": "29ACQFH1173R1ZE",
+      "bank_account": "501200061145",
+      "taxable": "10815.00",
+      "total": "12761.70",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "A4 Copier Paper 75 GSM (Ream of 500)",
+          "hsn": "48025690",
+          "uom": "Ream",
+          "qty": "30",
+          "unit_price": "268.00",
+          "amount": "8040.00"
+        },
+        {
+          "description": "Whiteboard Marker (Box of 10)",
+          "hsn": "96082000",
+          "uom": "Box",
+          "qty": "15",
+          "unit_price": "185.00",
+          "amount": "2775.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "838bc51974b44d590d1c3f119dbe71835898d8a8e0c7a18611f7df7f4e7b3130"
+  },
+  {
+    "id": "photo_sideways",
+    "file": "documents/photo_sideways.pdf",
+    "family": "tally",
+    "tool": "chrome, then photographed",
+    "font": "Liberation Sans",
+    "split": "tune",
+    "kind": "scan",
+    "quirks": [
+      "page photographed on its side"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R01",
+      "legal_name": "Kaveri Bearings & Transmission Pvt Ltd",
+      "gstin": "29AAFCK4410J1ZI",
+      "state_code": "29",
+      "bank_name": "Tunga Valley Bank",
+      "bank_account": "501200047731",
+      "ifsc": "TVBL0005012",
+      "phone": "080-5550-0161",
+      "email": "accounts@kaveribearings.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0535",
+      "po_date": "2026-10-10",
+      "lines": [
+        {
+          "description": "Taper Roller Bearing 32208",
+          "hsn": "84822011",
+          "uom": "Nos",
+          "qty": "8",
+          "unit_price": "1460.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "KBT/26-27/1195",
+      "invoice_date": "2026-11-15",
+      "po_reference": "PO-2026-0535",
+      "vendor_gstin": "29AAFCK4410J1ZI",
+      "bank_account": "501200047731",
+      "taxable": "11680.00",
+      "total": "13782.40",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Taper Roller Bearing 32208",
+          "hsn": "84822011",
+          "uom": "Nos",
+          "qty": "8",
+          "unit_price": "1460.00",
+          "amount": "11680.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "709e4c72acfd557c6b9d7d8fdee290a31f8b6f157c82269d167ad5ac05568098"
+  },
+  {
+    "id": "photo_hand_total",
+    "file": "documents/photo_hand_total.pdf",
+    "family": "tally",
+    "tool": "chrome, then photographed",
+    "font": "Liberation Sans",
+    "split": "tune",
+    "kind": "scan",
+    "quirks": [
+      "total written by hand"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R08",
+      "legal_name": "Sharavathi Lubricants & Chemicals",
+      "gstin": "29ABEFS8804Q1ZB",
+      "state_code": "29",
+      "bank_name": "Tunga Valley Bank",
+      "bank_account": "501200059902",
+      "ifsc": "TVBL0005012",
+      "phone": "080-5550-0194",
+      "email": "billing@sharavathilubes.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0536",
+      "po_date": "2026-10-22",
+      "lines": [
+        {
+          "description": "Lithium Grease EP2, 18 kg Pail",
+          "hsn": "27101990",
+          "uom": "Pail",
+          "qty": "4",
+          "unit_price": "4980.00"
+        },
+        {
+          "description": "V-Belt B-52 Wrapped",
+          "hsn": "40103110",
+          "uom": "Nos",
+          "qty": "10",
+          "unit_price": "212.50"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "SLC/1101/26-27",
+      "invoice_date": "2026-11-12",
+      "po_reference": "PO-2026-0536",
+      "vendor_gstin": "29ABEFS8804Q1ZB",
+      "bank_account": "501200059902",
+      "taxable": "22045.00",
+      "total": "26013.10",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Lithium Grease EP2, 18 kg Pail",
+          "hsn": "27101990",
+          "uom": "Pail",
+          "qty": "4",
+          "unit_price": "4980.00",
+          "amount": "19920.00"
+        },
+        {
+          "description": "V-Belt B-52 Wrapped",
+          "hsn": "40103110",
+          "uom": "Nos",
+          "qty": "10",
+          "unit_price": "212.50",
+          "amount": "2125.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "283d38eeaff61b58d596a9a36d65f5e817094b8c3657dea74995ca24f0f4556f"
+  },
+  {
+    "id": "photo_busy_01",
+    "file": "documents/photo_busy_01.pdf",
+    "family": "busy",
+    "tool": "wkhtmltopdf, then photographed",
+    "font": "DejaVu Sans",
+    "split": "holdout",
+    "kind": "scan",
+    "quirks": [
+      "phone photo"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R07",
+      "legal_name": "Vaigai Cables Pvt Ltd",
+      "gstin": "33AAHCV5527N1ZW",
+      "state_code": "33",
+      "bank_name": "Thamirabarani Bank",
+      "bank_account": "330120076418",
+      "ifsc": "TBBL0003301",
+      "phone": "0452-555-0134",
+      "email": "finance@vaigaicables.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0541",
+      "po_date": "2026-10-24",
+      "lines": [
+        {
+          "description": "PVC Insulated Copper Cable 4 sq mm x 90 m",
+          "hsn": "85444999",
+          "uom": "Coil",
+          "qty": "5",
+          "unit_price": "6840.00"
+        },
+        {
+          "description": "MCB 32A Triple Pole C Curve",
+          "hsn": "85362030",
+          "uom": "Nos",
+          "qty": "30",
+          "unit_price": "742.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "VC/2026-27/1029",
+      "invoice_date": "2026-11-14",
+      "po_reference": "PO-2026-0541",
+      "vendor_gstin": "33AAHCV5527N1ZW",
+      "bank_account": "330120076418",
+      "taxable": "56460.00",
+      "total": "66622.80",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "PVC Insulated Copper Cable 4 sq mm x 90 m",
+          "hsn": "85444999",
+          "uom": "Coil",
+          "qty": "5",
+          "unit_price": "6840.00",
+          "amount": "34200.00"
+        },
+        {
+          "description": "MCB 32A Triple Pole C Curve",
+          "hsn": "85362030",
+          "uom": "Nos",
+          "qty": "30",
+          "unit_price": "742.00",
+          "amount": "22260.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "39873baf5d917a2ebf5a0e5eae615811e46f453df043bb387596c22a06b726c3"
+  },
+  {
+    "id": "photo_busy_fax",
+    "file": "documents/photo_busy_fax.pdf",
+    "family": "busy",
+    "tool": "wkhtmltopdf, then photographed",
+    "font": "DejaVu Sans",
+    "split": "holdout",
+    "kind": "scan",
+    "quirks": [
+      "fax: low resolution, black and white"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R08",
+      "legal_name": "Sharavathi Lubricants & Chemicals",
+      "gstin": "29ABEFS8804Q1ZB",
+      "state_code": "29",
+      "bank_name": "Tunga Valley Bank",
+      "bank_account": "501200059902",
+      "ifsc": "TVBL0005012",
+      "phone": "080-5550-0194",
+      "email": "billing@sharavathilubes.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0542",
+      "po_date": "2026-10-23",
+      "lines": [
+        {
+          "description": "Hydraulic Oil ISO VG 68, 210 L Barrel",
+          "hsn": "27101980",
+          "uom": "Barrel",
+          "qty": "1",
+          "unit_price": "38750.00"
+        },
+        {
+          "description": "V-Belt B-52 Wrapped",
+          "hsn": "40103110",
+          "uom": "Nos",
+          "qty": "20",
+          "unit_price": "212.50"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "SLC/1108/26-27",
+      "invoice_date": "2026-11-13",
+      "po_reference": "PO-2026-0542",
+      "vendor_gstin": "29ABEFS8804Q1ZB",
+      "bank_account": "501200059902",
+      "taxable": "43000.00",
+      "total": "50740.00",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Hydraulic Oil ISO VG 68, 210 L Barrel",
+          "hsn": "27101980",
+          "uom": "Barrel",
+          "qty": "1",
+          "unit_price": "38750.00",
+          "amount": "38750.00"
+        },
+        {
+          "description": "V-Belt B-52 Wrapped",
+          "hsn": "40103110",
+          "uom": "Nos",
+          "qty": "20",
+          "unit_price": "212.50",
+          "amount": "4250.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "72ea539e063ebc50dd7a169cb743d9b326078776efca346f141064404cd3c2ea"
+  },
+  {
+    "id": "photo_word_01",
+    "file": "documents/photo_word_01.pdf",
+    "family": "word",
+    "tool": "libreoffice writer, then photographed",
+    "font": "Caladea",
+    "split": "holdout",
+    "kind": "scan",
+    "quirks": [
+      "phone photo of a typed letterhead"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R06",
+      "legal_name": "Teesta Print & Pack",
+      "gstin": "19AAYFT3358D1ZL",
+      "state_code": "19",
+      "bank_name": "Hooghly Peoples Bank",
+      "bank_account": "190045118203",
+      "ifsc": "HPBL0001900",
+      "phone": "033-5550-0171",
+      "email": "office@teestaprintpack.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0543",
+      "po_date": "2026-10-10",
+      "lines": [
+        {
+          "description": "Corrugated Box 5 Ply 450x300x300 mm",
+          "hsn": "48191010",
+          "uom": "Nos",
+          "qty": "900",
+          "unit_price": "62.75"
+        },
+        {
+          "description": "Thermal Transfer Ribbon 110 mm x 300 m",
+          "hsn": "96121010",
+          "uom": "Roll",
+          "qty": "24",
+          "unit_price": "418.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "TPP/2026-27/219",
+      "invoice_date": "2026-11-15",
+      "po_reference": "PO-2026-0543",
+      "vendor_gstin": "19AAYFT3358D1ZL",
+      "bank_account": "190045118203",
+      "taxable": "66507.00",
+      "total": "78478.26",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Corrugated Box 5 Ply 450x300x300 mm",
+          "hsn": "48191010",
+          "uom": "Nos",
+          "qty": "900",
+          "unit_price": "62.75",
+          "amount": "56475.00"
+        },
+        {
+          "description": "Thermal Transfer Ribbon 110 mm x 300 m",
+          "hsn": "96121010",
+          "uom": "Roll",
+          "qty": "24",
+          "unit_price": "418.00",
+          "amount": "10032.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "3b464ee9f0c0de5fa54f20987088a50f64c0507b2d90caf7dd3c3c38e22188a5"
+  },
+  {
+    "id": "photo_latex_01",
+    "file": "documents/photo_latex_01.pdf",
+    "family": "latex",
+    "tool": "pdflatex, then photographed",
+    "font": "Computer Modern",
+    "split": "holdout",
+    "kind": "scan",
+    "quirks": [
+      "phone photo",
+      "serif type"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R09",
+      "legal_name": "Indrayani Process Consultants LLP",
+      "gstin": "27AAOFI2206B1ZS",
+      "state_code": "27",
+      "bank_name": "Mula Mutha Bank",
+      "bank_account": "270300418876",
+      "ifsc": "MMBL0002703",
+      "phone": "020-5550-0158",
+      "email": "accounts@indrayaniconsult.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0544",
+      "po_date": "2026-10-13",
+      "lines": [
+        {
+          "description": "Process audit of CNC cell, on-site days",
+          "hsn": "998311",
+          "uom": "Days",
+          "qty": "3",
+          "unit_price": "18500.00"
+        },
+        {
+          "description": "Preparation of control plan and PFMEA documentation",
+          "hsn": "998311",
+          "uom": "Lot",
+          "qty": "1",
+          "unit_price": "42000.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "IPC-2026-047",
+      "invoice_date": "2026-11-18",
+      "po_reference": "PO-2026-0544",
+      "vendor_gstin": "27AAOFI2206B1ZS",
+      "bank_account": "270300418876",
+      "taxable": "97500.00",
+      "total": "115050.00",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Process audit of CNC cell, on-site days",
+          "hsn": "998311",
+          "uom": "Days",
+          "qty": "3",
+          "unit_price": "18500.00",
+          "amount": "55500.00"
+        },
+        {
+          "description": "Preparation of control plan and PFMEA documentation",
+          "hsn": "998311",
+          "uom": "Lot",
+          "qty": "1",
+          "unit_price": "42000.00",
+          "amount": "42000.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "APPROVE",
+      "reason": null
+    },
+    "sha256": "865916e2d42e82debe1c64bb00095afc3adf5f9587fa2c4679957ebcfeff494b"
+  },
+  {
+    "id": "photo_tally_over",
+    "file": "documents/photo_tally_over.pdf",
+    "family": "tally",
+    "tool": "chrome, then photographed",
+    "font": "Liberation Sans",
+    "split": "tune",
+    "kind": "scan",
+    "quirks": [
+      "phone photo",
+      "bills more than the PO has"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R04",
+      "legal_name": "Narmada Fasteners Pvt Ltd",
+      "gstin": "24AAGCN6032H1ZN",
+      "state_code": "24",
+      "bank_name": "Vishwamitri Urban Bank",
+      "bank_account": "240700915562",
+      "ifsc": "VUBL0002407",
+      "phone": "0265-555-0188",
+      "email": "sales@narmadafasteners.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0546",
+      "po_date": "2026-10-22",
+      "lines": [
+        {
+          "description": "Hex Bolt M16 x 75 Grade 8.8",
+          "hsn": "73181500",
+          "uom": "Nos",
+          "qty": "900",
+          "unit_price": "34.60"
+        },
+        {
+          "description": "Solenoid Valve 5/2 Way 1/4 inch",
+          "hsn": "84812000",
+          "uom": "Nos",
+          "qty": "6",
+          "unit_price": "1680.00"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "NF/26-27/3335",
+      "invoice_date": "2026-11-12",
+      "po_reference": "PO-2026-0546",
+      "vendor_gstin": "24AAGCN6032H1ZN",
+      "bank_account": "240700915562",
+      "taxable": "54960.00",
+      "total": "64852.80",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "Hex Bolt M16 x 75 Grade 8.8",
+          "hsn": "73181500",
+          "uom": "Nos",
+          "qty": "1200",
+          "unit_price": "34.60",
+          "amount": "41520.00"
+        },
+        {
+          "description": "Solenoid Valve 5/2 Way 1/4 inch",
+          "hsn": "84812000",
+          "uom": "Nos",
+          "qty": "8",
+          "unit_price": "1680.00",
+          "amount": "13440.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "HOLD",
+      "reason": "QTY_OVER_PO"
+    },
+    "sha256": "9e0cc05fd42915880eb307c3af9e8a1ee76d57a7bff8a6e40995c162cc3ed336"
+  },
+  {
+    "id": "photo_busy_price",
+    "file": "documents/photo_busy_price.pdf",
+    "family": "busy",
+    "tool": "wkhtmltopdf, then photographed",
+    "font": "DejaVu Sans",
+    "split": "holdout",
+    "kind": "scan",
+    "quirks": [
+      "phone photo",
+      "price 3% above the PO"
+    ],
+    "tax_inclusive": false,
+    "vendor": {
+      "vendor_id": "R07",
+      "legal_name": "Vaigai Cables Pvt Ltd",
+      "gstin": "33AAHCV5527N1ZW",
+      "state_code": "33",
+      "bank_name": "Thamirabarani Bank",
+      "bank_account": "330120076418",
+      "ifsc": "TBBL0003301",
+      "phone": "0452-555-0134",
+      "email": "finance@vaigaicables.example"
+    },
+    "po": {
+      "po_number": "PO-2026-0547",
+      "po_date": "2026-10-12",
+      "lines": [
+        {
+          "description": "PVC Insulated Copper Cable 4 sq mm x 90 m",
+          "hsn": "85444999",
+          "uom": "Coil",
+          "qty": "10",
+          "unit_price": "6634.80"
+        },
+        {
+          "description": "MCB 32A Triple Pole C Curve",
+          "hsn": "85362030",
+          "uom": "Nos",
+          "qty": "16",
+          "unit_price": "719.74"
+        }
+      ]
+    },
+    "truth": {
+      "invoice_number": "VC/2026-27/1040",
+      "invoice_date": "2026-11-17",
+      "po_reference": "PO-2026-0547",
+      "vendor_gstin": "33AAHCV5527N1ZW",
+      "bank_account": "330120076418",
+      "taxable": "80272.00",
+      "total": "94720.96",
+      "currency": "INR",
+      "lines": [
+        {
+          "description": "PVC Insulated Copper Cable 4 sq mm x 90 m",
+          "hsn": "85444999",
+          "uom": "Coil",
+          "qty": "10",
+          "unit_price": "6840.00",
+          "amount": "68400.00"
+        },
+        {
+          "description": "MCB 32A Triple Pole C Curve",
+          "hsn": "85362030",
+          "uom": "Nos",
+          "qty": "16",
+          "unit_price": "742.00",
+          "amount": "11872.00"
+        }
+      ]
+    },
+    "expect": {
+      "verdict": "HOLD",
+      "reason": "PRICE_VARIANCE"
+    },
+    "sha256": "3152b443bbb892004e4aa578a06a429b2a9aca710b6423560f4fac8c3101ae50"
+  }
+]
