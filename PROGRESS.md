@@ -455,3 +455,19 @@ still to do (needs a key, run by the user): `python -m scripts.record_reply_fixt
 **Checkpoint 1: Theme and UI kit** (23 Nov 2026). Extended `.streamlit/config.toml` with the palette colours and theme keys from section 7.1 without duplicating existing round 4 settings. Added reusable UI components in `invoice_desk/ui/ui_kit.py` and root `ui_kit.py`: `STATUS`, `ACTOR`, `chip_md`, `status_chip`, `actor_chip`, `inr`, `inr_short`, `due_label`, `Stage`, `stage_card`, `run_stages_live`, `evidence_panel`, `case_card`, `kpi_card`. Grouped the sidebar in `app.py` under four sections ('See it work', 'Work the desk', 'Results', 'Reference'). Tests 755 (`tests/test_ui_kit.py` 2 added). Standing results unchanged (preflight READY, 18 of 18, cases 2 of 2, robustness 30/15/4/0). Deviations: none.
 
 **Checkpoint 2: Vocabulary** (23 Nov 2026). Display-only mappings for stage titles, helper captions, and outcome verdicts in plain English (Cleared, On hold, Rejected, and 9 plain stage descriptions) via `STAGE_DISPLAY_INFO`, `stage_display_title`, `stage_display_help`, `VERDICT_DISPLAY`, and `verdict_display_label` in `invoice_desk/ui/common.py`. Underlying database values, reason codes, JSON fields, and engine functions unchanged. Tests 758 (`tests/test_vocabulary.py` 3 added). Standing results unchanged (preflight READY, 18 of 18, cases 2 of 2, robustness 30/15/4/0, values 691/705). Deviations: none.
+
+**Round 5 Handoff** (23 Nov 2026).
+- Checkpoints completed:
+  - Checkpoint 0: Confirmation and baseline (read-only)
+  - Browser-check fixes: `669175d` ("Round 4 fixes from browser check")
+  - Checkpoint 1: Theme and UI kit: `29d5003` ("Round 5 Checkpoint 1: Theme and UI kit")
+  - Checkpoint 2: Vocabulary: `d5d3b47` ("Round 5 Checkpoint 2: Vocabulary")
+- Test count: 758 passed.
+- Invariants: Preflight READY (all 11 demo steps ok, 18 of 18 samples ok, 2 of 2 cases ok, desk rehearsal 16 ok), robustness 30/15/4/0 (691/705 values).
+- Deviations: None.
+- Note on Checkpoint 3: Checkpoint 3 (Process invoice) was started but not finished and green in this step, so its uncommitted working tree changes were cleanly discarded per instruction.
+- Exact next step: Implement Checkpoint 3 (Process invoice) following sections 3.2 and 7.4 of the UX specification:
+  1. Add `display:` section with `stage_pause_seconds: 0.6` to `rules.yaml` and `DisplayRules` model to `invoice_desk/rules.py` (pause zero in tests).
+  2. Implement reserve, reset, and fill pattern in `invoice_desk/ui/process.py` with decision card top-right, step timeline with `stage_card`, and evidence table with `evidence_panel` (note: `LineItem` uses `item.qty`, not `item.quantity`; and `Invoice` uses `inv.get("vendor_name")` / `inv.money("total")`).
+  3. Ensure `tests/test_process_checkpoint3.py` passes all 4 tests and all existing 758 tests remain green. Commit as 'Round 5 Checkpoint 3: Process invoice'.
+
