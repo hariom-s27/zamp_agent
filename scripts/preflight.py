@@ -290,6 +290,39 @@ def check_cases(rep: Report) -> None:
         shutil.rmtree(folder, ignore_errors=True)
 
 
+def check_desk(rep: Report) -> None:
+    """Rehearse the round 4 desk on a scratch database: today's mail is sorted into the expected kinds."""
+    print("\nThe desk rehearsal (round 4, scratch database)")
+    from invoice_desk import inbox
+    from invoice_desk.llm import LlmAssist
+    from invoice_desk.pipeline import Pipeline
+    from invoice_desk.store import Store
+    folder = Path(tempfile.mkdtemp(prefix="invoice_desk_desk_"))
+    try:
+        today = sample_lib.business_date()
+        pipeline = Pipeline(store=Store(folder / "desk.db"), today=today, llm=LlmAssist(config.llm_config(mode="off")))
+        store, master, rules = pipeline.store, pipeline.master, pipeline.rules
+        if not rules.inbox.enabled:
+            rep.line("WARN", "inbox", "switched off in rules.yaml (inbox.enabled)")
+            return
+        mail = sample_lib.load_mail_manifest()
+        inbox.deliver(store, master, rules, pipeline, inbox.bundled_mail(), today)
+        got = [i["kind"] for i in store.inbox()]
+        want = [m["expected_kind"] for m in mail]
+        problems = [] if got == want else [f"expected {want}, got {got}"]
+        if not problems and any(not i["owner"] or not i["due_on"] for i in store.inbox()):
+            problems.append("a message has no owner or due date")
+        rep.line("FAIL" if problems else "ok", f"inbox: {len(want)} messages",
+                 "; ".join(problems) or "each sorted as expected, with an owner and a due date")
+        chain = store.verify_chain()
+        rep.line("ok" if chain["ok"] else "FAIL", "audit trail after the desk rehearsal",
+                 f"{chain['count']} entries verified")
+    except Exception as exc:
+        rep.line("FAIL", "desk rehearsal", f"{type(exc).__name__}: {str(exc)[:160]}")
+    finally:
+        shutil.rmtree(folder, ignore_errors=True)
+
+
 def check_pages(rep: Report) -> None:
     """Open every page of the app without a browser, on a scratch database."""
     print("\nEvery page of the app opens (headless, scratch database)")
@@ -310,7 +343,7 @@ def check_pages(rep: Report) -> None:
     kept = {name: os.environ.get(name) for name in ("INVOICE_DESK_DB", "LLM_USAGE_DB")}
     os.environ["INVOICE_DESK_DB"], os.environ["LLM_USAGE_DB"] = str(folder / "pages.db"), str(folder / "usage.db")
     try:
-        for key, title in (("demo", "Guided demo"), ("process", "Process invoice"), ("review", "Review queue"),
+        for key, title in (("demo", "Guided demo"), ("inbox", "Inbox"), ("process", "Process invoice"), ("review", "Review queue"),
                            ("cases", "Cases"), ("dashboard", "Dashboard"), ("value", "Business case"), ("reference", "Rules and data"), ("guide", "How it works")):
             app = AppTest.from_file(str(config.ROOT / "app.py"), default_timeout=120)
             app.session_state["goto"] = key
@@ -347,6 +380,7 @@ def main(argv: list[str] | None = None) -> int:
     if rep.failed == 0:
         check_demo(rep)
         check_cases(rep)
+        check_desk(rep)
         check_pages(rep)
     print()
     if rep.failed:

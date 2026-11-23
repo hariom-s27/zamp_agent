@@ -370,3 +370,13 @@ text with HTML reduced to words, attachments with their SHA-256), strip quoted t
 header block, `>` lines), find `CASE-` tokens, phrase matching, and the four-way sender check with the exact screen
 sentences; shared mail domains count only by exact address. `tests/test_mailbox.py` (13). Tests 651. Standing results
 unchanged. No deviations.
+**Checkpoint 3: inbox sorting, routing, the Inbox page** (23 Nov 2026). `invoice_desk/inbox.py` registers each `.eml`
+once (file hash or Message-ID), keeps the raw file, checks the sender, applies the safety limits, sorts by the six rules
+(first match wins, the rule stored in words), runs each PDF through `Pipeline.run` with source `email` (a file seen
+before is not run again), opens the case through `cases.sync`, sets owner, state and due date, and writes one audit
+entry per message, per close and per routing. The `messages` table gains the inbox columns through `MIGRATIONS`.
+Page "Inbox" (navigation after the Guided demo, which stays the opening page), preflight "desk rehearsal" lines and the
+Inbox page in the page check. Tests 671 (`test_inbox.py` 17, `test_ui_desk.py` 3). Standing results unchanged.
+Deviations: an item sorted with no person needed is owned by "Invoice Desk" so every row has an owner; the received time
+is the business date with the current IST clock time, so the demo's due dates are fixed; the inbox audit entries use the
+message id in the run column.

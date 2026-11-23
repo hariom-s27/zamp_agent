@@ -70,6 +70,13 @@ CASE_FIELDS = {"state", "waiting_on", "owner", "question", "reason_codes", "prio
                "statutory_basis", "escalated_to", "escalated_on", "resolved_on", "resolution", "proposed_json"}
 # columns added after the first release: a database made by an older version is upgraded in place
 MIGRATIONS = [("runs", "resubmission_of", "TEXT DEFAULT ''"), ("receipts", "signature", "TEXT DEFAULT ''")]
+# round 4: the AP inbox is the messages table with direction "in"; these columns describe a received message
+INBOX_COLUMNS = ["kind", "vendor_id", "sender_check", "sender_detail", "route_rule", "action", "owner", "state", "due_on",
+                 "flags_json", "run_ids_json", "rfc_message_id", "received_at", "closed_by", "closed_at", "closed_note"]
+MIGRATIONS += [("messages", name, "TEXT DEFAULT ''") for name in INBOX_COLUMNS]
+# columns an inbox item may change after it is received (what arrived never changes)
+INBOX_FIELDS = {"kind", "owner", "state", "due_on", "route_rule", "action", "flags_json", "case_id", "read_json",
+                "closed_by", "closed_at", "closed_note"}
 GENESIS = "GENESIS"
 
 
@@ -551,3 +558,52 @@ class Store:
         with self._conn() as conn:
             rows = conn.execute(sql + " ORDER BY id", args).fetchall()
         return [{**dict(r), "qty": to_decimal(r["qty"])} for r in rows]
+
+    # ---------------------------------------------------------------- the AP inbox (round 4)
+
+    def add_inbox_message(self, item: dict) -> None:
+        names = ["message_id", "case_id", "direction", "status", "created_at", "sender", "recipient", "subject", "body",
+                 "eml_sha256", "attachments_json"] + INBOX_COLUMNS
+        row = {"direction": "in", "status": "received", "case_id": "", "created_at": config.now_utc().isoformat(),
+               "attachments_json": "[]", "flags_json": "[]", "run_ids_json": "[]"}
+        row.update(item)
+        with self._conn() as conn:
+            conn.execute(f"INSERT INTO messages ({', '.join(names)}) VALUES ({', '.join('?' for _ in names)})",
+                         [row.get(n, "") or "" for n in names])
+
+    @staticmethod
+    def _inbox_row(r: sqlite3.Row) -> dict:
+        item = dict(r)
+        for name in ("flags_json", "run_ids_json", "attachments_json"):
+            item[name[:-5]] = json.loads(item.get(name) or "[]")
+        return item
+
+    def inbox(self) -> list[dict]:
+        """Every received message, oldest first."""
+        with self._conn() as conn:
+            rows = conn.execute("SELECT * FROM messages WHERE direction = 'in' ORDER BY received_at, rowid").fetchall()
+        return [self._inbox_row(r) for r in rows]
+
+    def get_message(self, message_id: str) -> Optional[dict]:
+        with self._conn() as conn:
+            row = conn.execute("SELECT * FROM messages WHERE message_id = ?", (message_id,)).fetchone()
+        return self._inbox_row(row) if row else None
+
+    def find_received(self, eml_sha256: str, rfc_message_id: str) -> Optional[dict]:
+        """A message already received: the same file, or the same Message-ID header."""
+        with self._conn() as conn:
+            row = conn.execute("SELECT * FROM messages WHERE direction = 'in' AND (eml_sha256 = ? OR "
+                               "(rfc_message_id != '' AND rfc_message_id = ?)) ORDER BY rowid LIMIT 1",
+                               (eml_sha256, rfc_message_id or "")).fetchone()
+        return self._inbox_row(row) if row else None
+
+    def update_message(self, message_id: str, **fields: Any) -> None:
+        unknown = set(fields) - INBOX_FIELDS
+        if unknown:
+            raise ValueError(f"an inbox item cannot change: {', '.join(sorted(unknown))}")
+        if not fields:
+            return
+        names = sorted(fields)
+        with self._conn() as conn:
+            conn.execute(f"UPDATE messages SET {', '.join(f'{n} = ?' for n in names)} WHERE message_id = ?",
+                         [fields[n] for n in names] + [message_id])
