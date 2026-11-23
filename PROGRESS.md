@@ -176,3 +176,60 @@ To check the state of the project at any time: `python -m pytest`, then
 left is on your side and is listed in the table above; EVALUATION.md says which two
 rubric points those steps settle.
 
+
+## Round 3 handoff (23 Nov 2026)
+
+Branch `round3`, local commits only (nothing pushed; `main` and tag `round2-final` untouched). The specification
+is section 6 of `Invoice_Desk_round3_research_and_plan.md`, kept outside the repository.
+
+### Checkpoints done
+
+| # | What | Commit |
+|---|---|---|
+| 0 | Baseline recorded: the four command outputs and SHA-256 lists of samples, fixtures, data, rules.yaml and the frozen code files, in `D:\sem_iitk\sem9\zamp\baseline_round2\` | (outside the repo) |
+| W | Screens say "AI" instead of the model's brand; the exact model stays in Technical details, the audit record and the JSON downloads | `f762db1` |
+| 1 | rules.yaml `2026.11-3` (company.ap_email, cases, msme, value_model, all required and validated); `data/*_cases.csv`; `scripts.generate_case_data`; `samples/cases/`; `invoice_desk.run --cases` | `ec89c9b` |
+| 1 | Test guard: no test can see a real API key or reach the API | `ae3fdac` |
+| 1 | Case data generator writes LF line endings | `9341eeb` |
+| 2 | Tables cases, case_events, messages, goods_receipts; store methods; `cases.sync` with clocks and escalation | `e3798f1` |
+| 3 | Goods receipts and release by rule (`record_goods_receipt`, `master_with_receipts`, `try_resume`) | `56d6477` |
+
+### Where it stands
+
+- `python -m pytest`: 597 passed, 0 failed, 0 skipped (561 at the round 2 baseline).
+- `python -m scripts.preflight`: READY, 11 lines starting `[ok  ] step`, no warning.
+- `python -m invoice_desk.run --all`: 18 of 18. `python -m invoice_desk.run --cases`: 2 of 2.
+- `python -m scripts.evaluate_robustness`: 30 approved-correct, 15 held-correct, 4 misread-held, 0 misread-approved.
+- Every baseline file hashes the same as at `round2-final` except rules.yaml, which checkpoint 1 changes on purpose.
+  The frozen code files (section 6.0) are unchanged.
+
+### Departures from the specification, and why
+
+1. **Case manifest paths.** `samples/cases/manifest.json` lists files as `cases/<name>.pdf`, relative to
+   `samples/`, the convention the bad inputs already use. `sample_bytes` reads them unchanged, so it was not edited.
+2. **LF line endings in the case generator.** It writes its JSON with `newline="\n"`, because `.gitattributes`
+   keeps JSON as LF; with Windows endings the committed files would not match the generator after a clean checkout.
+3. **`-2` suffix on a case id.** A file read afresh after a rules change and held again would collide with its
+   first case (`CASE-` plus 8 hex characters is the primary key). The second case gets `-2`, the third `-3`.
+4. **Test key guard in `tests/conftest.py`.** At import it marks `.env` as already read, removes
+   `ANTHROPIC_API_KEY` and sets `ANTHROPIC_BASE_URL=http://127.0.0.1:9`; `tests/test_isolation.py` pins it.
+   Reason: `.env` was read lazily, so a recording test that ran first in a session got the real key back. This
+   happened twice on 23 Nov, around 14:00 to 14:10 IST, when `tests/test_scripts.py` was run on its own; real
+   recording calls were made and their answers went only to a pytest temp folder.
+5. **No case-history line before the first goods receipt.** `try_resume` writes a "partial receipt" line only
+   once a delivery has been recorded for that PO line. Otherwise every C1 case would show "0 of 60 received" the
+   moment it opens. Each refusal is still written once per distinct reason.
+6. **Values read as printed: 691 of 705** on this machine, not the 693 quoted in the plan. The four outcome classes
+   are identical. Round 3 figures use 691; `docs/robustness_report.md` is to say the count differs by 2 between
+   OCR builds (checkpoint 7).
+7. **Checkpoint W, option B.** Engine text that names the model (written by the frozen `pipeline.py` and
+   `decide.py`) is relabelled when the page draws it (`screen_words` in `ui/common.py`). Two lines keep the
+   exact model on screen: "AI model" in the sidebar Technical details, and "AI answer (model and prompt version)"
+   in the audit trail's Technical details.
+8. **One extra rules check.** Besides the validator in section 6.1, every `cases.escalate_to` target must itself
+   have a reply time, so an escalated case always has a clock.
+
+### Next
+
+Checkpoint 4: approve and send to the outbox (`approve_message`, `outbox_dir`), tests first. Then checkpoints 5
+to 8. Checkpoints 9 to 11 (day 3) wait for an explicit go-ahead.
