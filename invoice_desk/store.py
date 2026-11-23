@@ -195,6 +195,10 @@ class Store:
                 conn.execute(f"DELETE FROM {table}")
             conn.execute("DELETE FROM sqlite_sequence WHERE name IN ('receipts', 'reviews', 'vendor_overrides', "
                          "'case_events', 'goods_receipts')")
+        outbox = Path(self.path).parent / "outbox"        # approved messages (cases.outbox_dir) go with the records
+        if outbox.is_dir():
+            for written in outbox.glob("*.eml"):
+                written.unlink(missing_ok=True)
         self.seed_history()
 
     # ---------------------------------------------------------------- files

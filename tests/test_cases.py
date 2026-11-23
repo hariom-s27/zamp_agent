@@ -454,3 +454,14 @@ def test_a_receipt_counts_once_when_the_caller_already_added_the_receipts_to_the
     receive(store, master, run, "30", ref="DN-5540")                # recorded after `live` was built: still counted
     assert cases.master_with_receipts(live, store).pos["PO-2026-1041"].line(2).qty_received == Decimal("60")
     assert cases.sync(store, live, rules, TODAY)["released"] == 1
+
+
+def test_a_fresh_demo_empties_the_outbox_so_the_same_message_can_be_approved_again(pipeline, store, master, rules):
+    run, case = c2_case(pipeline, store, master, rules)
+    cases.approve_message(store, master, rules, case["case_id"], "S. Rao", TODAY)
+    store.reset()
+    assert list(cases.outbox_dir(store).iterdir()) == []
+    run, again = c2_case(pipeline, store, master, rules)
+    assert again["case_id"] == case["case_id"]                  # the same file gives the same case number
+    sent = cases.approve_message(store, master, rules, again["case_id"], "S. Rao", TODAY)
+    assert sent["path"].is_file() and len(store.messages(again["case_id"])) == 1

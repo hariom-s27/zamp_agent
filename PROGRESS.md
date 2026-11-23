@@ -278,3 +278,65 @@ Departures from the specification, and why:
     story says "set the ceiling below every invoice (Rs 1,000 in the sandbox)" because the sandbox input starts at
     Rs 1,000, not 0. The remaining part of checkpoint 8 is yours: redeploy `live`, run steps 1 to 13 on the hosted
     link, rehearse, record, freeze.
+
+## Round 4 (branch `round4`, from round 3 at `b381b2e`)
+
+Specification: `D:\sem_iitk\sem9\zamp\Invoice_Desk_feature_discovery.md` (section 4 the features, section 5 the
+build order, section 7 the names, section 8 the defaults, all taken). Opening page stays the Guided demo; Inbox is
+added to the navigation. Baseline: `D:\sem_iitk\sem9\zamp\baseline_round3\` (the five command outputs at `b381b2e`,
+SHA-256 of every tracked file under samples, fixtures, data and rules.yaml, and of the eleven frozen code files).
+
+### Checkpoint 0: names confirmed (commit "Round 4 checkpoint 0")
+
+**7A, names from the round 3 plan.** Present: tables `cases`, `case_events`, `messages` (with `direction`, `status`,
+`eml_sha256`, `attachments_json`, `read_json`), `goods_receipts`; `cases.proposed_json`; `cases.sync`, `case_id_for`,
+`statutory_clock`, `approve_message`, `outbox_dir`, `master_with_receipts`; rules `cases.reply_due_days`,
+`cases.escalate_to`, `msme`, `company.ap_email`; `data/vendors_cases.csv` with `email`, V101 and V102; POs
+PO-2026-1041 and 1042; review status RELEASED with the ledger POSTED after a release; `AFTER_HOLD`, `after_done`,
+the page list in `app.py`. **Not built (round 3 day three):** `mailbox.py`, the `case_reply` purpose,
+`cases.receive_reply`, sample C3, its reply, and PO-2026-1043. Section 8 default 1 applies: build them as round 4
+specifies, with new ids from `generate_desk_data.py`. Round 3 pins: 2 case samples, 2 `AFTER_HOLD` steps, 8 pages,
+2 preflight `case` lines.
+
+**7B, round 2 facts.** All present and unmoved: `Invoice.doc_type`, `extract.detect_doc_type`,
+`pipeline.NOT_PAYABLE`, `Pipeline.run(content, file_name, source)`, `store.save_file/load_file/save_attachment/
+load_attachment`, `ledger.origin`, `ledger_entries(vendor_id, po_number, statuses)`, `decide._due_date`,
+`Finding.vendor_issue/evidence`, `review.apply_review/_person/required_checks`, `llm.PURPOSES/PROMPT_VERSIONS/
+template_sha256/id_in_quote/value_in_quote/MAX_CHARS/draft_vendor_note`, `ui/common.get_rules/get_pipeline/
+get_store/business_date/reset_books`, `ui/reference._sandbox/_dry_run`, `Rules.version/sha256`,
+`rules.current_rules`, `store.MIGRATIONS/TABLES`.
+
+**7C, answers.**
+1. Duplicate checks read ledger entries with status POSTED or PENDING only, so a REJECTED entry is ignored
+   (`duplicates.py`, `ledger_entries(..., statuses=("POSTED", "PENDING"))`). The corrected-copy flow can rely on it.
+2. `append_receipt` takes an empty run id (round 3's goods receipt already uses `for_run=""`). No wrapper needed.
+3. Structured output goes through `output_config` in `llm.py`; the model name is part of a recording's file name, so
+   the hosted app must use the model the replies were recorded with.
+4. Primary screens already say "AI" (round 3 checkpoint W); the exact model is only in Technical details.
+5. Only `tests/test_masterdata.py` pins the master fingerprint, for the files it builds itself. Keeping discount terms
+   in a file only `payments.py` reads (as the spec says) leaves the master digest alone.
+6. Replay timing: to be measured at checkpoint 7.
+7. "Start a fresh demo" cleared the tables but not the outbox folder, so after a fresh demo the step 13 message
+   (same file, same case number) could not be approved again: the leftover `CASE-...-01.eml` blocked it. **Fixed
+   here:** `store.reset()` now also removes the `.eml` files in the outbox beside the database; test
+   `test_a_fresh_demo_empties_the_outbox_so_the_same_message_can_be_approved_again` failed first. Payment exports and
+   stored mail (round 4) must be cleared the same way.
+
+## Handoff (23 Nov 2026, context nearly full)
+
+**Done.** Round 3 checkpoints 0 to 8: `f762db1` (W), `ec89c9b`, `ae3fdac`, `9341eeb` (1), `e3798f1` (2), `56d6477` (3),
+`08438d0` (4), `9d6b791` (5), `de2ed97` (6), `a5859b8` (7), `b381b2e` (8). Round 4 checkpoint 0 on `round4` (the commit
+after `b381b2e`). Tests: 626 passed at round 4 checkpoint 0 (561 at round 2). Standing results unchanged throughout:
+preflight READY with 11 `[ok  ] step` lines plus `case 12` and `case 13`; 18 of 18; `--cases` 2 of 2; robustness 30,
+15, 4, 0 with 691 of 705 values; frozen files and baseline data unchanged (rules.yaml changed on purpose in round 3).
+
+**Exact next step.** Round 4 checkpoint 1 on branch `round4`: read section 4 of the feature-discovery file in full
+(4.1 to 4.5, lines 295 to 1064), then build "new rule sections and models with every feature switched on,
+`scripts/generate_desk_data.py`, `samples/desk/`, the new POs, the bundled mail", failing tests first, every existing
+file byte-identical, each new sample giving exactly its expected reasons. Choose ids outside V001 to V007, V101,
+V102, R01 to R49 and PO-2026-0099 to 1042 (PO-2026-1043 is free; the round 3 plan reserved it for C3). Then
+checkpoints 2 to 7 and T as in the user's instructions of 23 Nov; not 8 to 12.
+
+**Standing-command helper.** The scratchpad script used for every checkpoint is not in the repository; the commands
+are the four standing ones plus `python -m invoice_desk.run --cases`, and `sha256sum -c` against
+`D:\sem_iitk\sem9\zamp\baseline_round3\sha256_*.txt`.
