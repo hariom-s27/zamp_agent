@@ -40,7 +40,7 @@ STEPS = [
               "review queue it takes a recorded call-back to the number on file and then a second, different person "
               "before anything is payable.", "follow": "review"},
     {"key": "letter", "short": "Letter, AI assist", "sample": "10_ai_assist_letter_invoice", "title": "AI assist: an invoice written as a letter",
-     "watch": "No table, no labels. The rules reader will not guess. With AI assist, Claude copies the missing values "
+     "watch": "No table, no labels. The rules reader will not guess. With AI assist, the AI copies the missing values "
               "out of the text and code checks every one against the page and against the invoice's own arithmetic. "
               "A value that fails a check is not used, and the model takes no part in the decision."},
     {"key": "again", "short": "Sent twice", "sample": "01_happy_path_furniture", "title": "The first invoice arrives a second time", "repeat": True,

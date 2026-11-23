@@ -72,12 +72,12 @@ def expected_text(sample: dict, sha256: str) -> str:
     if llm.cfg.mode == "off":
         return f"Expected decision: {alone}, because AI assist is off. With AI assist: {helped}."
     if llm.has_recording(sha256):
-        return (f"Expected decision: {helped}, because Claude's answer for this file is stored and will be replayed. "
+        return (f"Expected decision: {helped}, because the AI's answer for this file is stored and will be replayed. "
                 f"By the rules alone: {alone}.")
     if llm.cfg.can_call:
-        return (f"Expected decision: {helped}, once Claude has read it (one live call; the answer is then kept). "
+        return (f"Expected decision: {helped}, once the AI has read it (one live call; the answer is then kept). "
                 f"By the rules alone: {alone}.")
-    return (f"Expected decision: {alone}. No Claude answer is recorded for this file yet, so the rules decide alone. "
+    return (f"Expected decision: {alone}. No AI answer is recorded for this file yet, so the rules decide alone. "
             f"With a recorded answer: {helped}.")
 
 

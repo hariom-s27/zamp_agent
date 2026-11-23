@@ -58,8 +58,8 @@ def _dry_run(sample: dict, rules) -> tuple[str, list[str]]:
         pipeline = Pipeline(store=Store(folder / "whatif.db"), rules=rules, master=C.get_master(), llm=C.get_llm(),
                             today=C.business_date())
         result = pipeline.run(sample_lib.sample_bytes(sample), sample_lib.received_name(sample), "what-if")
-        return result.verdict, [f"{f.title}: {f.summary}" for f in result.decision.reasons] or \
-            [result.decision.explanation]
+        return result.verdict, [f"{f.title}: {C.screen_words(f.summary)}" for f in result.decision.reasons] or \
+            [C.screen_words(result.decision.explanation)]
     finally:
         shutil.rmtree(folder, ignore_errors=True)
 

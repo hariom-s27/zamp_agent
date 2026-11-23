@@ -90,7 +90,7 @@ def _settings(store) -> None:
             modes = C.ai_modes()
             chosen = st.selectbox("AI assist mode", modes, index=modes.index(C.ai_mode()), key="ai_mode_pick",
                                   format_func=lambda m: {"fixture": "FIXTURE: replay recorded answers (no network, no key)",
-                                                         "cached-live": "CACHED-LIVE: call Claude on a cache miss, then store the answer",
+                                                         "cached-live": "CACHED-LIVE: call the AI model on a cache miss, then store the answer",
                                                          "off": "OFF: rules only"}[m])
             if chosen != C.ai_mode():          # kept in the session apart from the widget, so every page uses it
                 st.session_state["ai_mode"] = chosen
@@ -108,10 +108,10 @@ def _settings(store) -> None:
                            f"Spent today: ${ledger.spent_today():.4f} in {ledger.calls_today()} call(s). When a cap "
                            f"is reached the document is handled by the rules alone.")
                 if C.ai_mode() == "cached-live":
-                    fresh = st.toggle("Ask Claude afresh on every run", value=bool(st.session_state.get("ai_fresh")),
+                    fresh = st.toggle("Ask the AI afresh on every run", value=bool(st.session_state.get("ai_fresh")),
                                       key="ai_fresh_pick",
                                       help="For showing a live call. Normally an answer that is already stored is "
-                                           "reused and nothing is sent. With this on, the document is sent to Claude "
+                                           "reused and nothing is sent. With this on, the document is sent to the AI model "
                                            "again on each run, inside the caps. If the call cannot be made, the "
                                            "stored answer is used and the record says so. The recordings in "
                                            "fixtures/llm are never changed from here.")
@@ -241,7 +241,7 @@ def page() -> None:
                         "(two different approvers).</div>", unsafe_allow_html=True)
         letter = _samples().get("10_ai_assist_letter_invoice")
         if letter and C.ai_mode() == "fixture" and not C.get_llm().has_recording(sha256_of(sample_lib.sample_bytes(letter))):
-            st.caption("About step 9: no recorded Claude answer for the letter invoice is in fixtures/llm yet, so in "
+            st.caption("About step 9: no recorded AI answer for the letter invoice is in fixtures/llm yet, so in "
                        "FIXTURE mode the rules alone decide it (a hold, the safe outcome). Record one with "
                        "`python -m scripts.record_llm_fixtures` and your API key; see the README.")
     if result is not None and result.decision is not None and (last == "upload" or (step is not None and step["key"] in done)):

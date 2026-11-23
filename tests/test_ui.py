@@ -211,7 +211,7 @@ def test_the_expected_decision_of_the_letter_follows_the_ai_set_up(tmp_path, mon
     home = str(tmp_path / "home")
 
     text = picked(start(tmp_path, monkeypatch, LLM_MODE="fixture", INVOICE_DESK_HOME=home))
-    assert "Expected decision: HOLD (" in text and "No Claude answer is recorded for this file yet" in text
+    assert "Expected decision: HOLD (" in text and "No AI answer is recorded for this file yet" in text
     assert "With a recorded answer: APPROVE" in text
 
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")              # record once, through the stand-in service
@@ -225,7 +225,7 @@ def test_the_expected_decision_of_the_letter_follows_the_ai_set_up(tmp_path, mon
     at.button(key="proc_go").click().run()
     assert not at.exception and "APPROVE: pay" in shown(at)
     assert "Expected decision: APPROVE (no exception). This is that decision." in said(at)
-    assert "Purple boxes: values Claude read." in said(at)
+    assert "Purple boxes: values read by AI." in said(at)
 
     text = picked(start(tmp_path, monkeypatch, LLM_MODE="off", INVOICE_DESK_HOME=home))
     assert "Expected decision: HOLD (" in text and "because AI assist is off" in text and "With AI assist: APPROVE" in text
@@ -344,7 +344,7 @@ def test_the_message_to_the_vendor_is_ready_to_copy(app):
     assert any("To:" in m.value and "billing@deccanquill.example" in m.value for m in card.markdown)
     assert any("Copy it with the icon" in c.value for c in card.caption)
     assert "Vendor message (TXT)" in [b.label for b in app.get("download_button")]
-    assert not [b for b in app.button if "Claude" in b.label]          # the model is off: no rewording is offered
+    assert not [b for b in app.button if "AI-suggested wording" in b.label]   # the model is off: no rewording is offered
 
 
 def test_the_audit_trail_reads_as_events_and_keeps_the_hashes_one_click_further_in(app):
@@ -698,4 +698,89 @@ def test_a_key_pasted_into_the_hosts_secrets_box_is_picked_up(tmp_path, monkeypa
     details = " ".join(m.value for e in at.sidebar.expander for m in e.markdown)
     everything = details + shown(at) + said(at) + " ".join(m.value for m in at.sidebar.markdown)
     assert "CACHED-LIVE (claude-sonnet-5-5)" in details and "secret-from-the-host" not in everything
-    assert "AI assist: live Claude, stored answers first" in everything
+    assert "AI assist: live AI calls, stored answers first" in everything
+
+
+def _viewer_text(at) -> str:
+    """What a viewer reads in the main area and the sidebar status line, outside the Technical details expander."""
+    main = at.main
+    parts = [m.value for m in main.markdown] + [t.value for t in main.title] + [s.value for s in main.subheader]
+    parts += [x.value for kind in (main.caption, main.info, main.success, main.warning, main.error) for x in kind]
+    parts += [c.value for c in main.code] + [b.label for b in main.button] + [e.label for e in main.expander]
+    parts += [f"{t.label} {t.help or ''}" for t in main.toggle] + [o for s in main.selectbox for o in s.options]
+    technical = {m.value for e in at.sidebar.expander for m in e.markdown}
+    parts += [m.value for m in at.sidebar.markdown if m.value not in technical]
+    return " ".join(parts)
+
+
+def test_screens_say_ai_and_keep_the_model_name_for_the_technical_details(tmp_path, monkeypatch):
+    """Checkpoint W: no model brand on the screens a viewer reads; the exact model stays in Technical details."""
+    from .test_scripts import Service, client
+    service = Service()
+    monkeypatch.setattr(C, "HTTP_CLIENT", client(service))
+    at = start(tmp_path, monkeypatch, LLM_MODE="cached-live", ANTHROPIC_API_KEY="sk-ant-test", LLM_ALLOW_LIVE="1",
+               LLM_MODEL="claude-sonnet-5-5", INVOICE_DESK_HOME=str(tmp_path / "home"))
+    details = " ".join(m.value for e in at.sidebar.expander for m in e.markdown)
+    assert "CACHED-LIVE (claude-sonnet-5-5)" in details
+
+    go(at, "demo")
+    assert [t for t in at.toggle if t.key == "ai_fresh_pick"]
+    assert "CACHED-LIVE: call the AI model on a cache miss, then store the answer" in at.selectbox(key="ai_mode_pick").options
+    assert "claude" not in _viewer_text(at).lower()
+    at.toggle(key="ai_fresh_pick").set_value(True).run()
+    assert "AI assist: live AI calls, a fresh answer on every run" in " ".join(m.value for m in at.sidebar.markdown)
+    assert "claude" not in _viewer_text(at).lower()
+    at.toggle(key="ai_fresh_pick").set_value(False).run()
+
+    go(at, "guide")
+    assert "AI assist** is used where rules cannot read" in shown(at)
+    assert "claude" not in _viewer_text(at).lower()
+
+    go(at, "process")
+    options = at.selectbox(key="proc_sample").options
+    at.selectbox(key="proc_sample").select(next(o for o in options if o.startswith("10"))).run()
+    assert "once the AI has read it" in said(at) and "claude" not in _viewer_text(at).lower()
+
+    process(at, "05")
+    assert "Get AI-suggested wording" in [b.label for b in at.button] and service.calls == 0
+
+
+def test_the_letter_invoice_banner_and_stage_3_name_no_model_and_technical_details_keep_it(tmp_path, monkeypatch):
+    """Checkpoint W, option B: the engine's stored words keep the brand and the exact model; the screen relabels them."""
+    from scripts import record_llm_fixtures
+    from .test_scripts import Service, client
+    fixtures = tmp_path / "fixtures"
+    (fixtures / "llm").mkdir(parents=True)
+    (fixtures / "ocr").mkdir()
+    monkeypatch.setattr(config, "FIXTURES_DIR", fixtures)
+    home = str(tmp_path / "home")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")              # record once, through the stand-in service
+    monkeypatch.setattr(record_llm_fixtures, "HTTP_CLIENT", client(Service()))
+    assert record_llm_fixtures.main(["--only", "10_ai_assist_letter_invoice"]) == 0
+    monkeypatch.delenv("ANTHROPIC_API_KEY")
+    model = config.llm_config("fixture").model
+
+    at = start(tmp_path, monkeypatch, LLM_MODE="fixture", INVOICE_DESK_HOME=home)
+    process(at, "10")
+    banner = next(m.value for m in at.markdown if "class='idk-banner'" in m.value)
+    assert "APPROVE" in banner and "The AI assist supplied:" in banner and "claude" not in banner.lower()
+
+    stage3 = next(e for e in at.expander if " 3 Extract" in e.label)
+    tables = " ".join(d.value.to_string() for d in stage3.dataframe)
+    words = " ".join(m.value for m in stage3.markdown) + " " + tables + " " + stage3.label
+    assert "<b>AI assist</b>" in words and "AI, checked by code" in tables and "The AI assist supplied:" in words
+    assert "claude" not in words.lower() and model.lower() not in words.lower()
+
+    everything = _viewer_text(at) + " ".join(d.value.to_string() for d in at.main.dataframe)
+    assert "claude" not in everything.lower()
+
+    details = " ".join(m.value for e in at.sidebar.expander for m in e.markdown)
+    assert model in details
+    run_id = Store(tmp_path / "ui.db").list_runs()[0]["run_id"]
+    at.toggle(key=f"audit_tech_{run_id}").set_value(True).run()
+    technical = " ".join(d.value.to_string() for d in at.main.dataframe)
+    assert model in technical
+
+    stored = Store(tmp_path / "ui.db").get_run(run_id)                  # the record itself is unchanged
+    assert any(b["title"] == "AI assist (Claude)" for b in stored.stages[2].blocks)
+    assert "Claude, checked by code" in stored.model_dump_json() and model in stored.model_dump_json()

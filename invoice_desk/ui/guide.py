@@ -51,7 +51,7 @@ def page() -> None:
             "- **Scans and photographs** are straightened and read twice with Tesseract OCR. A figure is trusted "
             "when the arithmetic confirms it; an invoice number or a date, which no arithmetic can confirm, only "
             "when both reads agree.\n"
-            "- **AI assist (Claude)** is used where rules cannot read: an invoice written as a letter. The model "
+            "- **AI assist** is used where rules cannot read: an invoice written as a letter. The model "
             "copies text; code checks that each value is on the page, parses it, and checks the invoice's arithmetic. "
             "The model's own confidence can lower trust and never raise it. Modes: recorded answers (the default, no "
             "network), live with a cache and cost caps, or off.\n"

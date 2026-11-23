@@ -268,16 +268,36 @@ def text_block(text: str) -> None:
     st.markdown(f"<div class='idk-text'>{esc(text)}</div>", unsafe_allow_html=True)
 
 
+# Screen wording for text the engine stores (checkpoint W). The stored record, the JSON downloads and the
+# Technical details keep the model's brand and exact name; the screens a viewer reads say "AI".
+_SCREEN_TITLES = {"AI assist (Claude)": "AI assist"}
+_MODEL_ID = r"claude-[A-Za-z0-9.\-]+"
+
+
+def screen_words(text: str) -> str:
+    """Engine text as it is shown on screen: no model brand, no model name."""
+    if not text:
+        return text
+    text = re.sub(r"Claude \([^()]*\) supplied:", "The AI assist supplied:", text)
+    text = text.replace("Claude, checked by code", "AI, checked by code")
+    text = text.replace("live call to the Claude API", "live call to the AI model")
+    text = re.sub(r"\(" + _MODEL_ID + r", ", "(", text, flags=re.IGNORECASE)        # "(model, prompt v1)" -> "(prompt v1)"
+    text = re.sub(r"\s*\(" + _MODEL_ID + r"\)", "", text, flags=re.IGNORECASE)      # "CACHED-LIVE (model)" -> "CACHED-LIVE"
+    return text
+
+
 def render_blocks(blocks: list[dict]) -> None:
     """Evidence blocks produced by a stage: tables, key/value lists and plain text."""
     for block in blocks:
         title = block.get("title")
         if title:
+            title = _SCREEN_TITLES.get(title, screen_words(title))
             st.markdown(f"<div class='idk-small'><b>{esc(title)}</b></div>", unsafe_allow_html=True)
         if block.get("type") in ("table", "kv"):
-            table(block.get("rows") or [])
+            table([{k: screen_words(v) if isinstance(v, str) else v for k, v in row.items()}
+                   for row in (block.get("rows") or [])])
         else:
-            text_block(block.get("text") or "")
+            text_block(screen_words(block.get("text") or ""))
 
 
 def finding_html(f: Finding, with_summary: bool = True) -> str:
@@ -287,7 +307,7 @@ def finding_html(f: Finding, with_summary: bool = True) -> str:
     parts = [f"<div class='idk-find {cls}'><span class='t'>{esc(kind)}: {esc(f.title or f.code)}</span> "
              f"<span class='idk-small'>[{esc(f.code)}]{owner}</span>"]
     if with_summary:
-        parts.append(f"<br>{esc(f.summary)}")
+        parts.append(f"<br>{esc(screen_words(f.summary))}")
     meta = []
     if f.expected:
         meta.append(f"<b>Expected:</b> {esc(f.expected)}")
@@ -340,7 +360,7 @@ def stage_row_html(number: int, title: str, status: str, summary: str = "", dura
     extra = "".join(finding_html(f) for f in (findings or []))
     return (f"<div class='idk-row {cls}'><div class='num'>{number}</div><div class='body'>"
             f"<span class='title'>{esc(title)}</span> <span class='idk-small'>{lead}{esc(label)}</span>"
-            f"<div class='sum'>{esc(summary)}</div>{extra}</div><div class='ms'>{esc(time_text)}</div></div>")
+            f"<div class='sum'>{esc(screen_words(summary))}</div>{extra}</div><div class='ms'>{esc(time_text)}</div></div>")
 
 
 def stage_states(result: RunResult) -> dict[str, str]:
@@ -351,7 +371,7 @@ def render_stage(stage: StageResult, expanded: bool = False) -> None:
     """One finished stage as an expander with its evidence inside."""
     colour = {"ok": "green", "attention": "orange", "blocked": "red", "error": "red"}.get(stage.status, "gray")
     symbol = STATUS.get(stage.status, STATUS["pending"])[0] or "•"
-    label = (f":{colour}[**{symbol} {stage.number} {md_safe(stage.title)}**]   {md_safe(stage.summary)} "
+    label = (f":{colour}[**{symbol} {stage.number} {md_safe(stage.title)}**]   {md_safe(screen_words(stage.summary))} "
              f"  :gray[{stage.duration_ms:.0f} ms]")
     with st.expander(label, expanded=expanded):
         st.caption(STAGE_HELP.get(stage.key, ""))
@@ -375,9 +395,9 @@ def verdict_banner_html(result: RunResult) -> str:
     return (f"<div class='idk-banner' style='color:{colour};background:{background};border-color:{border}'>"
             f"<div class='tag'>{esc(result.run_id)} &nbsp;|&nbsp; {esc(display_name(result.file_name))} &nbsp;|&nbsp; "
             f"{esc(label)}, processed in {esc(took(result.duration_ms))}</div>"
-            f"<div class='headline'>{esc(d.headline)}</div>"
-            f"<div class='why'>{esc(d.explanation)}</div>"
-            f"<div class='next'><b>Next:</b> {esc(d.next_action)}</div></div>")
+            f"<div class='headline'>{esc(screen_words(d.headline))}</div>"
+            f"<div class='why'>{esc(screen_words(d.explanation))}</div>"
+            f"<div class='next'><b>Next:</b> {esc(screen_words(d.next_action))}</div></div>")
 
 
 def neutral_banner_html(tag: str, headline: str, text: str = "") -> str:
@@ -405,17 +425,17 @@ def vendor_note_card(result: RunResult, key: str) -> None:
             from ..decide import note_must_keep
             stored = llm.find("vendor_note", __import__("hashlib").sha256(d.vendor_draft.encode("utf-8")).hexdigest(),
                               llm.cfg.model) is not None
-            label = "Show Claude's rewording" if stored else "Reword with Claude"
+            label = "Show AI-suggested wording" if stored else "Get AI-suggested wording"
             if (stored or llm.cfg.can_call) and st.button(label, key=f"note_btn_{key}", icon=":material/edit_note:"):
                 reworded = llm.draft_vendor_note(d.vendor_draft, note_must_keep(result.decision_ctx, d.vendor_draft))
                 st.session_state[f"note_ai_{result.run_id}"] = reworded
         if reworded:
             if reworded.get("accepted"):
-                st.markdown("**Reworded by Claude** (checked by code: it adds no figure, date or reference that the "
+                st.markdown("**AI-suggested wording** (checked by code: it adds no figure, date or reference that the "
                             "draft above does not have, and keeps the invoice number, PO and total)")
                 st.code(reworded["text"], language=None, wrap_lines=True)
             else:
-                st.info("Claude's rewording was not used: " + (reworded.get("why") or reworded.get("error") or
+                st.info("The AI-suggested wording was not used: " + (reworded.get("why") or reworded.get("error") or
                                                                reworded.get("note") or "no answer was available") +
                         ". The draft above stands.")
 
@@ -521,8 +541,8 @@ def render_preview(content: Optional[bytes], sha256: str, result: Optional[RunRe
     if boxes:
         notes.append("Blue boxes: header fields. Green boxes: line items. Each is where a value was read.")
     if any(box[4] == "ai" for box in boxes):
-        notes.append("Purple boxes: values Claude read. Each was found again on the page by code, inside the sentence "
-                     "Claude quoted, before it was used.")
+        notes.append("Purple boxes: values read by AI. Each was found again on the page by code, inside the sentence "
+                     "the AI quoted, before it was used.")
     if str(info.get("kind", "")).startswith("scan"):
         how = "recorded OCR output" if info.get("ocr_source") == "recorded" else "OCR"
         if straightened:
@@ -568,9 +588,14 @@ def audit_trail(result: RunResult, store: Store) -> None:
                    "SHA-256 of the entry before it": r["prev_hash"], "Signed": "yes" if r.get("signature") else "no"}
                   for r in receipts)
             receipt = result.receipt or {}
-            table([{"Item": "Document fingerprint (SHA-256 of the file)", "Value": result.file_sha256},
-                   {"Item": "Rules file fingerprint", "Value": str((receipt.get("rules") or {}).get("sha256", ""))},
-                   {"Item": "Master data fingerprint", "Value": str(receipt.get("master_data_sha256", ""))}])
+            items = [{"Item": "Document fingerprint (SHA-256 of the file)", "Value": result.file_sha256},
+                     {"Item": "Rules file fingerprint", "Value": str((receipt.get("rules") or {}).get("sha256", ""))},
+                     {"Item": "Master data fingerprint", "Value": str(receipt.get("master_data_sha256", ""))}]
+            used = (result.invoice.llm if result.invoice else None) or {}
+            if used.get("called") and used.get("model"):        # the exact model stays here, off the primary screens
+                items.append({"Item": "AI answer (model and prompt version)",
+                              "Value": f"{used['model']}, prompt {used.get('prompt_version', '')}"})
+            table(items)
 
 
 def render_run(result: RunResult, store: Store, key: str) -> None:
@@ -617,14 +642,14 @@ def run_table_rows(runs: list[dict], rules: Rules) -> list[dict]:
     return rows
 
 
-AI_MODE_LABEL = {"fixture": "recorded answers (no network)", "cached-live": "live Claude, stored answers first",
+AI_MODE_LABEL = {"fixture": "recorded answers (no network)", "cached-live": "live AI calls, stored answers first",
                  "off": "off (rules only)"}
 
 
 def sidebar_status(pipeline: Pipeline) -> None:
     """One line a user needs, and the build details behind a click."""
     modes = pipeline.modes()
-    ai = "live Claude, a fresh answer on every run" if fresh_answers() else AI_MODE_LABEL[modes["llm_mode"]]
+    ai = "live AI calls, a fresh answer on every run" if fresh_answers() else AI_MODE_LABEL[modes["llm_mode"]]
     st.markdown(f"<div class='idk-status'><span class='dot'></span><b>Ready.</b> Decisions by rules "
                 f"(version {esc(modes['rules_version'])}). AI assist: {esc(ai)}.</div>",
                 unsafe_allow_html=True)
@@ -634,7 +659,10 @@ def sidebar_status(pipeline: Pipeline) -> None:
         pinned = bool(config.env("INVOICE_DESK_TODAY")) or st.session_state.get("demo_clock", True)
         clock = T.fmt_date(modes["today"]) + (f" ({fixed})" if pinned else " (today)")
         books = "private to this browser session" if config.sandbox_mode() == "session" else "shared on this machine"
-        lines = [("Reader", "rules, deterministic"), ("AI assist", modes["llm"]), ("OCR engine", ocr),
+        lines = [("Reader", "rules, deterministic"), ("AI assist", modes["llm"])]
+        if modes["llm_mode"] != "off":
+            lines.append(("AI model", get_llm().cfg.model))
+        lines += [("OCR engine", ocr),
                  ("Rules", f"version {modes['rules_version']}"), ("Business date", clock), ("Books", books)]
         st.markdown("<div class='idk-mode'>" + "".join(f"<div><b>{esc(k)}</b> {esc(v)}</div>" for k, v in lines) + "</div>",
                     unsafe_allow_html=True)

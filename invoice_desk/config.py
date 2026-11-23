@@ -195,7 +195,7 @@ class LlmConfig:
     def explanation(self) -> str:
         return {"fixture": "Replays answers recorded earlier from a real model. No key is needed and nothing is sent anywhere.",
                 "cached-live": "Uses a stored answer when one exists for this exact file, prompt version and model. "
-                               "Otherwise it calls the Claude API once, inside the cost caps, and stores the answer.",
+                               "Otherwise it calls the AI model once, inside the cost caps, and stores the answer.",
                 "off": "The model is not used at all. Documents the rules cannot read are held for a person."}[self.mode]
 
 
