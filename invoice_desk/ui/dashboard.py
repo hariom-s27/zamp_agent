@@ -1,5 +1,6 @@
-"""Page 2, Dashboard: what has been processed, how it was decided, and the full record
-of any run (stages, evidence, document, receipts)."""
+"""Page, Dashboard: five numbers, three bar charts and what needs attention, then the full history
+of any run (stages, evidence, document, receipts) in its own tab. Everything is read from the
+stored records; nothing here changes a decision."""
 from __future__ import annotations
 
 import statistics
@@ -9,11 +10,110 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
+from .. import cases as case_engine
 from .. import textutil as T
 from . import common as C
+from . import ui_kit as K
+from .process import amount_text, plain
 
 ORDER = ["APPROVE", "HOLD", "REJECT"]
 COLOURS = ["#1a8a52", "#d99a00", "#c9343d"]
+BAD_FILE = {"UNREADABLE_FILE", "FILE_TOO_LARGE", "SCAN_NOT_READ", "NOT_AN_INVOICE", "NOT_A_TAX_INVOICE",
+            "UNSUPPORTED_DOCUMENT"}                      # not an invoice: left out of every rate
+DUPLICATES = {"DUPLICATE_FILE", "DUPLICATE_INVOICE_NUMBER", "DUPLICATE_CONTENT", "POSSIBLE_DUPLICATE"}
+OVERBILLING = {"PRICE_VARIANCE", "QTY_OVER_PO", "OVER_PO_BALANCE"}
+BANK = "BANK_DETAILS_CHANGED"
+# Display only: reason codes grouped in plain words for the chart. The codes themselves are unchanged.
+FAMILY = [
+    ("Price above the PO", {"PRICE_VARIANCE"}),
+    ("Goods receipt not posted", {"GOODS_NOT_RECEIVED"}),
+    ("Quantity above the PO or receipt", {"QTY_OVER_PO", "OVER_PO_BALANCE", "BUNDLED_PARTIAL"}),
+    ("No open PO", {"PO_NOT_FOUND", "NO_PO_FOUND", "PO_CLOSED", "PO_VENDOR_MISMATCH", "LINE_NOT_ON_PO", "PO_INFERRED",
+                    "DATE_BEFORE_PO"}),
+    ("Tax or total wrong", {"ARITHMETIC_MISMATCH", "AMOUNT_WORDS_MISMATCH", "TAX_RATE_UNUSUAL", "TAX_TYPE_MISMATCH",
+                            "GSTIN_INVALID", "BUYER_GSTIN_MISSING", "CURRENCY_NOT_SUPPORTED"}),
+    ("Vendor details differ", {"VENDOR_NOT_APPROVED", "VENDOR_BLOCKED", "VENDOR_GSTIN_MISMATCH", "VENDOR_NAME_VARIANT",
+                               "VENDOR_MATCHED_BY_NAME", "MISSING_VENDOR_ID"}),
+    ("A value could not be read", {"MISSING_INVOICE_NUMBER", "MISSING_INVOICE_DATE", "MISSING_TOTAL",
+                                   "LINE_ITEMS_UNREADABLE", "LOW_CONFIDENCE_READ", "SCAN_READS_DIFFER"}),
+    ("Duplicate", DUPLICATES | {"RESUBMITTED_WHILE_ON_HOLD"}),
+    ("Bank account changed", {BANK}),
+]
+OUTCOMES = ["Cleared without a person", "Held, then cleared", "Still on hold", "Rejected"]
+OUTCOME_COLOURS = ["#1a8a52", "#9aa0a6", "#d99a00", "#c9343d"]
+
+
+def family(code: str) -> str:
+    return next((name for name, codes in FAMILY if code in codes), "Other")
+
+
+def codes_of(row: dict) -> set[str]:
+    return {c for c in (row.get("reason_codes") or "").split(",") if c}
+
+
+def received(runs: list[dict]) -> list[dict]:
+    """A file sent twice is one invoice."""
+    return [r for r in runs if not r.get("resubmission_of")]
+
+
+def invoices(runs: list[dict]) -> list[dict]:
+    return [r for r in received(runs) if not codes_of(r) & BAD_FILE]
+
+
+def outcome(row: dict) -> str:
+    if row["verdict"] == "APPROVE":
+        return OUTCOMES[0]
+    if row["review_status"] == "PENDING":
+        return OUTCOMES[2]
+    if row["verdict"] == "HOLD" and row["review_status"] in ("APPROVED", "RELEASED", "HANDLED"):
+        return OUTCOMES[1]
+    return OUTCOMES[3]
+
+
+def money_stopped(items: list[dict]) -> dict[str, tuple[float, int]]:
+    """Money that would have been paid wrongly. Duplicates and unverified bank changes count in full while
+    held or rejected; overbilling counts only its excess; anything later cleared counts as zero."""
+    parts: dict[str, tuple[float, int]] = {}
+
+    def add(name: str, amount: float) -> None:
+        total, count = parts.get(name, (0, 0))
+        parts[name] = (total + amount, count + 1)
+
+    for it in items:
+        if it["status"] == "cleared":
+            continue
+        if BANK in it["codes"]:
+            add("Bank change stopped", it["total"])
+        elif it["codes"] & DUPLICATES:
+            add("Duplicates", it["total"])
+        elif it["codes"] & OVERBILLING and it["excess"] > 0:
+            add("Overbilling", it["excess"])
+    return parts
+
+
+def largest_part(parts: dict[str, tuple[float, int]]):
+    """The part named on the card when it is more than half the total."""
+    total = sum(a for a, _ in parts.values())
+    if not total:
+        return None
+    name, (amount, _) = max(parts.items(), key=lambda kv: kv[1][0])
+    return name if amount > total / 2 else None
+
+
+def stopped_items(store, runs: list[dict]) -> list[dict]:
+    out = []
+    for r in received(runs):
+        codes = codes_of(r)
+        if not codes & (DUPLICATES | OVERBILLING | {BANK}):
+            continue
+        status = ("cleared" if outcome(r) in OUTCOMES[:2] else "held" if r["review_status"] == "PENDING" else "rejected")
+        excess = 0.0
+        if codes & OVERBILLING:
+            result = store.get_run(r["run_id"])
+            reasons = result.decision.reasons if result and result.decision else []
+            excess = sum(float(f.evidence.get("line_extra") or 0) for f in reasons if f.code == "PRICE_VARIANCE")
+        out.append({"codes": codes, "total": float(T.to_decimal(r["total"]) or 0), "status": status, "excess": excess})
+    return out
 
 
 def _kpis(runs: list[dict]) -> None:
@@ -63,39 +163,6 @@ def _case_figures(store) -> None:
                   **plain)
 
 
-def _charts(runs: list[dict], rules) -> None:
-    left, right = st.columns(2, gap="large")
-    counts = Counter(r["verdict"] for r in runs)
-    decisions = pd.DataFrame({"Decision": ORDER, "Documents": [counts.get(v, 0) for v in ORDER]})
-    with left:
-        st.markdown("**Decisions**")
-        chart = alt.Chart(decisions).mark_bar(cornerRadius=3).encode(
-            y=alt.Y("Decision:N", sort=ORDER, title=None),
-            x=alt.X("Documents:Q", axis=alt.Axis(tickMinStep=1), title="Documents"),
-            color=alt.Color("Decision:N", scale=alt.Scale(domain=ORDER, range=COLOURS), legend=None),
-            tooltip=["Decision", "Documents"]).properties(height=alt.Step(40))
-        st.altair_chart(chart, width="stretch")
-    reasons: Counter = Counter()
-    action: dict[str, str] = {}
-    for r in runs:
-        for code in [c for c in (r["reason_codes"] or "").split(",") if c]:
-            title = rules.reason(code).title
-            reasons[title] += 1
-            action[title] = rules.reason(code).action
-    with right:
-        st.markdown("**Why documents were held or rejected**")
-        if not reasons:
-            st.caption("No holds or rejections so far.")
-        else:
-            frame = pd.DataFrame([{"Reason": k, "Documents": v, "Action": action[k]} for k, v in reasons.most_common(12)])
-            chart = alt.Chart(frame).mark_bar(cornerRadius=3).encode(
-                y=alt.Y("Reason:N", sort="-x", title=None, axis=alt.Axis(labelLimit=340, labelOverlap=False)),
-                x=alt.X("Documents:Q", axis=alt.Axis(tickMinStep=1), title="Documents"),
-                color=alt.Color("Action:N", scale=alt.Scale(domain=["HOLD", "REJECT"], range=[COLOURS[1], COLOURS[2]]),
-                                legend=alt.Legend(orient="bottom", title=None)),
-                tooltip=["Reason", "Documents", "Action"]).properties(height=alt.Step(24))
-            st.altair_chart(chart, width="stretch")
-
 
 def _chain(store) -> None:
     check = store.verify_chain()
@@ -119,27 +186,159 @@ def _chain(store) -> None:
                    f"signing: {'on' if signing_enabled() else 'off (RECEIPT_SIGNING_KEY not set)'}")
 
 
-def page() -> None:
-    store = C.get_store()
-    rules = C.get_rules()
-    st.title("Dashboard")
-    st.caption("What was received, how it was decided and where it stands. Everything here is read from the stored records.")
-    runs = store.list_runs()
-    if not runs:
-        st.markdown(C.neutral_banner_html("Nothing received yet", "No document has been processed in these books",
-                                          "Run the Guided demo, process one invoice, or process the whole sample inbox now."),
-                    unsafe_allow_html=True)
-        if st.button(f"Process all {len(C.manifest())} samples now", type="primary", key="dash_batch"):
-            st.session_state["goto"], st.session_state["auto_batch"] = "process", True
-            st.rerun()
+
+def _open_cases(store) -> list[dict]:
+    return [c for c in store.list_cases() if c["state"] != "RESOLVED"]
+
+
+def _days_left(day_text) -> int | None:
+    day = case_engine._as_date(day_text or "")
+    return (day - C.business_date()).days if day else None
+
+
+def _at_risk(case: dict, within: int) -> bool:
+    left = _days_left(case.get("statutory_due"))
+    return left is not None and left <= within
+
+
+def _cards(store, runs: list[dict], rules) -> None:
+    within = rules.display.attention_days
+    inv = invoices(runs)
+    cleared = [r for r in inv if outcome(r) == OUTCOMES[0]]
+    held = [r for r in received(runs) if r["review_status"] == "PENDING"]
+    open_cases = _open_cases(store)
+    overdue = sum(1 for c in open_cases if (_days_left(c["due_on"]) or 0) < 0)
+    closed = [(case_engine._as_date(c["resolved_on"]) - case_engine._as_date(c["opened_on"])).days
+              for c in store.list_cases() if c["state"] == "RESOLVED" and c["resolved_on"] and c["opened_on"]]
+    parts = money_stopped(stopped_items(store, runs))
+    stopped = sum(a for a, _ in parts.values())
+    biggest = largest_part(parts)
+    risk = [c for c in open_cases if _at_risk(c, within)]
+    past = sum(1 for c in risk if (_days_left(c["statutory_due"]) or 0) < 0)
+    cols = st.columns(5)
+    with cols[0]:
+        K.kpi_card("Cleared without a person", f"{round(100 * len(cleared) / len(inv))}%" if inv else "-",
+                   f"of {len(inv)} invoice{'s' if len(inv) != 1 else ''} in these books",
+                   help="Invoices that passed every check with nobody touching them, out of all invoices received. "
+                        "Files that are not invoices are left out.")
+    with cols[1]:
+        K.kpi_card("On hold now", str(len(held)),
+                   f"{K.inr_short(sum(float(T.to_decimal(r['total']) or 0) for r in held))} · {overdue} overdue",
+                   help="Invoices waiting on a person today. Overdue means past the answer date the rule book gives "
+                        "its owner.")
+    with cols[2]:
+        if closed:
+            p90 = sorted(closed)[max(0, -(-9 * len(closed) // 10) - 1)]
+            K.kpi_card("Days to clear a held invoice", str(round(statistics.median(closed))),
+                       f"median · 9 in 10 within {p90} day{'s' if p90 != 1 else ''}",
+                       help="From the day an invoice was put on hold to the day it was cleared or rejected.")
+        else:
+            K.kpi_card("Days to clear a held invoice", "-", "no hold has been closed yet",
+                       help="From the day an invoice was put on hold to the day it was cleared or rejected.")
+    with cols[3]:
+        note = (f"{biggest}: {K.inr_short(parts[biggest][0])}" if biggest else
+                f"{sum(n for _, n in parts.values())} invoice(s)")
+        K.kpi_card("Money stopped before payment", K.inr_short(stopped), note,
+                   help="Money that would have been paid wrongly. Duplicates and unverified bank changes count in "
+                        "full. Overbilling counts only the excess. Anything later cleared counts as zero.")
+        if parts:
+            with st.popover("The parts", icon=":material/list:"):
+                st.markdown(" · ".join(f"{name} {K.inr_short(a)} ({n})" for name, (a, n) in parts.items()))
+    with cols[4]:
+        K.kpi_card("Small-supplier deadlines at risk", str(len(risk)),
+                   f"within {within} days of the legal limit" + (f", {past} past the limit" if past else ""),
+                   help="Micro and small suppliers must be paid within the agreed period, at most 45 days from "
+                        "acceptance, or 15 days with no written terms.")
+
+
+def _charts(store, runs: list[dict]) -> None:
+    a, b, c = st.columns(3, gap="large")
+    inv = invoices(runs)
+    with a:
+        st.markdown("**What happened to each month's invoices**")
+        rows = Counter((str(r["created_at"])[:7], outcome(r)) for r in inv)
+        months = sorted({m for m, _ in rows})
+        frame = pd.DataFrame([{"Month": pd.Timestamp(m + "-01").strftime("%b %Y"), "Outcome": o, "Invoices": n,
+                               "rank": OUTCOMES.index(o)} for (m, o), n in rows.items()])
+        if frame.empty:
+            st.caption("No invoices yet.")
+        else:
+            chart = alt.Chart(frame).mark_bar().encode(
+                x=alt.X("Month:N", sort=[pd.Timestamp(m + "-01").strftime("%b %Y") for m in months], title=None),
+                y=alt.Y("Invoices:Q", stack="zero", axis=alt.Axis(tickMinStep=1)),
+                color=alt.Color("Outcome:N", scale=alt.Scale(domain=OUTCOMES, range=OUTCOME_COLOURS),
+                                legend=alt.Legend(orient="bottom", title=None, columns=2)),
+                order=alt.Order("rank:Q"), tooltip=["Month", "Outcome", "Invoices"])
+            st.altair_chart(chart, width="stretch", key="dash_chart_months")
+    with b:
+        st.markdown("**Who is holding invoices today**")
+        teams: dict[str, list[int]] = {}
+        for case in _open_cases(store):
+            team = "The vendor" if case["waiting_on"] == "vendor" else case["waiting_on"]
+            late = (_days_left(case["due_on"]) or 0) < 0
+            teams.setdefault(team, [0, 0])[1 if late else 0] += 1
+        if not teams:
+            st.caption("Nobody is holding an invoice today.")
+        else:
+            frame = pd.DataFrame([{"Team": t, "State": s, "Invoices": v[i]} for t, v in teams.items()
+                                  for i, s in enumerate(["On time", "Overdue"]) if v[i]])
+            chart = alt.Chart(frame).mark_bar().encode(
+                y=alt.Y("Team:N", sort="-x", title=None), x=alt.X("Invoices:Q", stack="zero", axis=alt.Axis(tickMinStep=1)),
+                color=alt.Color("State:N", scale=alt.Scale(domain=["On time", "Overdue"], range=["#9aa0a6", "#c9343d"]),
+                                legend=alt.Legend(orient="bottom", title=None)), tooltip=["Team", "State", "Invoices"])
+            st.altair_chart(chart, width="stretch", key="dash_chart_teams")
+    with c:
+        st.markdown("**Why invoices were held**")
+        counts = Counter(family(code) for r in inv if r["verdict"] == "HOLD" for code in codes_of(r)
+                         if C.get_rules().reason(code).action == "HOLD")
+        if not counts:
+            st.caption("No holds so far.")
+        else:
+            top = counts.most_common(7)
+            rest = sum(counts.values()) - sum(n for _, n in top)
+            frame = pd.DataFrame([{"Reason": k, "Invoices": v} for k, v in top] +
+                                 ([{"Reason": "Other", "Invoices": rest}] if rest else []))
+            chart = alt.Chart(frame).mark_bar(color="#d99a00").encode(
+                y=alt.Y("Reason:N", sort="-x", title=None, axis=alt.Axis(labelLimit=220)),
+                x=alt.X("Invoices:Q", axis=alt.Axis(tickMinStep=1)), tooltip=["Reason", "Invoices"])
+            st.altair_chart(chart, width="stretch", key="dash_chart_reasons")
+
+
+def _needs_attention(store, rules) -> None:
+    within = rules.display.attention_days
+    cases = _open_cases(store)
+    if not cases:
         return
 
-    _kpis(runs)
-    _case_figures(store)
-    _charts(runs, rules)
-    _chain(store)
+    def urgency(case: dict) -> tuple:
+        legal = _days_left(case.get("statutory_due"))
+        rank = 0 if legal is not None and legal < 0 else 1 if legal is not None and legal <= within else 2
+        return rank, case["due_on"]
 
-    st.subheader("History")
+    st.markdown("**Needs attention**")
+    for case in sorted(cases, key=urgency)[:rules.display.attention_max]:
+        row = store.run_row(case["run_id"]) or {}
+        line = st.container(horizontal=True, vertical_alignment="center", border=True)
+        amount = amount_text(row.get("total"))
+        who = "the vendor" if case["waiting_on"] == "vendor" else case["waiting_on"]
+        line.markdown(f"**{plain(row.get('vendor_name') or 'Unknown vendor')}** · {plain(row.get('invoice_no') or '-')}"
+                      f"{' · ' + amount if amount else ''} · Waiting on {plain(who)}")
+        due = case_engine._as_date(case["due_on"])
+        if due:
+            line.markdown(K.chip_md(*K.due_label(due, C.business_date())))
+        legal = _days_left(case.get("statutory_due"))
+        if legal is not None:
+            line.markdown(f":gray-badge[:material/gavel: Small supplier · legal limit "
+                          f"{case_engine.day_text(case_engine._as_date(case['statutory_due']))}]")
+        if line.button("Open", key=f"att_{case['case_id']}"):
+            st.session_state["goto"] = "cases"
+            st.rerun()
+    if st.button("See all cases", key="dash_all_cases", icon=":material/folder_open:"):
+        st.session_state["goto"] = "cases"
+        st.rerun()
+
+
+def _history(store, runs: list[dict], rules) -> None:
     f1, f2, f3 = st.columns([0.3, 0.3, 0.4])
     verdicts = f1.multiselect("Decision", ORDER, default=[], placeholder="All decisions", key="dash_verdict")
     vendors = sorted({r["vendor_name"] for r in runs if r["vendor_name"]})
@@ -173,3 +372,32 @@ def page() -> None:
         st.info("This reference has no stored record.")
         return
     C.render_run(result, store, key=f"dash_{run_id}")
+
+
+def page() -> None:
+    store = C.get_store()
+    rules = C.get_rules()
+    st.title("Dashboard")
+    st.caption("What was received, how it was decided and where it stands. Everything here is read from the stored records.")
+    runs = store.list_runs()
+    if not runs:
+        st.info("Nothing received yet. No document has been processed in these books. Run the Guided demo, process "
+                "one invoice, or process the whole sample inbox now.", icon=":material/inbox:")
+        if st.button(f"Process all {len(C.manifest())} samples now", type="primary", key="dash_batch"):
+            st.session_state["goto"], st.session_state["auto_batch"] = "process", True
+            st.rerun()
+        return
+
+    overview, history = st.tabs(["Overview", "All invoices"])
+    with overview:
+        _cards(store, runs, rules)
+        st.caption("For comparison, published surveys put the share of invoices that need a person at 18 to 20%. The "
+                   "sample inbox is built to show exceptions, so its share is higher. It is not a result.")
+        _charts(store, runs)
+        _needs_attention(store, rules)
+        _chain(store)
+        with st.expander("More figures"):
+            _kpis(runs)
+            _case_figures(store)
+    with history:
+        _history(store, runs, rules)

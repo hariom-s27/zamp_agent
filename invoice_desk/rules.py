@@ -257,6 +257,8 @@ class ChangeRules(Strict):
 class DisplayRules(Strict):
     """How the screens show work. Display only: nothing here changes a decision."""
     stage_pause_seconds: float = Field(ge=0, le=5)
+    attention_days: int = Field(ge=0, le=45)
+    attention_max: int = Field(ge=1, le=20)
 
 
 class Reason(Strict):
