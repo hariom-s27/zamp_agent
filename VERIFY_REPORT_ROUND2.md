@@ -73,7 +73,7 @@ FIXTURE (it does unless it was changed in that browser session).
 
 ## 4. Git
 
-GIT_SECTION_PENDING
+Pushed by Hariom on 23 Nov 2026 as commit 9ebfa85 ("Round 2: audit fixes, Claude layer, robustness set, guided demo") on top of c133510 (round 1). No history was rewritten. .env is git-ignored and was not committed. The 7 Claude recordings in fixtures/llm/ are committed. Three leftover test screenshots were deleted before the commit. The repository is now private.
 
 ## What was changed, and what failed
 
