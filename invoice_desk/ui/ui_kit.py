@@ -92,6 +92,7 @@ class Stage:
     actor: str = "rules"  # rules | ai
     seconds: float | None = None
     lines: list[str] = field(default_factory=list)
+    actor_note: str | None = None  # chip text when the actor is not rules, e.g. "AI read 3"
 
 
 _ICON = {k: STATUS[k][2] for k in ("passed", "flagged", "stopped", "skipped")}
@@ -100,7 +101,7 @@ _ICON = {k: STATUS[k][2] for k in ("passed", "flagged", "stopped", "skipped")}
 def stage_card(s: Stage) -> None:
     """One finished stage as a timeline step. Call for consecutive stages with nothing in between."""
     took = f" · {s.seconds:.1f} s" if s.seconds is not None else ""
-    who = f" {actor_chip(s.actor)}" if s.actor != "rules" else ""
+    who = f" {actor_chip(s.actor, s.actor_note)}" if s.actor != "rules" else ""
     label = f"**{s.number}. {s.title}** · {s.summary}{took}{who}"
     with st.expander(label, icon=_ICON[s.result], type="step", expanded=s.result in ("flagged", "stopped")):
         st.markdown(chip_md(s.result))

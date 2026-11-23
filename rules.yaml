@@ -185,6 +185,9 @@ changes:                       # procedure change requests (round 4, step 1): pr
   max_keys_per_request: 3      # some limits work as a pair, so a request may change a few together
   replay_max_documents: 60     # replay stops here and says so
 
+display:                       # how the screens show work. Display only: no number here changes a decision
+  stage_pause_seconds: 0.6     # how long each step stays on screen in the live view at reading speed. The real times are always shown; "Fast" shows no pause
+
 # What each finding means for the decision. action: REJECT > HOLD > NOTE.
 # owner: who is asked when the action is HOLD (or who is told, for REJECT).
 reasons:

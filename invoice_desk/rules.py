@@ -254,6 +254,11 @@ class ChangeRules(Strict):
         return self
 
 
+class DisplayRules(Strict):
+    """How the screens show work. Display only: nothing here changes a decision."""
+    stage_pause_seconds: float = Field(ge=0, le=5)
+
+
 class Reason(Strict):
     action: Action
     owner: str = ""
@@ -282,6 +287,7 @@ class Rules(Strict):
     payments: PaymentRules
     answers: AnswerRules
     changes: ChangeRules
+    display: DisplayRules
     reasons: dict[str, Reason]
     sha256: str = ""
 
