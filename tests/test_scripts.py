@@ -111,7 +111,8 @@ def test_preflight_is_ready_without_a_key_and_says_what_is_missing(workspace, ca
     assert rehearsal.count("[ok  ] step") == 11 and "step 10 Sent twice: APPROVE" in rehearsal
     assert "audit trail after the demo: 11 entries verified" in rehearsal
     pages = out.split("Every page of the app opens")[1]
-    for title in ("Guided demo", "Process invoice", "Review queue", "Cases", "Dashboard", "Rules and data", "How it works"):
+    for title in ("Guided demo", "Process invoice", "Review queue", "Cases", "Dashboard", "Business case",
+                  "Rules and data", "How it works"):
         assert f"[ok  ] {title}" in pages
 
 

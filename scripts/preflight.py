@@ -311,7 +311,7 @@ def check_pages(rep: Report) -> None:
     os.environ["INVOICE_DESK_DB"], os.environ["LLM_USAGE_DB"] = str(folder / "pages.db"), str(folder / "usage.db")
     try:
         for key, title in (("demo", "Guided demo"), ("process", "Process invoice"), ("review", "Review queue"),
-                           ("cases", "Cases"), ("dashboard", "Dashboard"), ("reference", "Rules and data"), ("guide", "How it works")):
+                           ("cases", "Cases"), ("dashboard", "Dashboard"), ("value", "Business case"), ("reference", "Rules and data"), ("guide", "How it works")):
             app = AppTest.from_file(str(config.ROOT / "app.py"), default_timeout=120)
             app.session_state["goto"] = key
             app.run()

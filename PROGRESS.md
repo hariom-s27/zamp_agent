@@ -233,3 +233,35 @@ is section 6 of `Invoice_Desk_round3_research_and_plan.md`, kept outside the rep
 
 Checkpoint 4: approve and send to the outbox (`approve_message`, `outbox_dir`), tests first. Then checkpoints 5
 to 8. Checkpoints 9 to 11 (day 3) wait for an explicit go-ahead.
+
+### Round 3 after the handoff (run without stopping from checkpoint 6, as asked on 23 Nov)
+
+| # | What | Commit | Tests |
+|---|---|---|---|
+| 4 | Approve and send to the outbox: `cases.approve_message`, `cases.outbox_dir` | `08438d0` | 603 passed |
+| 5 | Cases page, RELEASED labels, dashboard case row, steps 12 and 13 in the Guided demo, preflight `case 12` and `case 13`, Cases in the page lists | `9d6b791` | 613 passed |
+| 6 | Business case page: `invoice_desk/value.py` (`measured`, `model`), `invoice_desk/ui/value.py`, page in navigation and preflight | "Checkpoint 6: Business case page" | 619 passed |
+
+Standing results after each of 4, 5 and 6: preflight READY with 11 `[ok  ] step` lines (and from 5 on, `[ok  ] case 12`
+and `[ok  ] case 13`); 18 of 18; `--cases` 2 of 2; robustness 30, 15, 4, 0 with 691 of 705 values; frozen code files
+and every baseline data file unchanged (rules.yaml changed on purpose at checkpoint 1).
+
+Departures from the specification, and why:
+
+9. **One message per wait (checkpoint 4).** `approve_message` refuses a second approval while the case already waits
+   on the vendor for the message it sent, so a double click cannot send it twice. The `-NN` file numbering stays for
+   a later message after a reply.
+10. **Escalation once per party waited on (checkpoint 4).** Section 6.3 step 5 says "no escalation yet at this
+    owner"; checkpoint 2 had checked "never escalated". Now a case already escalated while waiting on Procurement
+    escalates again (to the AP analyst) if the vendor misses its reply date.
+11. **The outbox file uses the standard library's default email policy (LF line endings)** so it parses back to the
+    drafted text exactly; mail clients open it either way.
+12. **`master_with_receipts` starts again from the original master (checkpoint 5, a bug fix).** The Cases page passes
+    `sync` a master that already carries the goods receipts (section 6.4), and `try_resume` added them a second time,
+    so 30 of 60 received counted as 60 and released the invoice. Found by the UI test; an engine test now pins it.
+13. **Cases page details the spec leaves open:** urgent cases first, then by answer date; the owner filter matches the
+    owner or the party the case waits on; the card shows the AP reference, not the case token (the token is in the
+    email subject).
+14. **Business case page:** it also runs `cases.sync`, because its "resolved after a hold" figure needs current cases
+    (it is a new page, so "no other existing page calls it" still holds). Benchmarks are a fixed table with their
+    sources; the assumptions' sources are the comments in rules.yaml, repeated as labels in `ui/value.py`.

@@ -15,7 +15,7 @@ from invoice_desk.ui import demo  # noqa: E402
 from scripts import generate_test_data as G  # noqa: E402
 
 PAGES = {"demo": "Guided demo", "process": "Process an invoice", "review": "Review queue", "cases": "Cases",
-         "dashboard": "Dashboard",
+         "dashboard": "Dashboard", "value": "Business case",
          "reference": "Rules and data", "guide": "How it works"}
 ENV = ("LLM_MODE", "ANTHROPIC_API_KEY", "LLM_ALLOW_LIVE", "INVOICE_DESK_SANDBOX", "INVOICE_DESK_TODAY", "INVOICE_DESK_HOME",
        "LLM_MODEL", "RECEIPT_SIGNING_KEY")
@@ -953,3 +953,22 @@ def test_the_after_hold_steps_run_from_the_guided_demo_and_leave_the_first_eleve
     app.run()
     app.button(key="demo_fresh").click().run()
     assert app.session_state["after_done"] == {} and app.db.list_cases() == []
+
+
+def test_the_business_case_page_shows_every_assumption_with_its_source(app):
+    from invoice_desk.rules import load_rules
+    assumptions = load_rules().value_model
+    go(app, "value")
+    for name in type(assumptions).model_fields:
+        assert float(app.number_input(key=f"vm_{name}").value) == float(getattr(assumptions, name)), name
+    text = shown(app) + " " + said(app) + " " + tables(app)
+    assert "These are synthetic invoices. The figures show what the controls catch, not a forecast." in text
+    assert "measured: 30 of 49 documents" in text and "Ardent Partners" in text and "APQC" in text
+    assert text.count("assumption") >= 5
+    assert "17.0 minutes" in text and "6.56 minutes" in text and "104.4 hours" in text
+    assert "₹46,980" in text and "₹127.50" in text and "₹49.20" in text and "₹7,65,000" in text
+    assert "Survey figures from other markets, in dollars. Compare against your own baseline." in text
+    assert "What this page does not claim" in [h.value for h in app.subheader]
+    app.number_input(key="vm_invoices_per_month").set_value(1200).run()
+    assert not app.exception and "₹93,960" in shown(app) + " " + tables(app)          # the result follows the input
+    assert "—" not in text
