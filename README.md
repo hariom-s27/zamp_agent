@@ -13,6 +13,10 @@ showing.
 > Ltd), the vendors, the GSTINs, the bank accounts and the invoices are fictional, and
 > every PDF says so in its footer.
 
+**Live link:** to be added after deployment. **Video:** to be added after recording. The
+free host puts an app to sleep after 12 hours without visitors; if you see a sleep
+screen, press the button to wake it and give it about a minute.
+
 ## Run it
 
 ```powershell
@@ -29,10 +33,12 @@ is in [SETUP_WINDOWS.md](SETUP_WINDOWS.md).
 Four commands worth knowing:
 
 ```powershell
-.venv\Scripts\python -m pytest                              # 561 tests
+.venv\Scripts\python -m pytest                              # 625 tests
 .venv\Scripts\python -m scripts.preflight                   # is this machine ready for the demo?
 .venv\Scripts\python -m invoice_desk.run --all              # every sample from the command line
+.venv\Scripts\python -m invoice_desk.run --cases            # the two after-hold samples (steps 12 and 13)
 .venv\Scripts\python -m scripts.evaluate_robustness         # the independent test set (section "How I know it works")
+.venv\Scripts\python -m scripts.benchmark_throughput --n 200   # invoices an hour on this machine
 ```
 
 No API key, no account and no network are needed to run it. Nothing on the critical
@@ -113,6 +119,48 @@ Six pages.
 | ![A rejected duplicate with the reason and a drafted message to the vendor](docs/screenshots/3_decision_and_vendor_message.png) | ![Review queue with a hold, its questions and the PO position table](docs/screenshots/4_review_queue.png) |
 | **Bank change: first approval recorded, second person needed** | **Dashboard** |
 | ![Bank change after the first approval, with an empty form for the second approver](docs/screenshots/5_two_approvers.png) | ![Dashboard with counts, straight-through rate and reasons](docs/screenshots/6_dashboard.png) |
+
+## After a hold
+
+A hold is not the end of the job. Every held invoice becomes a **case** on the Cases page,
+with one owner, one question, an answer date from `rules.yaml` (`cases.reply_due_days`)
+and a history of everything that happened to it. When the answer date passes, the case is
+escalated once to the role named in `cases.escalate_to`.
+
+- **Step 12, the invoice that arrives before the goods.** It is held for Stores and for
+  nothing else. When Stores record the delivery on the case, the desk re-checks the
+  purchase order exactly as a person's approval would and, if nothing else was holding
+  it, releases the invoice and posts it. This is recorded as **released by rule**, never
+  as approved, with the goods receipt and the release in the audit trail. It happens only
+  when every reason on the hold is listed in `cases.auto_resume`; set
+  `auto_resume: []` and the desk never releases anything by itself.
+- **Step 13, a small supplier near the legal pay-by date.** The vendor is a registered
+  small enterprise, so the MSMED Act gives at most 45 days from acceptance of the goods.
+  The case shows that date, the days left and a rough interest figure, is marked urgent
+  and escalated to the Finance controller at once. The drafted message to the vendor goes
+  nowhere until a named person approves it. In this build "send" means the email is
+  written to an outbox folder and recorded; no mail server is connected.
+
+Opening, closing and escalating a case are bookkeeping and stay out of the audit chain,
+so the first eleven steps give exactly the same receipts as before. `cases.enabled: false`
+switches the whole desk off.
+
+## Business case
+
+The Business case page shows what the invoices in these books show (share passed
+untouched, money stopped as duplicates or held for overbilling or a bank change, holds by
+owner, AI cost per invoice), then a calculator. Every input of the calculator is an
+assumption kept in `rules.yaml` (`value_model`) and shown with its source; the formula is
+printed under the result. With the defaults handling drops from 17.0 to 6.56 minutes an
+invoice, about 104 hours and Rs 46,980 a month, before the cost of running the desk. Time
+spent chasing exceptions is left the same before and after, because that is not measured.
+
+## Rolling it out
+
+Week one, nothing is approved without a person: set the auto-approval ceiling
+(`auto_approve.max_invoice_total_inr`) below every real invoice (the Rules and data
+sandbox shows the effect at Rs 1,000) and compare the desk's decisions with the team's.
+Raise the ceiling by vendor group as the two agree, and switch on release by rule last.
 
 ## How a decision is made
 
@@ -240,7 +288,14 @@ model-based duplicate detection, and chat with your invoices.
 
 ## How I know it works
 
-- **Tests.** 561 automated tests: every rule from both sides of its threshold; the pure
+- **How sure.** Every figure carries its sample size and a Wilson 95% interval. No
+  wrong approval in 49 outside documents is still consistent with a true rate of up to
+  7.3%; showing under 1% would take about 381 documents. Values read as printed: 691 of
+  705 with Tesseract 5.4.0 on my machine. See "How sure can we be" in
+  [docs/robustness_report.md](docs/robustness_report.md).
+- **Speed.** 200 text invoices in about 15 seconds on one process, median 69 ms each
+  ([docs/throughput.md](docs/throughput.md)). Scans take seconds a page.
+- **Tests.** 625 automated tests: every rule from both sides of its threshold; the pure
   decision function, including a check that adding a problem can never make the outcome
   more lenient; the audit trail (an edit, a forged entry and a deletion are each
   detected); every sample end to end; every bug the audit found, reproduced first; bad
@@ -310,6 +365,13 @@ SETUP_WINDOWS.md turns the right-hand column into steps.
 - Tolerances and the Rs 1 rounding allowance are example policy, not advice.
 - The vendor master and PO register are CSV files, and the ledger is a local SQLite
   file. No mailbox is connected: the upload box stands in for the email attachment.
+- "Send" on a case writes the email to an outbox folder and records it. No mail server
+  or ERP is connected.
+- The legal pay-by date is approximate when no delivery date is on record: it is then
+  counted from the invoice date, and the case says so.
+- The business case does not claim any saving on time spent chasing exceptions.
+- Reading a vendor's reply with AI and intake from `.eml` files are specified but not
+  built.
 
 ## What I would build next
 

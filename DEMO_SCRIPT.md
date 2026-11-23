@@ -69,6 +69,27 @@ press Start a fresh demo and start over; it is five minutes.
 
 ---
 
+### The round 3 running order (five minutes)
+
+Show the end result first, then how it is produced.
+
+| Time | On screen | The point to make |
+|---|---|---|
+| 0:00 to 0:25 | Business case page after a finished run | "A mid-size buyer, about 600 invoices a month by email. This is what the desk did with one batch: what went straight through, what was held and for whom, what was stopped." |
+| 0:25 to 1:10 | Guided demo, step 1 at presentation pace | Nine stages, each showing its evidence; the decision; the audit entry |
+| 1:10 to 1:40 | "Run all remaining" at fast pace | Name four chips as they land: overbilling held, disguised duplicate rejected, tolerance at 0.95% and 1.01%, bad files rejected |
+| 1:40 to 2:20 | Review queue, the bank change | Two different people, a call-back, and the PO re-checked at approval |
+| 2:20 to 3:25 | Step 12, then the Cases page | "A hold is a question with an owner and a date." Record the delivery. "Nothing else was holding it, so the same rules release it. Two new entries in the audit trail." |
+| 3:25 to 3:55 | Step 13 on the Cases page | "A registered small supplier, three days from the legal pay-by date, so the controller already knows. The message to the vendor goes nowhere until a person puts their name on it." |
+| 3:55 to 4:20 | The letter-style invoice from step 9 | "AI is used in two places only. Here it read what the rules could not, every value is quoted from the page, and the rules still decided." |
+| 4:20 to 4:45 | Business case calculator | Change one assumption live. "These are your numbers, not mine." |
+| 4:45 to 5:00 | How it works page, limits | Synthetic data; 49 outside documents, none wrongly approved, upper bound 7.3%; no ERP or mailbox connected |
+
+For the video you can record the opening screen from a finished run and cut to a fresh
+start. In the live interview, start fresh and say the opening sentence over the empty
+Guided demo page. Cut from the video: the rules sandbox, the hash internals, any live AI
+call, a run of all eleven steps at reading pace.
+
 ## Part 2. The live interview
 
 No slides. The process runs, they ask, you explain. Budget about ten minutes for the
@@ -152,6 +173,8 @@ in `fixtures\llm\` and run
 | The live Claude call fails | The record says the stored answer was used. "The network call failed, so it fell back to the recorded answer. That is the designed behaviour." Switch back to FIXTURE. |
 | The hosted link is asleep or broken | Switch to the laptop. "The link is on a free tier that sleeps; here is the same app locally." |
 | The app shows an error box | Reload the page, start fresh, rerun. If it repeats, open the terminal and run `.venv\Scripts\python -m invoice_desk.run samples\01_happy_path_furniture.pdf` to show the same pipeline without the UI. |
+| The Cases page fails | Go back to the review queue and carry on: every hold can still be decided there. |
+| The hosted app is asleep | Switch to the local one and say so: "The free host sleeps when nobody visits." |
 | You do not know the answer to a question | "I do not know. Here is how I would find out." Then point at the file where the answer would live. Never invent one. |
 
 ## Words to prefer

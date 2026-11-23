@@ -480,6 +480,47 @@ database, so a visitor cannot reset or fill the books during someone else's demo
 live AI needs an explicit switch.
 The reset moved from the sidebar to the demo controls (walkthrough item 6).
 
+## Round 3: after the hold, value and evidence
+
+**D65. A hold opens a case.** Cases are derived by a reconciler (`cases.sync`) from held
+runs; the pipeline does not write them, so the most tested code is untouched.
+Rejected: opening the case inside the posting transaction.
+
+**D66. Release by rule, narrowly.** The desk may release a held invoice by itself only
+when every reason on the hold is in `cases.auto_resume` and the fact is now on record,
+after the same purchase order re-check a person's approval gets. It is recorded as
+RELEASED, never APPROVED. Rejected: re-running the whole pipeline on the stored file;
+a person-free release for any reason.
+
+**D67. Nothing leaves without a named person.** A drafted vendor message is approved by
+name and then written as an email to an outbox and recorded. Rejected: sending by SMTP;
+letting the approver rewrite the text (approve it or do not send it).
+
+**D68. Each owner has a reply time and an escalation target in the rules.** Escalation is
+by the clock, once per party the case waits on, to a named role. Rejected: one queue
+ordered by arrival.
+
+**D69. The statutory clock outranks the reply time.** For micro and small suppliers the
+MSMED Act pay-by date makes a case urgent near the date. With no delivery date on record
+it is counted from the invoice date and says so. Rejected: hiding the clock when the date
+is unknown; flagging the existing vendors.
+
+**D70. Case bookkeeping stays out of the audit chain.** Opening, closing and escalating
+write to the case history only. A goods receipt, a release and an approved message go
+into the chain. Rejected: every case event in the chain (it would change the receipt
+counts of the first eleven steps).
+
+**D71. The business case separates what is measured from what is assumed.** Measured
+figures come from the store; everything else is an assumption in `rules.yaml`, shown
+with its source and changeable on screen. Chasing time is left unchanged in the "after"
+figure. Rejected: one headline saving; benchmark dollars converted to rupees.
+
+**D72. Percentages come with sample size and a Wilson 95% interval.** The headline is
+wrongly approved, not accuracy. Rejected: reporting 0 of 49 as "zero errors".
+
+**D73. New scenarios live in a second manifest and a second demo chapter.** The 18
+samples and the 11 steps are frozen. Rejected: appending to the existing lists.
+
 ## Left out on purpose
 
 **D29.** E-invoice IRN and QR validation, GSTR-2B matching, TDS, GL coding, approval

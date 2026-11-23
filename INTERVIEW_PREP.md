@@ -69,7 +69,9 @@ first build. You had it attacked, you kept the report in the repository
 | Bank change | 2 different approvers |
 | Samples | 10 invoices and 8 bad inputs |
 | Guided demo | 11 scenarios |
-| Automated tests | 561 (364 before the audit) |
+| Automated tests | 625 at round 3 (561 at round 2, 364 before the audit) |
+| Three numbers to carry (round 3) | 0 of 49 wrongly approved, upper bound 7.3% (Wilson 95%); 30 of 49 untouched; business case defaults: 17.0 to 6.56 minutes an invoice, about 104 hours and Rs 46,980 a month before the desk's cost |
+| Values read as printed | 691 of 705 (98.0%, 96.7% to 98.8%) with Tesseract 5.4.0; 693 from the recordings made with 5.3.4 |
 | The tolerance pair | 0.95% and Rs 488 on the line: approved. 1.01% and Rs 515: held. Printed prices two rupees apart |
 | Independent test set | 49 documents: 45 right, 4 held, **0 approved wrongly**. Before I improved the reader: 13 right |
 | The part of it I never opened | 12 text PDFs: 12 right (6 before). 5 photographs: 3 right, 2 held |
@@ -367,6 +369,12 @@ arithmetic behind it is the invoice number on a scan: if both reads got it wrong
 same way, a wrong number would be recorded, which weakens duplicate control later. In
 production I would check it against the e-invoice IRN, which takes OCR out of it."
 
+**29a. "How sure are you of zero?"** (D72)
+"0 of 49 is a result for these documents, and with 49 documents the 95% upper bound on
+wrong approvals is 7.3%; on the holdout alone, 0 of 17, it is 18.4%. To claim under 1%
+with no miss I would need about 381 documents. The right outcome was reached on 45 of 49,
+91.8%, interval 80.8% to 96.8%. I quote the document counts, not the percentages."
+
 ## F. Reliability and scale
 
 **36. "What if a stage crashes?"** (D32, D51)
@@ -435,6 +443,58 @@ Say them without being asked twice: Indian GST invoices in English and rupees; o
 per invoice; photographs are the weak spot; typed reviewer names; no mailbox; CSV
 master data; not load-tested; and, until you have done step 6, no real model answer
 recorded.
+
+## I. After the hold, value, India and scale
+
+1. **Is this an agent or a pipeline?** The decision is a pipeline on purpose: for a payment
+   decision I want the same answer every time and a rule I can point at. Around it sits a
+   case owner: every hold becomes a case with one owner, one question and a clock, and the
+   desk follows it until it is resolved or a person has a clear decision to make.
+2. **Why not let the model decide?** A decision about money must be repeatable and traceable
+   to a rule and a version; arithmetic and matching are exact work; and cost: the model only
+   reads what the rules cannot.
+3. **How does it do on real invoices?** On 49 documents made with other tools, none was
+   wrongly approved, 45 got the right outcome and 691 of 705 values were read as printed.
+   The upper bound on wrong approvals is 7.3%. The failure mode by design is a hold.
+4. **What is the ROI?** A calculator, not a promise: with the defaults, about 17 minutes to
+   about 6.6 minutes an invoice, roughly 104 hours and Rs 47,000 a month, before the desk's
+   cost. Exception-chasing time is unchanged because it is not measured. Every input can
+   be replaced with the buyer's baseline.
+5. **What Indian compliance does it handle?** GSTIN check character, the right kind of GST,
+   rate slabs, our GSTIN on the invoice, and the MSMED Act 45-day pay-by date for micro
+   and small suppliers. Not in: e-invoice IRN and signed QR, TDS, GSTR-2B and IMS, reverse
+   charge.
+6. **What happens at 10,000 invoices a month?** About 57 an hour over a working month. Text
+   PDFs run at tens of thousands an hour on one process ([docs/throughput.md](docs/throughput.md));
+   scans are slower. SQLite allows one writer, so the store would move to Postgres and a
+   job queue keyed by the file fingerprint. The real constraint is reviewers.
+7. **Walk me through what happens after a hold.** A case opens with an owner, one question
+   and a reply date. A small supplier's legal date can make it urgent at once. A person
+   approves any message to the vendor. A missing goods receipt, once recorded, releases the
+   invoice. Otherwise a person decides in the review queue, where the PO is re-checked.
+   When the reply date passes, the next role is told.
+8. **Your system released an invoice with no person. Is that safe?** It released an invoice
+   that would have been approved had it arrived a day later: goods-not-received was the only
+   reason, the receipt now covers the billed quantity, and the same PO re-check a person's
+   approval gets passed. Logged as released by rule; one line in the rules switches it off.
+9. **Why is there no real mailbox or ERP?** The demo runs offline on a public link with no
+   credential. Both are adapters: the mailbox is a folder of email files, the ledger a table.
+10. **What about prompt injection?** The model's output only fills a fixed schema, each value
+    must be quoted from the source and is checked in code, and no code path leads from model
+    output to approving, posting or sending.
+11. **What if the AI is down, slow or wrong?** The run continues on rules and holds if a
+    required field is missing; a value without a matching quote is dropped; spend is capped;
+    the demo replays stored answers.
+12. **Why Streamlit and SQLite?** One process, offline, testable headless; the engine is a
+    package with a command line, so the screen or the store can be replaced.
+13. **How would you roll this out?** Baseline first; then every clean invoice still goes to a
+    person (the ceiling below every invoice) while the desk's decisions are compared with the
+    team's; then raise the ceiling by vendor group; release by rule last.
+14. **What did you cut?** Reading vendor replies with AI and email intake (specified), credit
+    notes, non-PO coding, TDS, the e-invoice check. Depth on money and on what happens after a
+    hold beat breadth.
+15. **What next?** Repeated corrections turned into proposed rule changes the process owner
+    approves; then signed e-invoice data as the first source for header fields.
 
 ## H. If you do not know
 

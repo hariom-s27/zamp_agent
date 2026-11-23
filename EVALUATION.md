@@ -127,6 +127,26 @@ Before: **2 / 5**. After: **4 / 5**.
 
 Before: **1 / 5**. After: **4 / 5**.
 
+### C9. After a hold (round 3)
+
+| Item | Statement | How to check | Result |
+|---|---|---|---|
+| 9.1 | Every hold has one case with an owner, one question, a due date and a history | `pytest tests/test_cases.py -k "opens_exactly_one"`, Cases page | pass |
+| 9.2 | A hold that waits only for a fact releases itself when the fact is recorded, after the same checks a person's approval gets | `pytest tests/test_cases.py -k "releases or rechecks"` | pass |
+| 9.3 | Release by rule never fires with another reason present and can be switched off in the rules | `pytest tests/test_cases.py -k "never_happens or switched_off"` | pass |
+| 9.4 | Nothing is sent without a named approver, and the screen says what "send" means | `pytest -k "named_approver or approve_and_send"` | pass |
+| 9.5 | A legal payment clock is shown where it applies, says when it is approximate, and drives escalation | `pytest tests/test_cases.py -k "statutory or escalat"` | pass |
+
+### C10. Value, evidence and the live link (round 3)
+
+| Item | Statement | How to check | Result |
+|---|---|---|---|
+| 10.1 | The live link runs steps 1 to 13 from a clean state | By hand on the hosted app | fail until deployed and run |
+| 10.2 | Every assumption on the Business case page is visible with its source, and the arithmetic is tested | `pytest tests/test_value.py`, the page | pass |
+| 10.3 | Every percentage in the documents carries its sample size and interval | `docs/robustness_report.md`, README, INTERVIEW_PREP | pass |
+| 10.4 | There is a measured throughput figure and a statement of what limits it | `python -m scripts.benchmark_throughput --n 200` | pass |
+| 10.5 | The supervised rollout path is written down and can be shown in the rules sandbox | README "Rolling it out", Rules and data page | pass |
+
 ## Totals
 
 | Criterion | Before | After |
@@ -140,6 +160,12 @@ Before: **1 / 5**. After: **4 / 5**.
 | C7 Demo that cannot break | 2 | 4 |
 | C8 Deliberate AI | 1 | 4 |
 | **Total** | **19 / 40** | **38 / 40** |
+| C9 After a hold (round 3, pass tests 9.1 to 9.5) | - | 5 |
+| C10 Value and evidence (round 3, pass tests 10.1 to 10.5) | - | 4 |
+| **Total with round 3** | | **47 / 50** |
+
+Item 10.1 scores as a fail until the hosted link has run all thirteen steps; with it, 48 of
+50. The other two missing points are 7.1 and 8.3 below.
 
 The "before" score looks low for a project whose 364 tests passed. That is the point of
 writing the pass tests strictly: the tests that existed were green, and the audit found
@@ -171,7 +197,7 @@ Two verification rounds were run, as the plan required.
 
 | Pass test | What to run | Then |
 |---|---|---|
-| 7.1 Windows | `SETUP_WINDOWS.md` steps 1 to 3: `python -m pytest`, `python -m scripts.preflight` | READY with 561 tests passing makes it a pass |
+| 7.1 Windows | `SETUP_WINDOWS.md` steps 1 to 3: `python -m pytest`, `python -m scripts.preflight` | READY with every test passing (625 at round 3) makes it a pass |
 | 8.3 A real recording | `SETUP_WINDOWS.md` step 6: `python -m scripts.record_llm_fixtures` with your key | Sample 10 shown as APPROVE by preflight makes it a pass |
 
 With both done the score is 40 of 40 on these pass tests. That is a statement about

@@ -1,5 +1,36 @@
 # Changelog
 
+## Round 3 (23 Nov 2026)
+
+What happens after a hold, a business case, and how sure the numbers are.
+
+- **Case desk.** Every hold becomes a case (`invoice_desk/cases.py`, Cases page) with one
+  owner, one question, an answer date, escalation once per party, and a history. Goods
+  receipts can release an invoice that waited only for them (status RELEASED). A named
+  person approves the vendor message, which is written to an outbox as an `.eml`.
+- **MSMED Act clock** for micro and small suppliers: pay-by date, days left, approximate
+  interest per day, urgent and escalated near the date.
+- **Guided demo steps 12 and 13** in their own section; the first eleven are unchanged.
+  `python -m invoice_desk.run --cases` runs the second manifest (`samples/cases/`).
+- **Business case page** (`invoice_desk/value.py`): measured figures and a calculator whose
+  every input is an assumption in `rules.yaml`.
+- **Evidence:** Wilson 95% intervals in `docs/robustness_report.md` ("How sure can we be"),
+  `scripts/benchmark_throughput.py` and `docs/throughput.md`.
+- **Screens say "AI"**, not the model's name; the exact model stays in Technical details.
+- **rules.yaml version `2026.11-3`**: new keys `company.ap_email`, `cases`, `msme`,
+  `value_model`, all required and validated. No new reason code.
+- **New tables** `cases`, `case_events`, `messages`, `goods_receipts` (created on first open;
+  an older database keeps its records). New review status RELEASED.
+- **New data** in their own files: `data/vendors_cases.csv`, `data/purchase_orders_cases.csv`,
+  `samples/cases/`, made by `scripts/generate_case_data.py`.
+- **Deliberately not touched:** `pipeline.py`, `decide.py`, `po_match.py`, `duplicates.py`,
+  `validate.py`, `vendor.py`, `extract.py`, `reader.py`, `second_read.py`, `straighten.py`,
+  `scripts/generate_test_data.py`, every existing sample, fixture and data file.
+- **Tests:** 561 before, 625 after. Standing results unchanged: preflight READY with 11
+  `[ok  ] step` lines (plus `case 12` and `case 13`), 18 of 18, robustness 30, 15, 4, 0
+  (691 of 705 values with Tesseract 5.4.0).
+- Every departure from the plan, and why, is in PROGRESS.md under "Round 3".
+
 ## Round 2 (22 Nov 2026)
 
 Round 1 ended with 364 passing tests and 14 samples giving their documented decision.

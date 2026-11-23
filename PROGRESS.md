@@ -241,7 +241,8 @@ to 8. Checkpoints 9 to 11 (day 3) wait for an explicit go-ahead.
 | 4 | Approve and send to the outbox: `cases.approve_message`, `cases.outbox_dir` | `08438d0` | 603 passed |
 | 5 | Cases page, RELEASED labels, dashboard case row, steps 12 and 13 in the Guided demo, preflight `case 12` and `case 13`, Cases in the page lists | `9d6b791` | 613 passed |
 | 6 | Business case page: `invoice_desk/value.py` (`measured`, `model`), `invoice_desk/ui/value.py`, page in navigation and preflight | `de2ed97` | 619 passed |
-| 7 | `invoice_desk/stats.py` (Wilson interval); "How sure can we be" in the robustness report (`--write --ocr fixture`); `scripts/benchmark_throughput.py` and `docs/throughput.md` (200 text invoices in 15.2 s, median 69 ms, about 47,000 an hour) | "Checkpoint 7: intervals and throughput" | 625 passed |
+| 7 | `invoice_desk/stats.py` (Wilson interval); "How sure can we be" in the robustness report (`--write --ocr fixture`); `scripts/benchmark_throughput.py` and `docs/throughput.md` (200 text invoices in 15.2 s, median 69 ms, about 47,000 an hour) | `a5859b8` | 625 passed |
+| 8 | Documents (section 7): README (live link placeholder, After a hold, Business case, Rolling it out, limits, `--cases`), DECISIONS D65 to D73, EVALUATION C9 and C10 (47 of 50 until the hosted link runs 13 steps), DEMO_SCRIPT round 3 order, INTERVIEW_PREP section I and the three numbers, SETUP_WINDOWS, CHANGELOG | "Checkpoint 8: documents" | 625 passed |
 
 Standing results after each of 4, 5 and 6: preflight READY with 11 `[ok  ] step` lines (and from 5 on, `[ok  ] case 12`
 and `[ok  ] case 13`); 18 of 18; `--cases` 2 of 2; robustness 30, 15, 4, 0 with 691 of 705 values; frozen code files
@@ -273,3 +274,7 @@ Departures from the specification, and why:
     here), names the recorded 693, and says the lower one is the one to quote.
 16. **Throughput benchmark:** invoice PDFs are drawn before the clock starts; layouts whose PO number collides with an
     earlier one are skipped so every invoice has its own purchase order; all 200 go into one set of books.
+17. **Documents (checkpoint 8):** the live link and video are placeholders until you deploy and record. The rollout
+    story says "set the ceiling below every invoice (Rs 1,000 in the sandbox)" because the sandbox input starts at
+    Rs 1,000, not 0. The remaining part of checkpoint 8 is yours: redeploy `live`, run steps 1 to 13 on the hosted
+    link, rehearse, record, freeze.

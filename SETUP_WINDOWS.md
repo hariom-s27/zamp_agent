@@ -74,8 +74,10 @@ tested set instead:
 .venv\Scripts\python -m scripts.preflight
 ```
 
-- `pytest` should end with `553 passed, 8 skipped`. The eight skipped tests need the OCR
-  engine from step 5; once it is installed the line reads `561 passed`. It takes two to
+- `pytest` should end with every test passed and none failed (625 at round 3). A few tests
+  need the OCR engine from step 5 and are skipped until it is installed.
+- `.venv\Scripts\python -m invoice_desk.run --cases` runs the two after-hold samples
+  (steps 12 and 13) and should say `2 of 2`. It takes two to
   three minutes.
 - `preflight` checks the machine, runs all 18 samples through the real pipeline,
   rehearses the eleven steps of the guided demo, and opens every page without a
@@ -312,6 +314,11 @@ call is better shown from your laptop.
 
 ### 8d. If the build fails or the host misbehaves
 
+Round 3 notes: deploy the tagged build first, then the new one. The app sleeps after 12
+hours without visitors; wake it before the interview. If a build fails at the package
+step, remove `packages.txt` and redeploy: the bundled scans still read from recorded OCR,
+and a scan from outside the bundle will be held as unread.
+
 - **Build fails at the "apt" step** (installing `tesseract-ocr`): delete `packages.txt`
   from the repository, push, and the app redeploys without the engine. The bundled
   scans still run from recorded OCR output and say so on screen. Uploaded scans are
@@ -333,9 +340,12 @@ call is better shown from your laptop.
 
 The day before:
 
-1. `.venv\Scripts\python -m scripts.preflight` ends with `READY` and no warning.
-2. Rehearse the run order in `DEMO_SCRIPT.md` twice, with a timer.
-3. Decide whether you will show a live Claude call. If yes, rehearse it once that day
+1. `.venv\Scripts\python -m scripts.preflight` ends with `READY` and no warning, with
+   `[ok  ] case 12` and `[ok  ] case 13` in the after-hold rehearsal.
+2. On the hosted app, run steps 1 to 13 from a fresh demo the evening before: record the
+   delivery on the step 12 case, approve the step 13 message.
+3. Rehearse the run order in `DEMO_SCRIPT.md` twice, with a timer.
+4. Decide whether you will show a live Claude call. If yes, rehearse it once that day
    (step 6, last paragraph) and look at the cost line.
 
 Thirty minutes before:
