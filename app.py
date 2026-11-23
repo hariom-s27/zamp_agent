@@ -34,7 +34,13 @@ PAGES = {
     "reference": st.Page(reference.page, title="Rules and data", icon=":material/rule:", url_path="rules"),
     "guide": st.Page(guide.page, title="How it works", icon=":material/help:", url_path="guide"),
 }
-current = st.navigation(list(PAGES.values()))
+SECTIONS = {
+    "See it work": [PAGES["demo"], PAGES["process"]],
+    "Work the desk": [PAGES["inbox"], PAGES["cases"], PAGES["review"], PAGES["payments"]],
+    "Results": [PAGES["dashboard"], PAGES["value"]],
+    "Reference": [PAGES["reference"], PAGES["procedure"], PAGES["guide"]],
+}
+current = st.navigation(SECTIONS)
 target = st.session_state.pop("goto", None)
 if target in PAGES:
     st.switch_page(PAGES[target])

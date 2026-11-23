@@ -5,6 +5,37 @@ backgroundColor = "#ffffff"
 secondaryBackgroundColor = "#f4f6f8"
 textColor = "#1f2933"
 font = "sans serif"
+linkColor = "#1F6FB2"
+borderColor = "#D5DAE1"
+baseRadius = "medium"
+baseFontSize = 16
+metricValueFontSize = "2rem"
+showSidebarBorder = true
+
+greenColor = "#0B7A5B"
+greenBackgroundColor = "#E3F4EE"
+greenTextColor = "#0A5C45"
+orangeColor = "#B25E09"
+orangeBackgroundColor = "#FFF1D6"
+orangeTextColor = "#7A4300"
+redColor = "#A8201A"
+redBackgroundColor = "#FDE8E6"
+redTextColor = "#8F1D14"
+blueColor = "#1F6FB2"
+blueBackgroundColor = "#E6F0FA"
+blueTextColor = "#134A7C"
+violetColor = "#8250DF"
+violetBackgroundColor = "#EFEAFB"
+violetTextColor = "#4A3391"
+grayColor = "#5F6B7A"
+grayBackgroundColor = "#EEF0F3"
+grayTextColor = "#454F5B"
+
+chartCategoricalColors = ["#0B7A5B", "#B25E09", "#A8201A", "#1F6FB2", "#5F6B7A", "#8250DF"]
+
+[theme.sidebar]
+backgroundColor = "#F4F6F8"
+secondaryBackgroundColor = "#E9EDF1"
 
 [server]
 headless = true
