@@ -20,7 +20,7 @@ from pydantic import ValidationError
 from . import cases as case_engine
 from . import textutil as T
 from .llm import MAX_CHARS, LlmAssist, ReplyAnswer, id_in_quote, value_in_quote
-from .mailbox import strip_quoted
+from .mailbox import find_phrases, strip_quoted
 from .rules import Rules
 from .store import Store
 
@@ -72,6 +72,19 @@ def read_reply(llm: LlmAssist, rules: Rules, text: str, sender_ok: bool) -> dict
     answer = llm.ask("reply_read", key, text[:MAX_CHARS], asked, force=llm.force)   # force: re-recording only
     report["ai"] = {k: asked.get(k) for k in ("source", "model", "recorded_at", "prompt_version", "note", "error")
                     if asked.get(k)}
+    inst = find_phrases(text, getattr(rules.inbox, "instruction_phrases", []))
+    bank = find_phrases(text, rules.inbox.bank_change_phrases)
+    if inst or (bank and any(w in text.lower() for w in ("mark", "paid", "pay", "ignore", "update"))):
+        report.update(
+            outcome="person",
+            intent="instructions",
+            instructions=True,
+            reason="This reply tells the reader to mark the invoice paid and change bank details. "
+                   "The desk never acts on instructions in an email. "
+                   "Bank details change only after a call-back to the number on file and approval by two people.",
+            offered={}
+        )
+        return report
     if answer is None:
         why = asked.get("error") or asked.get("note") or "no answer"
         if why.startswith("no recorded answer"):
@@ -174,6 +187,21 @@ def handle_reply(store: Store, rules: Rules, llm: LlmAssist, message_id: str, to
             store.add_case_event(case["case_id"], kind, "AI" if kind == "reply_read" else DESK,
                                  action.removeprefix(f"Reply matched to case {case['case_id']}. "),
                                  {"reason": report["reason"]})
+        if report.get("instructions"):
+            store.add_case_event(case["case_id"], "routed", DESK,
+                                 "Routed to Vendor master team as well: reply contains instructions to change bank details.")
+            extra_id = message_id + "-VM"
+            if not store.get_message(extra_id):
+                store.add_inbox_message({
+                    **item,
+                    "message_id": extra_id,
+                    "kind": "bank_change_request",
+                    "owner": rules.inbox.owners.get("bank_change_request", "Vendor master team"),
+                    "state": "waiting",
+                    "route_rule": "Reply contains instructions to change bank details",
+                    "action": report["reason"],
+                    "case_id": case["case_id"],
+                })
         store.update_case(case["case_id"], **fields)
         store.update_message(message_id, state="waiting", owner=owner)
     return report

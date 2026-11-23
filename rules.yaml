@@ -134,6 +134,8 @@ inbox:                         # the AP inbox (round 4): every message sorted, o
   bank_change_phrases:         # asks to change where money is sent. Always goes to the Vendor master team
     ["change of bank", "changed our bank", "new bank account", "new account details",
      "update our bank", "updated bank details", "revised bank details"]
+  instruction_phrases:         # asks to mark paid, ignore instructions or change details
+    ["ignore all previous instructions", "mark this invoice as paid", "mark as paid", "mark paid", "update the bank details"]
   status_phrases:              # a question about payment
     ["payment status", "status of payment", "when will", "outstanding", "overdue",
      "pending payment", "not received payment", "remittance", "reminder"]

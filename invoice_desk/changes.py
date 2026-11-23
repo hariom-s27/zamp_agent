@@ -34,8 +34,8 @@ CAPTION = ("The procedure is rules.yaml. A change is proposed by one person, tes
            "a second person, and can be undone.")
 LIMIT_LINE = ("Replay re-runs the documents in arrival order on a scratch copy of the books. Decisions people made in "
               "between are not replayed.")
-STEP_TWO = ("Approval by a second person, putting a change in force and rolling it back come in the next step and are "
-            "not built in this round. A saved request changes nothing.")
+STEP_TWO = ("Approval by a second person, putting a change in force and rollback are planned. "
+            "A saved request changes nothing.")
 NAMES = "Names are typed in this build. A deployment would take them from the login."
 
 

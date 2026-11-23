@@ -445,3 +445,9 @@ Guided demo as the opening page. Tests 746. Standing results unchanged (prefligh
 **Round 4 status after checkpoint T.** Checkpoints 1 to 7 and T done; 8 to 12 not started, by instruction. Recording
 still to do (needs a key, run by the user): `python -m scripts.record_reply_fixtures --dry-run`, then without
 `--dry-run`, then `python -m scripts.preflight` (the replies line turns ok), then commit `fixtures/llm/reply_read__*.json`.
+
+## Round 5: UX, demo data and presentation
+
+**Checkpoint 0: confirmation and baseline** (23 Nov 2026). Confirmed: pages registered via `st.navigation` in `app.py`; all 11 page files located; Process invoice uses `iter_run` generator; engine takes file content/name; only `tax_invoice` counted as invoices; approvers include Meera Iyer, Priya (AP), R. Iyer, N. Rao, Stores, Procurement; company state code "29"; MSME acceptance from goods receipt/invoice date; reasons without structural family; display settings not yet in rules.yaml. Baseline invariant results recorded: 18 samples, 11 guided demo steps, preflight READY, robustness 30/15/4/0 (691/705 values).
+
+**Round 4 fixes from browser check** (23 Nov 2026). Payments empty state with one-click "Load the payment-run example" (samples P1, 02, 07, 03, 10, 01, 09, C2); Procedure screen builder wording removed, second approver/rollback marked planned, empty state with button to load samples 01, 07, 08; Cases instruction detection via rules with safety message and routing to Vendor master team; Cases look-alike sender warning ("Careful: {domain} looks like {vendor_domain} and is not the same."); Case header displays "invoice (number missing)"; token-matched reply with PDF attachment displays notice and attachment name; Outbox Date headers use pinned business date. Tests 753 (`test_browser_fixes.py` 7). Standing results unchanged (preflight READY, 18 of 18, cases 2 of 2, robustness 30/15/4/0). Deviations: none.

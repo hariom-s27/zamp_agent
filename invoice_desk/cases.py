@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import hashlib
 import weakref
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import ROUND_HALF_UP, Decimal
 from email import policy as email_policy
 from email.message import EmailMessage
@@ -314,7 +314,8 @@ def approve_message(store: Store, master: MasterData, rules: Rules, case_id: str
 
     mail = EmailMessage()
     mail["From"], mail["To"], mail["Subject"] = sender, recipient, subject
-    mail["Date"] = format_datetime(config.now_utc())
+    now_time = config.now_utc().time()
+    mail["Date"] = format_datetime(datetime.combine(today, now_time, tzinfo=timezone.utc))
     mail["Message-ID"] = make_msgid(domain=sender.rpartition("@")[2] or None)
     # Plain UTF-8 sent as 8bit, with CRLF line endings: no quoted-printable soft breaks for a mail client to misread
     # (Outlook on Windows broke "against" into "=gainst"), and the rupee sign stays one readable character.

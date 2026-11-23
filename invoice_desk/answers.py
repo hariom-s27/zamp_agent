@@ -9,7 +9,7 @@ vendor and never names the reason for a fraud check.
 from __future__ import annotations
 
 import hashlib
-from datetime import date
+from datetime import date, datetime, timezone
 from email import policy as email_policy
 from email.message import EmailMessage
 from email.utils import format_datetime, make_msgid
@@ -222,7 +222,8 @@ def approve(store: Store, master: MasterData, rules: Rules, message_id: str, app
     sender = rules.company.ap_email
     mail = EmailMessage()
     mail["From"], mail["To"], mail["Subject"] = sender, d["recipient"], d["subject"]
-    mail["Date"] = format_datetime(config.now_utc())
+    now_time = config.now_utc().time()
+    mail["Date"] = format_datetime(datetime.combine(today, now_time, tzinfo=timezone.utc))
     mail["Message-ID"] = make_msgid(domain=sender.rpartition("@")[2] or None)
     if item["rfc_message_id"]:
         mail["In-Reply-To"] = item["rfc_message_id"]

@@ -3,12 +3,25 @@ release authority approves it, and nothing is paid from here (invoice_desk/payme
 from __future__ import annotations
 
 from decimal import Decimal
+from datetime import date
 
 import streamlit as st
 
 from .. import cases as case_engine
 from .. import payments as pay
+from .. import samples
 from . import common as C
+
+
+def load_payment_example(store, master, rules, pipeline, today: date) -> None:
+    by_id = {s["id"]: s for s in samples.load_manifest() + samples.load_case_manifest() + samples.load_desk_manifest()}
+    order = ["p1_micro_supplier_due", "02_scanned_clean_safety", "07_E4a_tax_inclusive_within_tolerance",
+             "03_monthly_service_instalment", "10_ai_assist_letter_invoice", "01_happy_path_furniture",
+             "09_fraud_guard_bank_change", "c2_small_supplier_late_invoice"]
+    for sid in order:
+        s = by_id[sid]
+        pipeline.run(samples.sample_bytes(s), samples.received_name(s), source="cli")
+    case_engine.sync(store, master, rules, today)
 
 
 def _rows(lines: list[dict], with_run: bool = False) -> list[dict]:
@@ -92,6 +105,14 @@ def page() -> None:
                  f"{case_engine.day_text(proposal['end'])}. Next run days: {runs}.")
     for warning in proposal["warnings"]:
         st.error(warning)
+    if not proposal["pay"]:
+        st.info("Nothing is payable right now: no approved invoices are due for payment on this date. "
+                "Process invoices or load the payment-run example to see legal-date priority, early discounts, "
+                "blocked vendors and held small-supplier cases.")
+        if st.button("Load the payment-run example", key="pay_load_example", type="primary", icon=":material/play_circle:"):
+            load_payment_example(store, C.get_master(), rules, C.get_pipeline(store=store), C.business_date())
+            st.session_state["flash_pay"] = ("success", "Payment-run example loaded (P1, 02, 07, 03, 10, 01, 09 and C2).")
+            st.rerun()
     st.subheader(pay.GROUPS["pay"])
     C.table(_rows(proposal["pay"]), key="pay_tbl_pay")
     C.text_block(f"Total to pay: {C.money(proposal['total'])} across {proposal['count']} invoices to "

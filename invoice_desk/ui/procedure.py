@@ -13,6 +13,15 @@ from . import common as C
 NONE = "(no change)"
 
 
+def load_procedure_example(store, pipeline) -> None:
+    from .. import samples
+    by_id = {s["id"]: s for s in samples.load_manifest()}
+    for sid in ("01_happy_path_furniture", "07_E4a_tax_inclusive_within_tolerance",
+                "08_E4b_tax_inclusive_over_tolerance"):
+        s = by_id[sid]
+        pipeline.run(samples.sample_bytes(s), samples.received_name(s), source="cli")
+
+
 def page() -> None:
     store = C.get_store()
     rules = C.get_rules()
@@ -40,6 +49,11 @@ def page() -> None:
                 except Exception:
                     st.error(f"The new value for the {cr.label(key)} must be a number.")
     why = st.text_input("Why", key="cr_why")
+    if not store.list_runs():
+        st.info("There are no past invoices on record to replay against. Process invoices first, or load the example invoices.")
+        if st.button("Load the example invoices (samples 01, 07, 08)", key="cr_load_example", icon=":material/play_circle:"):
+            load_procedure_example(store, C.get_pipeline(store=store))
+            st.rerun()
     if st.button("Replay against past invoices", key="cr_replay", icon=":material/replay:"):
         try:
             with st.spinner("Replaying every past document on scratch books..."):
@@ -80,7 +94,7 @@ def page() -> None:
             with st.container(border=True):
                 diff = json.loads(row["changes_json"])
                 replay = json.loads(row["replay_json"] or "{}")
-                st.markdown(f"**{row['change_id']}**, proposed by {C.esc(row['proposed_by'])}", unsafe_allow_html=True)
+                st.markdown(f"**{row['change_id']}**, proposed by {row['proposed_by']}")
                 C.text_block(cr.describe(diff))
                 C.text_block(f"Why: {row['reason']}")
                 C.text_block(f"{replay.get('summary', '')} {replay.get('direction', '')}")

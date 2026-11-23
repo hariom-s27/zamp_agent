@@ -175,6 +175,7 @@ class InboxRules(Strict):
     lookalike_max_edits: int = Field(ge=1)
     shared_mail_domains: list[str]
     bank_change_phrases: list[str] = Field(min_length=1)
+    instruction_phrases: list[str] = Field(default_factory=list)
     status_phrases: list[str] = Field(min_length=1)
     statement_phrases: list[str] = Field(min_length=1)
     owners: dict[str, str]

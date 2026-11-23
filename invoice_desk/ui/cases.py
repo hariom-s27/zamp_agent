@@ -16,6 +16,7 @@ import streamlit as st
 
 from .. import cases as case_engine
 from .. import config
+from .. import mailbox
 from .. import replies
 from ..mailbox import strip_quoted
 from .. import textutil as T
@@ -151,9 +152,10 @@ def _card(case: dict, store, live, rules) -> None:
         return
     with st.container(border=True):
         vendor = row.get("vendor_name") or "Unknown vendor"
-        number = row.get("invoice_no") or "no invoice number"
+        number = row.get("invoice_no")
+        num_str = f"invoice {C.esc(number)}" if number else "invoice (number missing)"
         amount = C.money(row["total"]) if row.get("total") else ""
-        st.markdown(f"<div class='idk-text'><b>{C.esc(vendor)}</b>, invoice {C.esc(number)}"
+        st.markdown(f"<div class='idk-text'><b>{C.esc(vendor)}</b>, {num_str}"
                     f"{', ' + C.esc(amount) if amount else ''} <span class='idk-small'>({C.esc(run_id)})</span></div>",
                     unsafe_allow_html=True)
         state = (f"Waiting on {_who(case['waiting_on'])}" if case["state"] == "WAITING" else
@@ -186,12 +188,24 @@ def _card(case: dict, store, live, rules) -> None:
 
 def _replies(case: dict, store) -> None:
     """Replies matched to this case (round 4): the text as plain text, and what was offered or why not."""
+    master = C.get_master()
+    rules = C.get_rules()
     for m in store.messages(case["case_id"]):
         if m["direction"] != "in":
             continue
         day = case_engine._as_date(m.get("received_at") or "")
         st.markdown(f"**Reply received from {C.esc(m['sender'] or 'an unknown sender')} on "
                     f"{C.esc(case_engine.day_text(day)) if day else '-'}.**", unsafe_allow_html=True)
+        sender_chk = mailbox.check_sender(m.get("sender") or "", master, rules)
+        if sender_chk.result == "lookalike":
+            dom = mailbox._domain(m.get("sender") or "")
+            ven = master.vendors.get(sender_chk.vendor_id)
+            ven_dom = mailbox._domain(ven.email) if ven and ven.email else "the vendor domain"
+            st.warning(f"Careful: {dom} looks like {ven_dom} and is not the same.")
+        attachments = json.loads(m.get("attachments_json") or "[]")
+        pdf_atts = [a for a in attachments if (a.get("name") or "").lower().endswith(".pdf") or a.get("mime") == "application/pdf"]
+        for a in pdf_atts:
+            st.info(f"A corrected invoice is attached. Replacing the original is done by a person in this build. ({a['name']})")
         st.text(strip_quoted(m["body"] or "")[0].strip() or "(no text)")
         report = json.loads(m.get("read_json") or "{}")
         offered = report.get("offered") or {}
@@ -199,7 +213,11 @@ def _replies(case: dict, store) -> None:
             label = replies.VALUE_LABEL.get(name, name)
             st.success(f"The reply states {label} {o['value']}. Read by AI and checked against the reply text: "
                        f"\"{o['quote']}\". Confirm it in the review queue.")
-        if report.get("outcome") == "person":
+        if report.get("instructions") or "This reply tells the reader to mark the invoice paid" in (report.get("reason") or ""):
+            st.warning("This reply tells the reader to mark the invoice paid and change bank details. "
+                       "The desk never acts on instructions in an email. "
+                       "Bank details change only after a call-back to the number on file and approval by two people.")
+        elif report.get("outcome") == "person":
             st.warning(f"{replies.PERSON} Reason: {report.get('reason') or 'not read'}")
         elif report.get("outcome") in ("confirms", "disputes", "asks_question") and report.get("summary"):
             C.text_block(f"AI summary of the reply: {report['summary']}")
