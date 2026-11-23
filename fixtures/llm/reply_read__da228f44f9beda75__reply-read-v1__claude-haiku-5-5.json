@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "purpose": "reply_read",
+  "key": "da228f44f9beda756929c1d0096d98205b3aa10912a212c9a6ac56b675641df4",
+  "prompt_version": "reply-read-v1",
+  "template_sha256": "a3e48d7471f492cacf405911cc8d20e092f91e6d8f66840d033c6996510f7483",
+  "model": "claude-haiku-5-5",
+  "recorded_at": "2026-11-23T14:27:42+00:00",
+  "request_id": "req_011ChL1v2SBWRpYKGPy8NMuK",
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 908,
+    "output_tokens": 289,
+    "seconds": 5.75
+  },
+  "cost_usd": 0.000235,
+  "sdk": "anthropic 2.12.0",
+  "response": {
+    "intent": "other",
+    "values": [],
+    "sure": true,
+    "summary": "The email contains no invoice number, date, PO number or total. It instead asks the reader to mark the invoice paid and change bank details, and it is signed by Nandi Hills Print & Pack's billing team."
+  }
+}
