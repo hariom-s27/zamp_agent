@@ -34,6 +34,15 @@ def load_manifest() -> list[dict]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def load_case_manifest() -> list[dict]:
+    """The after-hold samples (round 3), kept apart so the first manifest and its 18 samples do not change.
+    Each entry's file is relative to samples/, like the bad inputs, so sample_bytes reads it unchanged."""
+    path = config.SAMPLES_DIR / "cases" / "manifest.json"
+    if not path.is_file():
+        return []
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def sample_bytes(sample: dict) -> bytes:
     return (config.SAMPLES_DIR / sample["file"]).read_bytes()
 

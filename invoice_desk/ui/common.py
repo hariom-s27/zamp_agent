@@ -22,7 +22,7 @@ from .. import config, reader
 from .. import samples as sample_lib
 from .. import textutil as T
 from ..llm import LlmAssist
-from ..masterdata import MasterData, load_master
+from ..masterdata import MasterData, load_master, master_files
 from ..models import Finding, RunResult, StageResult
 from ..pipeline import STAGE_HELP, STAGES, Pipeline
 from ..rules import Rules, load_rules
@@ -146,8 +146,8 @@ def _master_cached(stamp: tuple) -> MasterData:
 
 
 def get_master() -> MasterData:
-    files = [config.DATA_DIR / "vendors.csv", config.DATA_DIR / "purchase_orders.csv"]
-    return _master_cached(tuple(f.stat().st_mtime for f in files))
+    files = master_files()                     # the base files and any after-hold case file present
+    return _master_cached(tuple((f.name, f.stat().st_mtime) for f in files))
 
 
 SANDBOX_ID = re.compile(r"[0-9a-f]{12}")

@@ -29,6 +29,8 @@ class Vendor(BaseModel):
     payment_terms_days: int = 30
     phone_on_file: str = ""
     email: str = ""
+    msme_category: str = ""                  # micro | small | medium, as registered on Udyam; "" = not registered
+    udyam_number: str = ""
 
     @property
     def names(self) -> list[str]:
@@ -46,6 +48,7 @@ class PoLine(BaseModel):
     line_amount: Decimal
     match_basis: str = "QTY"                 # QTY (goods) | AMOUNT (services billed in instalments)
     qty_received: Optional[Decimal] = None   # None = receipts are not tracked for this line
+    received_on: Optional[date] = None       # when the goods were received, where it is on record
 
 
 class PurchaseOrder(BaseModel):
@@ -87,20 +90,37 @@ def _rows(path: Path) -> list[dict]:
         return [{k: (v or "").strip() for k, v in row.items()} for row in csv.DictReader(f)]
 
 
-def load_master(data_dir: Optional[Path] = None) -> MasterData:
+# Optional files beside the base ones (round 3): the after-hold vendors and their purchase orders.
+# Delete them and the master is exactly what it was.
+CASE_FILES = ("vendors_cases.csv", "purchase_orders_cases.csv")
+
+
+def master_files(data_dir: Optional[Path] = None) -> list[Path]:
+    """The files the master is read from, in order: the two base files, then any case file present."""
     data_dir = Path(data_dir or config.DATA_DIR)
-    vendor_file, po_file = data_dir / "vendors.csv", data_dir / "purchase_orders.csv"
-    vendors: dict[str, Vendor] = {}
-    for row in _rows(vendor_file):
+    base = [data_dir / "vendors.csv", data_dir / "purchase_orders.csv"]
+    return base + [data_dir / name for name in CASE_FILES if (data_dir / name).is_file()]
+
+
+def _add_vendors(vendors: dict[str, Vendor], rows: list[dict], source: Path, refuse_known: bool) -> None:
+    for row in rows:
+        if refuse_known and row["vendor_id"] in vendors:
+            raise ValueError(f"{source.name}: vendor id {row['vendor_id']} is already in the vendor master")
         vendors[row["vendor_id"]] = Vendor(
             vendor_id=row["vendor_id"], legal_name=row["legal_name"],
             aliases=[a.strip() for a in row.get("aliases", "").split("|") if a.strip()],
             gstin=row["gstin"], state_code=row["state_code"], status=row["status"].upper(),
             bank_name=row.get("bank_name", ""), bank_account=row.get("bank_account", ""),
             ifsc=row.get("ifsc", ""), payment_terms_days=int(row.get("payment_terms_days") or 30),
-            phone_on_file=row.get("phone_on_file", ""), email=row.get("email", ""))
-    pos: dict[str, PurchaseOrder] = {}
-    for row in _rows(po_file):
+            phone_on_file=row.get("phone_on_file", ""), email=row.get("email", ""),
+            msme_category=row.get("msme_category", "").lower(), udyam_number=row.get("udyam_number", ""))
+
+
+def _add_pos(pos: dict[str, PurchaseOrder], rows: list[dict], source: Path, refuse_known: bool) -> None:
+    known = set(pos) if refuse_known else set()
+    for row in rows:
+        if row["po_number"] in known:
+            raise ValueError(f"{source.name}: PO number {row['po_number']} is already in the PO register")
         po = pos.get(row["po_number"])
         if po is None:
             po = pos[row["po_number"]] = PurchaseOrder(
@@ -108,12 +128,28 @@ def load_master(data_dir: Optional[Path] = None) -> MasterData:
                 vendor_id=row["vendor_id"], status=row["status"].upper(), currency=row.get("currency") or "INR",
                 buyer=row.get("buyer", ""))
         qty, price = to_decimal(row["qty_ordered"]), to_decimal(row["unit_price"])
+        received_on = row.get("received_on", "")
         po.lines.append(PoLine(
             line_no=int(row["line_no"]), item_code=row.get("item_code", ""), description=row["description"],
             hsn_sac=row.get("hsn_sac", ""), uom=row.get("uom", ""), qty_ordered=qty, unit_price=price,
             line_amount=to_decimal(row.get("line_amount")) or qty * price,
-            match_basis=(row.get("match_basis") or "QTY").upper(), qty_received=to_decimal(row.get("qty_received"))))
+            match_basis=(row.get("match_basis") or "QTY").upper(), qty_received=to_decimal(row.get("qty_received")),
+            received_on=date.fromisoformat(received_on) if received_on else None))
+
+
+def load_master(data_dir: Optional[Path] = None) -> MasterData:
+    data_dir = Path(data_dir or config.DATA_DIR)
+    vendor_file, po_file = data_dir / "vendors.csv", data_dir / "purchase_orders.csv"
+    vendors: dict[str, Vendor] = {}
+    pos: dict[str, PurchaseOrder] = {}
+    _add_vendors(vendors, _rows(vendor_file), vendor_file, refuse_known=False)
+    _add_pos(pos, _rows(po_file), po_file, refuse_known=False)
+    extra_vendors, extra_pos = data_dir / CASE_FILES[0], data_dir / CASE_FILES[1]
+    if extra_vendors.is_file():
+        _add_vendors(vendors, _rows(extra_vendors), extra_vendors, refuse_known=True)
+    if extra_pos.is_file():
+        _add_pos(pos, _rows(extra_pos), extra_pos, refuse_known=True)
     digest = hashlib.sha256()
-    for path in (vendor_file, po_file):
+    for path in master_files(data_dir):
         digest.update(path.read_bytes().replace(b"\r\n", b"\n"))
     return MasterData(vendors=vendors, pos=pos, sha256=digest.hexdigest())

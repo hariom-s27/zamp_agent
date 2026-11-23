@@ -29,6 +29,7 @@ class Company(Strict):
     name: str
     gstin: str
     state_code: str
+    ap_email: str
 
 
 class Intake(Strict):
@@ -124,6 +125,45 @@ class ReviewRules(Strict):
     bank_change_approvers: int = Field(ge=1, le=2)
 
 
+class CaseRules(Strict):
+    """What happens after a hold: reply times, escalation and release by rule (DECISIONS.md D65 to D68)."""
+    enabled: bool
+    reply_due_days: dict[str, int]
+    escalate_to: dict[str, str]
+    auto_resume: list[str]
+
+    @model_validator(mode="after")
+    def _days_not_negative(self):
+        for owner, days in self.reply_due_days.items():
+            if days < 0:
+                raise ValueError(f"cases.reply_due_days: '{owner}' cannot be negative")
+        return self
+
+
+class Msme(Strict):
+    """MSMED Act 2006, sections 15 and 16: the statutory pay-by date for micro and small suppliers."""
+    applies_to: list[Literal["micro", "small", "medium"]]
+    days_without_agreement: int = Field(gt=0)
+    max_days_with_agreement: int = Field(gt=0)
+    warn_days_before: int = Field(ge=0)
+    bank_rate_pct: Decimal = Field(ge=0)
+    interest_multiple: Decimal = Field(gt=0)
+
+
+class ValueModel(Strict):
+    """Assumptions for the Business case page. Every one is shown on screen with its source."""
+    invoices_per_month: Decimal = Field(ge=0)
+    minutes_per_invoice_manual: Decimal = Field(ge=0)
+    minutes_per_exception_manual: Decimal = Field(ge=0)
+    minutes_per_review_with_desk: Decimal = Field(ge=0)
+    loaded_cost_per_hour_inr: Decimal = Field(ge=0)
+    exception_rate_pct_today: Decimal = Field(ge=0, le=100)
+    touchless_share_pct: Decimal = Field(ge=0, le=100)
+    duplicate_or_wrong_payment_pct: Decimal = Field(ge=0, le=100)
+    average_invoice_value_inr: Decimal = Field(ge=0)
+    desk_cost_per_month_inr: Decimal = Field(ge=0)
+
+
 class Reason(Strict):
     action: Action
     owner: str = ""
@@ -144,8 +184,30 @@ class Rules(Strict):
     gst: Gst
     llm: LlmRules
     review: ReviewRules
+    cases: CaseRules
+    msme: Msme
+    value_model: ValueModel
     reasons: dict[str, Reason]
     sha256: str = ""
+
+    @model_validator(mode="after")
+    def _cases_cover_every_owner(self):
+        """Every person a hold can be waiting on has a reply time and someone to escalate to, and a hold the
+        desk may release by itself is a known HOLD reason. A gap here would otherwise need a fallback name."""
+        c = self.cases
+        owners = sorted({r.owner for r in self.reasons.values() if r.owner} | {"vendor"})
+        for owner in owners:
+            for name, table in (("reply_due_days", c.reply_due_days), ("escalate_to", c.escalate_to)):
+                if owner not in table:
+                    raise ValueError(f"cases.{name} has no entry for '{owner}'")
+        for owner, target in c.escalate_to.items():
+            if target not in c.reply_due_days:
+                raise ValueError(f"cases.escalate_to: '{owner}' escalates to '{target}', who has no reply time")
+        for code in c.auto_resume:
+            reason = self.reasons.get(code)
+            if reason is None or reason.action != "HOLD":
+                raise ValueError(f"cases.auto_resume: '{code}' is not a HOLD reason in reasons")
+        return self
 
     def reason(self, code: str) -> Reason:
         """The rule for a finding. A code with no rule is held for a person: an unknown

@@ -1,0 +1,4 @@
+po_number,po_date,vendor_id,status,currency,buyer,line_no,item_code,description,hsn_sac,uom,qty_ordered,unit_price,line_amount,match_basis,qty_received,received_on
+PO-2026-1041,2026-11-03,V101,OPEN,INR,R. Iyer (Procurement),1,BRG-6205-2RS,Ball bearing 6205-2RS,8482,Nos,400,185.00,74000.00,QTY,400,2026-11-18
+PO-2026-1041,2026-11-03,V101,OPEN,INR,R. Iyer (Procurement),2,BLT-HTD-8M1200,Timing belt HTD 8M-1200,4010,Nos,60,1240.00,74400.00,QTY,0,
+PO-2026-1042,2026-09-25,V102,OPEN,INR,A. Kulkarni (Stores),1,PKG-CTN-5PLY,Printed 5-ply carton,4819,Nos,2500,38.50,96250.00,QTY,2000,2026-10-10

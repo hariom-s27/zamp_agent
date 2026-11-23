@@ -191,3 +191,28 @@ def test_a_recorded_rewording_is_found_whatever_name_the_file_arrived_under(tmp_
         drafts.append(pipeline.run(sample_lib.sample_bytes(sample), name, "test").decision.vendor_draft)
     assert drafts[0] and drafts[0] == drafts[1] == drafts[2]
     assert all(sample_lib.received_name(s).endswith(".pdf") for s in manifest)
+
+
+def test_the_case_data_generator_is_repeatable_and_leaves_the_bundled_samples_alone(tmp_path):
+    import hashlib
+
+    from scripts import generate_case_data, generate_test_data
+
+    def hashes(root, names):
+        return {n: hashlib.sha256((root / n).read_bytes()).hexdigest() for n in names}
+
+    bundled = sorted(str(p.relative_to(config.ROOT)).replace("\\", "/") for folder in ("samples", "data", "fixtures")
+                     for p in (config.ROOT / folder).rglob("*")
+                     if p.is_file() and "runtime" not in p.parts and "cases" not in p.parts and not p.name.endswith("_cases.csv"))
+    before, vendors_before = hashes(config.ROOT, bundled), dict(generate_test_data.VENDOR)
+
+    for run in ("a", "b"):
+        generate_case_data.write_case_data(tmp_path / run / "data", tmp_path / run / "samples")
+    written = sorted(str(p.relative_to(tmp_path / "a")).replace("\\", "/") for p in (tmp_path / "a").rglob("*") if p.is_file())
+    assert written == ["data/purchase_orders_cases.csv", "data/vendors_cases.csv",
+                       "samples/cases/c1_invoice_before_goods.pdf", "samples/cases/c2_small_supplier_late_invoice.pdf",
+                       "samples/cases/manifest.json", "samples/cases/truth/c1_invoice_before_goods.json",
+                       "samples/cases/truth/c2_small_supplier_late_invoice.json"]
+    assert hashes(tmp_path / "a", written) == hashes(tmp_path / "b", written)        # byte-identical on a re-run
+    assert hashes(tmp_path / "a", written) == hashes(config.ROOT, written)           # and the committed files are its output
+    assert hashes(config.ROOT, bundled) == before and generate_test_data.VENDOR == vendors_before

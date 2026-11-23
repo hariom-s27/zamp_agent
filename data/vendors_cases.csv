@@ -1,0 +1,3 @@
+vendor_id,legal_name,aliases,gstin,state_code,status,bank_name,bank_account,ifsc,payment_terms_days,phone_on_file,email,msme_category,udyam_number
+V101,Kaveri Bearings & Drives Pvt Ltd,Kaveri Bearings|Kaveri Bearings and Drives,29AAECK6152L1Z4,29,APPROVED,Hoysala Mercantile Bank,004533118870,HMBL0000453,30,080-5550-0163,accounts@kaveribearings.example,small,UDYAM-KR-03-0041187
+V102,Nandi Hills Print & Pack,Nandi Hills Print and Pack|Nandi Print & Pack,29ABNFN7734G1ZP,29,APPROVED,Cauvery Urban Co-op Bank,117709934410,CUCB0001179,45,080-5550-0182,billing@nandihillspack.example,micro,UDYAM-KR-29-0107734

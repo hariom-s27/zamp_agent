@@ -6,12 +6,13 @@
 # Nothing here has a default in the code: a key that is missing or misspelt stops the
 # app with a message naming it, instead of quietly using some other number.
 
-version: "2026.11-2"
+version: "2026.11-3"
 
 company:                       # who "we" are: the buyer whose AP inbox this is
   name: Nilgiri Precision Components Pvt Ltd
   gstin: 29AAKCN4821M1ZX
   state_code: "29"
+  ap_email: ap@nilgiri-precision.example      # the address vendor messages are written from
 
 intake:                        # what is accepted for automatic processing; anything beyond is held
   max_file_mb: 15
@@ -81,6 +82,47 @@ llm:
 
 review:
   bank_change_approvers: 2     # how many different people must approve a changed bank account (1 or 2)
+
+cases:                         # what happens after a hold
+  enabled: true                # false = the app behaves exactly as before and the Cases page says it is off
+  reply_due_days:              # calendar days each owner has before the case escalates (assumption: no
+    AP analyst: 2              # authoritative standard exists; Zamp's examples are 48 hours for a receipt
+    Procurement: 3             # confirmation and five days for a pricing dispute)
+    Stores: 2
+    Tax team: 3
+    Vendor master team: 2
+    Finance controller: 2
+    vendor: 3                  # a vendor who has been sent a question
+  escalate_to:                 # who is told when the clock runs out
+    AP analyst: Finance controller
+    Procurement: Finance controller
+    Stores: Procurement
+    Tax team: Finance controller
+    Vendor master team: Finance controller
+    Finance controller: Finance controller
+    vendor: AP analyst
+  auto_resume: [GOODS_NOT_RECEIVED]   # holds the desk may release by itself once the missing fact is on record.
+                                      # Only if this is the ONLY kind of reason on the hold. [] = never.
+
+msme:                          # MSMED Act 2006, sections 15 and 16: micro and small suppliers
+  applies_to: [micro, small]   # medium enterprises are outside section 15
+  days_without_agreement: 15   # pay-by limit when no payment terms are agreed in writing
+  max_days_with_agreement: 45  # agreed terms can never stretch the pay-by date beyond this
+  warn_days_before: 7          # a held invoice this close to its statutory date is urgent and escalates at once
+  bank_rate_pct: 5.75          # RBI Bank Rate. CONFIRM on rbi.org.in before quoting. Late interest is 3 x this, compounded monthly
+  interest_multiple: 3         # section 16: three times the bank rate
+
+value_model:                   # ASSUMPTIONS for the Business case page. Each is shown on screen and can be changed there.
+  invoices_per_month: 600                 # the brief says "hundreds"
+  minutes_per_invoice_manual: 12          # assumption: keying, matching and filing one invoice by hand
+  minutes_per_exception_manual: 25        # assumption: chasing one exception to an answer
+  minutes_per_review_with_desk: 4         # assumption: a person deciding a hold the desk has prepared
+  loaded_cost_per_hour_inr: 450           # assumption: fully loaded cost of an AP analyst
+  exception_rate_pct_today: 20            # Ardent Partners 2026 average is 19.9%
+  touchless_share_pct: 61                 # measured: 30 of 49 documents in docs/robustness_report.md
+  duplicate_or_wrong_payment_pct: 1.5     # APQC median, share of the number of disbursements
+  average_invoice_value_inr: 85000        # assumption
+  desk_cost_per_month_inr: 0              # licence, hosting and oversight. 0 = show gross saving only
 
 # What each finding means for the decision. action: REJECT > HOLD > NOTE.
 # owner: who is asked when the action is HOLD (or who is told, for REJECT).

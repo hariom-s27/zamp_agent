@@ -1,0 +1,44 @@
+{
+  "id": "c1_invoice_before_goods",
+  "layout": "classic",
+  "scanned": false,
+  "vendor_id": "V101",
+  "vendor_name_printed": "Kaveri Bearings & Drives Pvt Ltd",
+  "vendor_gstin": "29AAECK6152L1Z4",
+  "buyer_gstin": "29AAKCN4821M1ZX",
+  "invoice_no": "KBD/26-27/1193",
+  "invoice_date": "2026-11-19",
+  "po_ref": "PO-2026-1041",
+  "tax_inclusive": false,
+  "gst_rate": "18",
+  "taxable": "148400.00",
+  "cgst": "13356.00",
+  "sgst": "13356.00",
+  "igst": "0",
+  "tax_total": "26712.00",
+  "total": "175112.00",
+  "bank_account": "004533118870",
+  "ifsc": "HMBL0000453",
+  "lines": [
+    {
+      "description": "Ball Bearing 6205-2RS",
+      "hsn": "8482",
+      "qty": "400",
+      "uom": "Nos",
+      "unit_price": "185.00",
+      "amount": "74000.00",
+      "unit_price_pre_tax": "185.00",
+      "amount_pre_tax": "74000.00"
+    },
+    {
+      "description": "Timing Belt HTD 8M-1200",
+      "hsn": "4010",
+      "qty": "60",
+      "uom": "Nos",
+      "unit_price": "1240.00",
+      "amount": "74400.00",
+      "unit_price_pre_tax": "1240.00",
+      "amount_pre_tax": "74400.00"
+    }
+  ]
+}

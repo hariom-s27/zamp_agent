@@ -1,0 +1,34 @@
+{
+  "id": "c2_small_supplier_late_invoice",
+  "layout": "modern",
+  "scanned": false,
+  "vendor_id": "V102",
+  "vendor_name_printed": "Nandi Hills Print & Pack",
+  "vendor_gstin": "29ABNFN7734G1ZP",
+  "buyer_gstin": "29AAKCN4821M1ZX",
+  "invoice_no": "NHP/26-27/0287",
+  "invoice_date": "2026-10-12",
+  "po_ref": "PO-2026-1042",
+  "tax_inclusive": false,
+  "gst_rate": "18",
+  "taxable": "80000.00",
+  "cgst": "7200.00",
+  "sgst": "7200.00",
+  "igst": "0",
+  "tax_total": "14400.00",
+  "total": "94400.00",
+  "bank_account": "117709934410",
+  "ifsc": "CUCB0001179",
+  "lines": [
+    {
+      "description": "Printed 5-Ply Carton",
+      "hsn": "4819",
+      "qty": "2000",
+      "uom": "Nos",
+      "unit_price": "40.00",
+      "amount": "80000.00",
+      "unit_price_pre_tax": "40.00",
+      "amount_pre_tax": "80000.00"
+    }
+  ]
+}
