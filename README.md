@@ -13,7 +13,7 @@ showing.
 > Ltd), the vendors, the GSTINs, the bank accounts and the invoices are fictional, and
 > every PDF says so in its footer.
 
-**Live link:** to be added after deployment. **Video:** to be added after recording. The
+**Live link:** <https://zampagent-9nbcmhyxrg2mhbwgtxpr4c.streamlit.app/>. **Video:** to be added after recording. The
 free host puts an app to sleep after 12 hours without visitors; if you see a sleep
 screen, press the button to wake it and give it about a minute.
 
