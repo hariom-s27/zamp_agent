@@ -43,6 +43,32 @@ OUTCOMES = ["Cleared without a person", "Held, then cleared", "Still on hold", "
 OUTCOME_COLOURS = ["#1a8a52", "#9aa0a6", "#d99a00", "#c9343d"]
 
 
+def held_reason_counts(runs: list[dict], rules) -> Counter:
+    """Why invoices were held: each held invoice counted once per reason family. A file sent again and an
+    earlier record of the same file read again are not counted, and nor is the duplicate-file stop itself."""
+    latest: dict[str, dict] = {}
+    for r in invoices(runs):                        # newest first: the first row per file is the current record
+        latest.setdefault(r.get("file_sha256") or r["run_id"], r)
+    counts: Counter = Counter()
+    for r in latest.values():
+        if r["verdict"] != "HOLD":
+            continue
+        families = {family(code) for code in codes_of(r) - {"DUPLICATE_FILE", "RESUBMITTED_WHILE_ON_HOLD"}
+                    if rules.reason(code).action == "HOLD"}
+        counts.update(families)
+    return counts
+
+
+def month_chart(frame, months: list[str]):
+    """Outcomes per month. The legend sits under the chart, one label a line, so no label is cut off."""
+    return alt.Chart(frame).mark_bar().encode(
+        x=alt.X("Month:N", sort=months, title=None),
+        y=alt.Y("Invoices:Q", stack="zero", axis=alt.Axis(tickMinStep=1, format="d")),
+        color=alt.Color("Outcome:N", scale=alt.Scale(domain=OUTCOMES, range=OUTCOME_COLOURS),
+                        legend=alt.Legend(orient="bottom", direction="vertical", title=None, labelLimit=0)),
+        order=alt.Order("rank:Q"), tooltip=["Month", "Outcome", "Invoices"])
+
+
 def family(code: str) -> str:
     return next((name for name, codes in FAMILY if code in codes), "Other")
 
@@ -285,12 +311,7 @@ def _charts(store, runs: list[dict]) -> None:
         if frame.empty:
             st.caption("No invoices yet.")
         else:
-            chart = alt.Chart(frame).mark_bar().encode(
-                x=alt.X("Month:N", sort=[pd.Timestamp(m + "-01").strftime("%b %Y") for m in months], title=None),
-                y=alt.Y("Invoices:Q", stack="zero", axis=alt.Axis(tickMinStep=1)),
-                color=alt.Color("Outcome:N", scale=alt.Scale(domain=OUTCOMES, range=OUTCOME_COLOURS),
-                                legend=alt.Legend(orient="bottom", title=None, columns=2)),
-                order=alt.Order("rank:Q"), tooltip=["Month", "Outcome", "Invoices"])
+            chart = month_chart(frame, [pd.Timestamp(m + "-01").strftime("%b %Y") for m in months])
             st.altair_chart(chart, width="stretch", key="dash_chart_months")
     with b:
         st.markdown("**Who is holding invoices today**")
@@ -308,8 +329,7 @@ def _charts(store, runs: list[dict]) -> None:
             st.altair_chart(chart, width="stretch", key="dash_chart_teams")
     with c:
         st.markdown("**Why invoices were held**")
-        counts = Counter(family(code) for r in inv if r["verdict"] == "HOLD" for code in codes_of(r)
-                         if C.get_rules().reason(code).action == "HOLD")
+        counts = held_reason_counts(runs, C.get_rules())
         if not counts:
             st.caption("No holds so far.")
         else:

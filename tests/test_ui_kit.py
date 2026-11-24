@@ -26,9 +26,9 @@ def test_formatting_helpers():
     assert inr(100000) == "₹1,00,000"
     assert inr_short(680000) == "₹6.8 lakh"
     assert inr_short(23100000) == "₹2.31 crore"
-    assert due_label(date(2026, 11, 19), date(2026, 11, 21)) == ("overdue", "Overdue by 2 days")
-    assert due_label(date(2026, 11, 21), date(2026, 11, 21)) == ("due_soon", "Due today")
-    assert due_label(date(2026, 11, 30), date(2026, 11, 21)) == ("on_track", "Due 30-Nov-2026")
+    assert due_label(date(2026, 11, 19), date(2026, 11, 21)) == ("overdue", "Overdue since 19-Nov-2026")
+    assert due_label(date(2026, 11, 21), date(2026, 11, 21)) == ("due_soon", "Due 21-Nov-2026 (today)")
+    assert due_label(date(2026, 11, 30), date(2026, 11, 21)) == ("on_track", "Due 30-Nov-2026 (in 9 days)")
     assert chip_md("hold") == ":orange-badge[:material/pause_circle: On hold]"
 
 

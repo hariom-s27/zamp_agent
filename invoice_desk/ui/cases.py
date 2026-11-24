@@ -251,8 +251,8 @@ def _card(case: dict, store, live, rules) -> None:
             urgent = "Urgent. " if case["priority"] == "urgent" else ""
             escalated = (f" Escalated to {case['escalated_to']} on "
                          f"{case_engine.day_text(case_engine._as_date(case['escalated_on']))}." if case["escalated_to"] else "")
-            st.markdown(f"**{plain(urgent)}{plain(state)}.** Answer due "
-                        f"{plain(case_engine.day_text(due)) if due else '-'}. Owner: {plain(case['owner'])}.{plain(escalated)}")
+            when = K.due_label(due, C.business_date())[1] if due else "No due date"
+            st.markdown(f"**{plain(urgent)}{plain(state)}.** {plain(when)}. Owner: {plain(case['owner'])}.{plain(escalated)}")
             if clock:
                 st.markdown(_clock_line(clock))
             st.markdown(f"**The question for the owner.** {plain(case['question'])}")

@@ -294,9 +294,10 @@ def decision_card(result: RunResult, key: str) -> None:
         if d.next_action:
             st.markdown(f"**Next:** {plain(C.screen_words(d.next_action))}")
         if result.resubmission_of:
-            if st.button(f"Open the original record, {result.resubmission_of}", type="primary",
-                         key=f"card_original_{key}", icon=":material/content_copy:"):
-                st.session_state["goto"], st.session_state["dash_run"] = "dashboard", result.resubmission_of
+            showing = st.session_state.get("proc_original") == result.run_id
+            if st.button(f"{'Hide' if showing else 'Open'} the original record, {result.resubmission_of}",
+                         type="primary", key=f"card_original_{key}", icon=":material/content_copy:"):
+                st.session_state["proc_original"] = None if showing else result.run_id
                 st.rerun()
         elif d.verdict == "HOLD":
             if st.button("Open the case", type="primary", key=f"card_case_{key}"):
@@ -321,6 +322,14 @@ QTY_CODES = {"QTY_OVER_PO", "GOODS_NOT_RECEIVED"}
 TAX_CODES = {"TAX_RATE_UNUSUAL", "TAX_TYPE_MISMATCH", "BUYER_GSTIN_MISSING"}
 DUP_CODES = {"DUPLICATE_FILE", "DUPLICATE_INVOICE_NUMBER", "DUPLICATE_CONTENT", "POSSIBLE_DUPLICATE"}
 BANK_CODES = {"BANK_DETAILS_CHANGED"}
+PO_IDENTITY = PO_CODES - {"OVER_PO_BALANCE"}
+
+
+def same_value(a, b) -> bool:
+    """The two sides of a row name the same thing: same text, ignoring case, spaces and escaping."""
+    def norm(x) -> str:
+        return "".join(str(x or "").replace("\\", "").split()).casefold()
+    return bool(norm(a)) and norm(a) not in ("-",) and norm(a) == norm(b)
 
 
 def tidy(text) -> str:
@@ -388,9 +397,11 @@ def evidence_rows(result: RunResult) -> list[dict]:
     if "po_match" in ran and inv is not None:
         quoted = inv.get("po_reference")
         found = [f for f in group(PO_CODES) if f.action != "NOTE"]
+        identity = [f for f in found if f.code in PO_IDENTITY]      # a PO balance problem has its own row
         rows.append({"field": "Purchase order", "on_invoice": plain(quoted) if quoted else "No PO quoted",
                      "expected": plain(po.get("po_number")) or "No matching PO", "source": where("po_reference"),
-                     "ok": bool(po.get("po_number")) and not found})
+                     "ok": bool(po.get("po_number")) and not identity and
+                     (not quoted or same_value(quoted, po.get("po_number")))})
         for f in found:
             if f.expected or f.observed:
                 rows.append(finding_row(f.title or "Purchase order", f,
@@ -440,6 +451,9 @@ def evidence_rows(result: RunResult) -> list[dict]:
             rows.append({"field": "Bank details", "on_invoice": f"Account ending {account[-4:]}" if account else "No account printed",
                          "expected": "the account on file", "source": where("bank_account"), "ok": True})
         used |= {id(f) for f in bank}
+    for row in rows:                                    # equal values on both sides always read as a match
+        if not row["ok"] and same_value(row["on_invoice"], row["expected"]):
+            row["ok"] = True
     for stage in result.stages:                         # anything else that was found, with its real values
         for f in stage.findings:
             if id(f) in used or f.action == "NOTE" or not (f.expected or f.observed):
@@ -475,6 +489,16 @@ def finished_view(result: RunResult, store: Store, key: str) -> None:
     else:
         st.caption("Nothing to compare: the file was refused before its details could be read.")
     st.caption("Every step is done by fixed rules unless it is marked AI. AI never makes the decision.")
+    if result.resubmission_of and st.session_state.get("proc_original") == result.run_id:
+        original = store.get_run(result.resubmission_of)
+        if original is not None and original.decision is not None:
+            st.divider()
+            st.markdown(f"**The original record, {result.resubmission_of}**")
+            C.render_run(original, store, key=f"orig_{key}")
+    if st.session_state.get("proc_from_demo") == result.run_id:
+        if st.button("Back to the guided demo", key=f"back_demo_{key}", icon=":material/arrow_back:"):
+            st.session_state["goto"] = "demo"
+            st.rerun()
 
 
 def page() -> None:
@@ -503,10 +527,10 @@ def page() -> None:
         by_id = {s["id"]: s for s in samples}
 
         def label(sample_id: str) -> str:
+            """Fixed for each sample. A label that changed after a run (say, to add "processed") made Streamlit
+            treat the dropdown as new and fall back to the first sample; whether it was processed is in the caption."""
             s = by_id[sample_id]
-            done = seen.get(hashes.get(sample_id, ""))
-            return (f"{s['order']:02d}  {s['title']}  [{s.get('tag', 'Sample')}]" +
-                    (f"   (processed: {done['run_id']}, {C.verdict_display_label(done['verdict'])})" if done else ""))
+            return f"{s['order']:02d}  {s['title']}  [{s.get('tag', 'Sample')}]"
 
         pick, button = st.columns([0.74, 0.26], vertical_alignment="bottom")
         chosen = pick.selectbox("Document", list(by_id), format_func=label, key="proc_sample")
@@ -526,6 +550,7 @@ def page() -> None:
             st.caption(f"Already received as {done['run_id']}. Sending the same file again is stopped at step 1 as a "
                        f"duplicate. For a clean start use 'Start a fresh demo' on the Guided demo page.")
         if going_live == "sample":
+            sample = by_id.get(st.session_state.pop("proc_run_sample", chosen), sample)     # the one shown when pressed
             content, name, source = sample_lib.sample_bytes(sample), sample_name(sample), "sample"
     else:
         upload = st.file_uploader("Invoice PDF (text or scanned). Any file is accepted: one that is not a readable "
@@ -538,6 +563,8 @@ def page() -> None:
             content, name, source = upload.getvalue(), upload.name, "upload"
     if go:                           # trigger from a flag, not from the button: the run starts at the top of a rerun
         st.session_state["proc_live"] = "sample" if source_choice == SAMPLE else "upload"
+        if source_choice == SAMPLE:
+            st.session_state["proc_run_sample"] = chosen
         st.rerun()
 
     with st.expander("Process the whole sample inbox in one go"):
@@ -563,6 +590,7 @@ def page() -> None:
             if adopt_for:
                 from . import demo
                 demo.adopt(result, adopt_for)
+                st.session_state["proc_from_demo"] = result.run_id
         st.rerun()
 
     with area.container():

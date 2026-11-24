@@ -102,7 +102,7 @@ def _due_text(row: dict) -> str:
     if row["state"] in ("sorted", "closed") and not any(a["state"] == "waiting" for a in row.get("also", [])):
         return "-"
     day = desk_inbox._day(row["due_on"])
-    return (case_engine.day_text(day) if day else "-") + (" (overdue)" if row["overdue"] else "")
+    return K.due_label(day, C.business_date())[1] if day else "-"
 
 
 def _who(row: dict) -> str:

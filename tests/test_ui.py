@@ -840,7 +840,7 @@ def test_the_cases_page_shows_owner_question_clock_and_history_for_a_hold(app):
             metric(app, "Waiting on the vendor")) == ("2", "1", "0", "0")
     text = shown(app) + " " + said(app)
     assert "Kaveri Bearings &amp; Drives Pvt Ltd" in text and "KBD/26-27/1193" in text
-    assert "Waiting on Stores" in text and "Answer due 23-Nov-2026" in text
+    assert "Waiting on Stores" in text and "Due 23-Nov-2026 (in 2 days)" in text
     assert C.esc(early.decision.questions[0]) in text and C.esc(late.decision.questions[0]) in text
     assert "Legal pay-by date 24-Nov-2026, 3 days left" in text
     assert "counted from the delivery recorded on 10-Oct-2026" in text

@@ -265,7 +265,7 @@ def reset_books(store: Store) -> None:
     """Back to the seeded history, and forget what this session was looking at."""
     store.reset()
     for key in ("current_run", "batch", "dash_run", "wi_result", "demo_done", "demo_last", "demo_auto",
-                "after_done", "after_last", "landing_runs", "demo_adopt"):
+                "after_done", "after_last", "landing_runs", "demo_adopt", "proc_from_demo", "proc_original"):
         st.session_state.pop(key, None)
 
 

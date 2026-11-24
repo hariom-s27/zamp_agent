@@ -74,13 +74,12 @@ def inr_short(amount: float) -> str:
 def due_label(due: date, today: date) -> tuple[str, str]:
     """(status kind, words). Words carry the meaning; the colour only repeats it."""
     d = (due - today).days
+    day = due.strftime("%d-%b-%Y")
     if d < 0:
-        return "overdue", f"Overdue by {-d} day{'s' if d != -1 else ''}"
+        return "overdue", f"Overdue since {day}"
     if d == 0:
-        return "due_soon", "Due today"
-    if d <= 2:
-        return "due_soon", f"Due in {d} day{'s' if d != 1 else ''}"
-    return "on_track", f"Due {due.strftime('%d-%b-%Y')}"
+        return "due_soon", f"Due {day} (today)"
+    return ("due_soon" if d <= 2 else "on_track"), f"Due {day} (in {d} day{'s' if d != 1 else ''})"
 
 
 @dataclass
