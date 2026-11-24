@@ -41,8 +41,9 @@ def _strip_unit(text: str, word: str) -> str:
 def family_question(f) -> str | None:
     code = f.code
     if code == "PRICE_VARIANCE" and f.evidence.get("pct"):
-        pct = f"{float(f.evidence['pct']):.1f}".removesuffix(".0")
-        return f"The price is {pct}% above the PO. Accept the new price, or ask for a corrected invoice?"
+        pct = str(Decimal(str(f.evidence['pct'])).normalize())
+        limit = str(C.get_rules().tolerances.unit_price.pct.normalize())
+        return f"The price is {pct}% above the PO (limit {limit}%). Accept the new price, or ask for a corrected invoice?"
     if code == "GOODS_NOT_RECEIVED":
         return "The goods receipt is not posted. Have the goods arrived?"
     if code == "QTY_OVER_PO" and f.observed and f.expected:
@@ -241,7 +242,7 @@ def _card(case: dict, store, live, rules) -> None:
         if case["priority"] == "urgent":
             chips.append(K.chip_md("overdue", "Urgent"))
         if clock:
-            chips.append(f":gray-badge[:material/gavel: Small supplier · legal date {case_engine.day_text(clock['due'])}]")
+            chips.append(f":gray-badge[:material/gavel: Small supplier · legal pay-by date {case_engine.day_text(clock['due'])}]")
         if case["escalated_to"]:
             chips.append(f":gray-badge[:material/trending_up: Escalated to {plain(case['escalated_to'])} on "
                          f"{case_engine.day_text(case_engine._as_date(case['escalated_on']))}]")
@@ -304,7 +305,7 @@ def _replies(case: dict, store) -> None:
             continue                              # the original invoice email is not a reply
         st.markdown(f"**Reply received from {plain(m['sender'] or 'an unknown sender')} on "
                     f"{plain(config.to_ist_text(m.get('received_at') or ''))}.**")
-        st.caption(f"Subject: {m.get('subject') or '(no subject)'}")
+        st.caption(f"Subject: {C.screen_dates(m.get('subject') or '(no subject)')}")
         sender_chk = mailbox.check_sender(m.get("sender") or "", master, rules)
         if sender_chk.result == "lookalike":
             dom = mailbox._domain(m.get("sender") or "")

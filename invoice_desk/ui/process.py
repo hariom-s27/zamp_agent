@@ -99,7 +99,7 @@ def to_stage(stage: StageResult, result: Optional[RunResult]) -> K.Stage:
         kind = "stopped"
         summary = f"Duplicate file: the same file as {plain(again)}. Stopped here, nothing booked again"
         lines = [f"This exact file was received before as {plain(again)}. It is not read, checked or booked a "
-                 f"second time. The answer shown is that record's, as it stands now."]
+                 f"second time. Open the original record to see its current decision."]
     elif again and kind == "skipped":
         summary = "Not run: duplicate file"
         lines = [f"Stopped at step 1. See {plain(again)} for this step."]
@@ -264,7 +264,7 @@ def card_title(result: RunResult) -> str:
     """The decision card's title is the reason, not the status: the status is the chip above it."""
     d = result.decision
     if result.resubmission_of:
-        return f"Same file as {result.resubmission_of}, not booked again"
+        return "Duplicate file: not booked"
     if d.verdict == "APPROVE":
         return "Everything matches"
     if d.reasons:
@@ -276,8 +276,17 @@ def card_title(result: RunResult) -> str:
 def decision_card(result: RunResult, key: str) -> None:
     d, inv = result.decision, result.invoice
     with st.container(border=True, key=f"verdict_{key}"):
-        K.status_chip(CARD.get(d.verdict, "hold"), C.verdict_display_label(d.verdict))
+        if not result.resubmission_of:
+            K.status_chip(CARD.get(d.verdict, "hold"), C.verdict_display_label(d.verdict))
         st.markdown(f"### {plain(card_title(result))}")
+        if result.resubmission_of:
+            st.caption(f"This exact file was already received as {result.resubmission_of}. Nothing was booked again.")
+            showing = st.session_state.get("proc_original") == result.run_id
+            if st.button(f"{'Hide' if showing else 'Open'} the original record, {result.resubmission_of}",
+                         type="primary", key=f"card_original_{key}", icon=":material/content_copy:"):
+                st.session_state["proc_original"] = None if showing else result.run_id
+                st.rerun()
+            return
         facts = [(result.vendor or {}).get("name") or (inv.get("vendor_name") if inv else None),
                  inv.get("invoice_number") if inv else None]
         facts = [plain(f) for f in facts if f] or [plain(C.display_name(result.file_name))]
@@ -293,13 +302,7 @@ def decision_card(result: RunResult, key: str) -> None:
             st.markdown(" ".join(f":gray-badge[:material/assignment_ind: Waiting on {plain(o)}]" for o in d.owners))
         if d.next_action:
             st.markdown(f"**Next:** {plain(C.screen_words(d.next_action))}")
-        if result.resubmission_of:
-            showing = st.session_state.get("proc_original") == result.run_id
-            if st.button(f"{'Hide' if showing else 'Open'} the original record, {result.resubmission_of}",
-                         type="primary", key=f"card_original_{key}", icon=":material/content_copy:"):
-                st.session_state["proc_original"] = None if showing else result.run_id
-                st.rerun()
-        elif d.verdict == "HOLD":
+        if d.verdict == "HOLD":
             if st.button("Open the case", type="primary", key=f"card_case_{key}"):
                 st.session_state["goto"] = "cases"
                 st.rerun()
@@ -344,7 +347,7 @@ def _finding_cells(f) -> tuple[str, str]:
     """(on the invoice, in our records) for one finding, in real values."""
     observed, expected = tidy(f.observed), tidy(f.expected)
     if f.code == "GOODS_NOT_RECEIVED":
-        got = expected.removeprefix("billed quantity up to ").strip()
+        got = (f.expected or "").removeprefix("billed quantity up to ").strip()
         observed = f"{observed} billed" if observed and observed[0].isdigit() else observed
         expected = "no goods receipt yet" if got in ("0", "0.00", "") else f"{got} received"
     return plain(observed) or "-", plain(expected) or "-"
@@ -475,6 +478,11 @@ def finished_view(result: RunResult, store: Store, key: str) -> None:
             C.render_preview(store.load_file(result.file_sha256), result.file_sha256, result, key=f"card_{key}")
     with right:
         decision_card(result, key)
+        if result.resubmission_of and st.session_state.get("proc_original") == result.run_id:
+            original = store.get_run(result.resubmission_of)
+            if original is not None and original.decision is not None:
+                st.markdown(f"**The original record, {result.resubmission_of}**")
+                C.render_run(original, store, key=f"orig_{key}")
         head = st.container(horizontal=True, vertical_alignment="bottom")
         head.markdown("**How it was handled**")
         head.caption(f"{C.took(result.duration_ms)} in all")
@@ -489,12 +497,6 @@ def finished_view(result: RunResult, store: Store, key: str) -> None:
     else:
         st.caption("Nothing to compare: the file was refused before its details could be read.")
     st.caption("Every step is done by fixed rules unless it is marked AI. AI never makes the decision.")
-    if result.resubmission_of and st.session_state.get("proc_original") == result.run_id:
-        original = store.get_run(result.resubmission_of)
-        if original is not None and original.decision is not None:
-            st.divider()
-            st.markdown(f"**The original record, {result.resubmission_of}**")
-            C.render_run(original, store, key=f"orig_{key}")
     if st.session_state.get("proc_from_demo") == result.run_id:
         if st.button("Back to the guided demo", key=f"back_demo_{key}", icon=":material/arrow_back:"):
             st.session_state["goto"] = "demo"

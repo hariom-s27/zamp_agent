@@ -27,7 +27,8 @@ BANK = "BANK_DETAILS_CHANGED"
 FAMILY = [
     ("Price above the PO", {"PRICE_VARIANCE"}),
     ("Goods receipt not posted", {"GOODS_NOT_RECEIVED"}),
-    ("Quantity above the PO or receipt", {"QTY_OVER_PO", "OVER_PO_BALANCE", "BUNDLED_PARTIAL"}),
+    ("Quantity above the PO or receipt", {"QTY_OVER_PO", "BUNDLED_PARTIAL"}),
+    ("Billing would exceed the PO value", {"OVER_PO_BALANCE"}),
     ("No open PO", {"PO_NOT_FOUND", "NO_PO_FOUND", "PO_CLOSED", "PO_VENDOR_MISMATCH", "LINE_NOT_ON_PO", "PO_INFERRED",
                     "DATE_BEFORE_PO"}),
     ("Tax or total wrong", {"ARITHMETIC_MISMATCH", "AMOUNT_WORDS_MISMATCH", "TAX_RATE_UNUSUAL", "TAX_TYPE_MISMATCH",
@@ -53,8 +54,7 @@ def held_reason_counts(runs: list[dict], rules) -> Counter:
     for r in latest.values():
         if r["verdict"] != "HOLD":
             continue
-        families = {family(code) for code in codes_of(r) - {"DUPLICATE_FILE", "RESUBMITTED_WHILE_ON_HOLD"}
-                    if rules.reason(code).action == "HOLD"}
+        families = {family(code) for code in codes_of(r) - {"DUPLICATE_FILE", "RESUBMITTED_WHILE_ON_HOLD"}}
         counts.update(families)
     return counts
 
@@ -67,6 +67,16 @@ def month_chart(frame, months: list[str]):
         color=alt.Color("Outcome:N", scale=alt.Scale(domain=OUTCOMES, range=OUTCOME_COLOURS),
                         legend=alt.Legend(orient="bottom", direction="vertical", title=None, labelLimit=0)),
         order=alt.Order("rank:Q"), tooltip=["Month", "Outcome", "Invoices"])
+
+
+def team_chart(frame):
+    maximum = int(frame.groupby("Team")["Invoices"].sum().max())
+    return alt.Chart(frame).mark_bar().encode(
+        y=alt.Y("Team:N", sort="-x", title=None, axis=alt.Axis(labelLimit=260)),
+        x=alt.X("Invoices:Q", stack="zero", scale=alt.Scale(domain=[0, maximum + 1]),
+                axis=alt.Axis(tickMinStep=1, format="d")),
+        color=alt.Color("State:N", scale=alt.Scale(domain=["On time", "Overdue"], range=["#9aa0a6", "#c9343d"]),
+                        legend=alt.Legend(orient="bottom", title=None)), tooltip=["Team", "State", "Invoices"])
 
 
 def family(code: str) -> str:
@@ -185,7 +195,7 @@ def _case_figures(store) -> None:
     row[0].metric("Cases opened", len(all_cases), f"{sum(1 for c in all_cases if c['state'] != 'RESOLVED')} still open",
                   **plain)
     row[1].metric("Resolved without a person", len(by_rule), "released by rule once the goods were received", **plain)
-    row[2].metric("Urgent or escalated", len(pressing), "open cases past their answer date or near a legal date",
+    row[2].metric("Urgent or escalated", len(pressing), "open cases past their answer date or near a legal pay-by date",
                   **plain)
 
 
@@ -247,7 +257,7 @@ def book_figures(store, runs: list[dict]) -> dict:
 
 
 CARD_LABELS = ["Cleared, no person", "On hold now", "Days to clear a hold", "Money stopped",
-               "Legal dates at risk"]
+               "Legal pay-by dates at risk"]
 
 
 def _cards(store, runs: list[dict], rules) -> None:
@@ -294,7 +304,7 @@ def _cards(store, runs: list[dict], rules) -> None:
                 st.markdown(" · ".join(f"{name} {K.inr_short(a)} ({n})" for name, (a, n) in parts.items()))
     with cols[4]:
         K.kpi_card(CARD_LABELS[4], str(len(risk)),
-                   f"small suppliers within {within} days of the legal limit" + (f", {past} past it" if past else ""),
+                   f"small suppliers within {within} days of the legal pay-by date" + (f", {past} past it" if past else ""),
                    help="Micro and small suppliers must be paid within the agreed period, at most 45 days from "
                         "acceptance, or 15 days with no written terms.")
 
@@ -321,11 +331,7 @@ def _charts(store, runs: list[dict]) -> None:
         else:
             frame = pd.DataFrame([{"Team": t, "State": s, "Invoices": v[i]} for t, v in teams.items()
                                   for i, s in enumerate(["On time", "Overdue"]) if v[i]])
-            chart = alt.Chart(frame).mark_bar().encode(
-                y=alt.Y("Team:N", sort="-x", title=None, axis=alt.Axis(labelLimit=260)),
-                x=alt.X("Invoices:Q", stack="zero", axis=alt.Axis(tickMinStep=1, format="d")),
-                color=alt.Color("State:N", scale=alt.Scale(domain=["On time", "Overdue"], range=["#9aa0a6", "#c9343d"]),
-                                legend=alt.Legend(orient="bottom", title=None)), tooltip=["Team", "State", "Invoices"])
+            chart = team_chart(frame)
             st.altair_chart(chart, width="stretch", key="dash_chart_teams")
     with c:
         st.markdown("**Why invoices were held**")
@@ -345,14 +351,17 @@ def _charts(store, runs: list[dict]) -> None:
 
 def _needs_attention(store, rules) -> None:
     within = rules.display.attention_days
-    cases = _open_cases(store)
-    if not cases:
+    held = book_figures(store, store.list_runs())["held"]
+    if not held:
         return
+    by_run = {c["run_id"]: c for c in _open_cases(store)}
+    cases = [by_run.get(r["run_id"], {"run_id": r["run_id"], "case_id": r["run_id"],
+                                    "waiting_on": "AP analyst", "due_on": "", "statutory_due": ""}) for r in held]
 
     def urgency(case: dict) -> tuple:
         legal = _days_left(case.get("statutory_due"))
         rank = 0 if legal is not None and legal < 0 else 1 if legal is not None and legal <= within else 2
-        return rank, case["due_on"]
+        return rank, case["due_on"] or "9999-12-31", case["run_id"]
 
     st.markdown("**Needs attention**")
     for case in sorted(cases, key=urgency)[:rules.display.attention_max]:
@@ -368,11 +377,14 @@ def _needs_attention(store, rules) -> None:
             line.markdown(K.chip_md(*K.due_label(due, C.business_date())))
         legal = _days_left(case.get("statutory_due"))
         if legal is not None:
-            line.markdown(f":gray-badge[:material/gavel: Small supplier · legal limit "
+            line.markdown(f":gray-badge[:material/gavel: Small supplier · legal pay-by date "
                           f"{case_engine.day_text(case_engine._as_date(case['statutory_due']))}]")
         if line.button("Open", key=f"att_{case['case_id']}"):
-            st.session_state["goto"] = "cases"
+            st.session_state["goto"] = "cases" if case["run_id"] in by_run else "review"
             st.rerun()
+    remaining = len(cases) - rules.display.attention_max
+    if remaining > 0:
+        st.caption(f"and {remaining} more")
     if st.button("See all cases", key="dash_all_cases", icon=":material/folder_open:"):
         st.session_state["goto"] = "cases"
         st.rerun()
@@ -405,7 +417,8 @@ def _history(store, runs: list[dict], rules) -> None:
         default = picked[0]
     st.subheader("Invoice record")
     run_id = st.selectbox("Record to open (or select a row above)", ids, index=default, key=f"dash_pick_{default}_{len(ids)}",
-                          format_func=lambda i: next(f"{r['run_id']}  {C.verdict_display_label(r['verdict'])}  "
+                          format_func=lambda i: next(f"{r['run_id']}  "
+                                                     f"{'Duplicate, not booked' if r.get('resubmission_of') else C.verdict_display_label(r['verdict'])}  "
                                                      f"{C.display_name(r['file_name'])}"
                                                      for r in shown if r["run_id"] == i))
     st.session_state["dash_run"] = run_id

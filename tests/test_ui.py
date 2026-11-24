@@ -369,7 +369,7 @@ def test_the_same_file_again_returns_the_first_record_and_says_so(app):
     process(app, "01")
     process(app, "01")
     assert app.session_state["current_run"] == "AP-2026-0002"
-    assert "Cleared: same file as AP-2026-0001, not booked again" in shown(app)
+    assert "Duplicate file: not booked" in shown(app)
     assert any("already received as AP-2026-0001" in i.value for i in app.info)
     assert any("Processed in this session as AP-2026-0001" in c.value for c in app.caption)
     assert len([e for e in app.db.ledger_entries() if e["origin"] != "history"]) == 1

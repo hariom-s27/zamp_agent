@@ -116,7 +116,7 @@ def _detail(row: dict, store, rules) -> None:
              "answered": ("resolved", "Answered"), "closed": ("resolved", "Closed")}.get(row["state"])
     if state:
         st.markdown(K.chip_md(*state) + " " + K.chip_md("on_track", desk_inbox.KIND_LABEL.get(row["kind"], row["kind"])))
-    st.markdown(f"**{C.esc(row['subject'] or '(no subject)')}**", unsafe_allow_html=True)
+    st.markdown(f"**{C.esc(C.screen_dates(row['subject'] or '(no subject)'))}**", unsafe_allow_html=True)
     st.caption(f"From {row['sender'] or 'unknown'} · received {config.to_ist_text(row['received_at'])} · {mid}")
     new_text, quoted = strip_quoted(row["body"] or "")
     st.text(new_text.strip() or "(no text)")
@@ -249,13 +249,15 @@ def page() -> None:
     if not rows:
         st.info("No messages yet. Deliver today's mail to see the desk sort it.", icon=":material/inbox:")
         return
-    st.dataframe([{"When": config.to_ist_text(r["received_at"]), "From": r["sender"], "Subject": r["subject"],
+    with st.container(key="ib_table"):
+        st.html("<style>.st-key-ib_table table {table-layout:fixed;width:100%} "
+                ".st-key-ib_table th,.st-key-ib_table td {white-space:normal;overflow-wrap:anywhere}</style>")
+        st.table([{"When": config.to_ist_text(r["received_at"]), "From": r["sender"],
+                   "Subject": C.screen_dates(r["subject"]),
                    "What it is": desk_inbox.KIND_LABEL.get(r["kind"], r["kind"]),
-                   "What the desk did": short_action(r["action"]), "Next step with": _who(r), "Due": _due_text(r)}
-                  for r in rows], hide_index=True, width="stretch", key="ib_table",
-                 column_config={"What the desk did": st.column_config.TextColumn(width="large"),
-                                "Subject": st.column_config.TextColumn(width="medium")})
-    labels = {f"{desk_inbox.KIND_LABEL.get(r['kind'], r['kind'])}: {r['subject'] or '(no subject)'} ({r['message_id']})": r
+                   "What the desk did": C.screen_words(r["action"]), "Next step with": _who(r), "Due": _due_text(r)}
+                  for r in rows], hide_index=True, width="stretch")
+    labels = {f"{desk_inbox.KIND_LABEL.get(r['kind'], r['kind'])}: {C.screen_dates(r['subject'] or '(no subject)')} ({r['message_id']})": r
               for r in rows}
     chosen = st.selectbox("Open a message", list(labels), key="ib_open")
     if chosen:

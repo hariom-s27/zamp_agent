@@ -36,7 +36,7 @@ def load_payment_example(store, master, rules, pipeline, today: date) -> int:
 def _rows(lines: list[dict], with_run: bool = False) -> list[dict]:
     rows = []
     for ln in lines:
-        why = " ".join([ln["why"]] + ln.get("flags", []))
+        why = C.screen_words(" ".join([ln["why"]] + ln.get("flags", [])))
         row = {"Vendor": ln["vendor"], "Invoice": ln["invoice_no"] or "-",
                "Amount to pay": C.money(ln["amount"]) if ln["amount"] else "-",
                "Pay by": case_engine.day_text(ln["pay_by"]), "Why": why}
@@ -104,7 +104,7 @@ def page() -> None:
         return
     _flash()
     left, right = st.columns(2)
-    run_date = left.date_input("Run date", value=C.business_date(), key="pay_date")
+    run_date = left.date_input("Run date", value=C.business_date(), key="pay_date", format="DD/MM/YYYY")
     cash_text = right.text_input("Cash available for this run (optional, in rupees)", key="pay_cash")
     cash = None
     if cash_text.strip():

@@ -12,7 +12,7 @@ import io
 import json
 import re
 import secrets
-from datetime import date
+from datetime import date, datetime
 from typing import Any, Iterable, Optional
 
 import pandas as pd
@@ -354,7 +354,10 @@ _PLAIN = [
     (re.compile(r"\b1 (\w+)\(s\)"), r"1 \1"),
     (re.compile(r"\b(\d+) (\w+)\(s\)"), r"\1 \2s"),
     (re.compile(r"\b(\w+)\(s\)"), r"\1s"),
-    (re.compile(r"\bthe extra 1 Nos\b"), "the 1 extra unit"),
+    (re.compile(r"\bonly 0(?:\.0+)? received\b"), "nothing received yet"),
+    (re.compile(r"\b(?:billed quantity )?up to 0(?:\.0+)?\b(?!\.\d)"), "nothing received yet"),
+    (re.compile(r"\bwere the extra 1 Nos\b"), "was 1 extra unit"),
+    (re.compile(r"\bthe extra 1 Nos\b"), "1 extra unit"),
     (re.compile(r"\bthe extra (\d+(?:\.\d+)?) Nos\b"), r"the \1 extra units"),
     (re.compile(r"\b1 Nos\b"), "1 unit"),
     (re.compile(r"\b(\d+(?:\.\d+)?) Nos\b"), r"\1 units"),
@@ -372,11 +375,25 @@ def rupees(text: str) -> str:
     return RUPEES.sub("₹", text) if text else text
 
 
+def screen_dates(text: str) -> str:
+    """Format dates in recorded text for display, leaving stored records and exports intact."""
+    def render(match):
+        value = match.group(0)
+        for style in ("%Y-%m-%d", "%d %b %Y", "%d %B %Y"):
+            try:
+                return T.fmt_date(datetime.strptime(value, style).date())
+            except ValueError:
+                pass
+        return value
+
+    return re.sub(r"\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2} [A-Za-z]+ \d{4}\b", render, text or "")
+
+
 def screen_words(text: str) -> str:
     """Engine text as it is shown on screen: no model brand, no model name, rupees as ₹."""
     if not text:
         return text
-    text = status_words(rupees(text))
+    text = screen_dates(status_words(rupees(text)))
     for old, new in _PLAIN:
         text = old.sub(new, text)
     text = re.sub(r"Claude \([^()]*\) supplied:", "The AI assist supplied:", text)
@@ -497,6 +514,9 @@ def render_stages(result: RunResult, expand_issues: bool = True) -> None:
 # --------------------------------------------------------------------------- the decision
 
 def verdict_banner_html(result: RunResult) -> str:
+    if result.resubmission_of:
+        return neutral_banner_html(result.run_id, "Duplicate file: not booked",
+                                   f"This exact file was already received as {result.resubmission_of}. Nothing was booked again.")
     d = result.decision
     label, colour, background, border = VERDICT[d.verdict]
     return (f"<div class='idk-banner' style='color:{colour};background:{background};border-color:{border}'>"
@@ -713,10 +733,11 @@ def render_run(result: RunResult, store: Store, key: str) -> None:
     st.markdown(verdict_banner_html(result), unsafe_allow_html=True)
     if result.resubmission_of:
         st.info(f"This exact file was already received as {result.resubmission_of}. Nothing was read or booked a second "
-                f"time: the answer above is that record's, as it stands now. Open {result.resubmission_of} in the "
+                f"time. Open {result.resubmission_of} in the "
                 f"Dashboard for the full evidence.", icon=":material/content_copy:")
     st.markdown(rail_html(stage_states(result)), unsafe_allow_html=True)
-    render_decision_details(result, key)
+    if not result.resubmission_of:
+        render_decision_details(result, key)
     beside = st.toggle("Show the document beside the steps", value=True, key=f"beside_{key}",
                        help="Turn off to give the evidence tables the full width.")
     left, right = st.columns([0.58, 0.42], gap="large") if beside else (st.container(), None)
@@ -742,7 +763,7 @@ def run_table_rows(runs: list[dict], rules: Rules) -> list[dict]:
         total = r.get("total") or ""
         again = r.get("resubmission_of")
         rows.append({
-            "Reference": r["run_id"], "Decision": verdict_display_label(r["verdict"], icon=True),
+            "Reference": r["run_id"], "Decision": "Duplicate, not booked" if again else verdict_display_label(r["verdict"], icon=True),
             "Status": f"same file as {again}" if again else REVIEW_STATUS.get(r.get("review_status") or "", "-"),
             "Vendor": vendor_case(r.get("vendor_name")) or "-", "Invoice no.": r.get("invoice_no") or "-",
             "Total": "-" if not total else money(total) if T.to_decimal(total) is not None else total,

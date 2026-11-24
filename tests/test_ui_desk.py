@@ -33,7 +33,7 @@ def test_inbox_delivers_todays_mail_and_shows_who_has_the_next_step(app):
     assert not app.exception, [str(e.value) for e in app.exception]
     assert "7 messages received and sorted." in said(app)
     assert len(app.db.inbox()) == 7 and len(app.db.list_runs()) == 2
-    table = app.dataframe[0].value
+    table = app.table[0].value
     assert len(table) == 7 and set(table.columns) == {"When", "From", "Subject", "What it is", "What the desk did",
                                                       "Next step with", "Due"}
     labels = app.selectbox(key="ib_open").options
@@ -67,7 +67,7 @@ def test_next_morning_replies_show_on_the_case_and_the_manual_path_without_a_rec
     assert not app.exception, [str(e.value) for e in app.exception]
     replies_in = [i for i in app.db.inbox() if i["kind"] == "reply"]
     assert len(replies_in) == 3
-    assert len(app.dataframe[0].value) == 10                      # exactly 3 rows added, one per reply
+    assert len(app.table[0].value) == 10                          # exactly 3 rows added, one per reply
     assert next(m.value for m in app.metric if m.label == "Received") == "10"
     go(app, "cases", "Cases")
     text = " ".join(m.value for m in app.markdown)

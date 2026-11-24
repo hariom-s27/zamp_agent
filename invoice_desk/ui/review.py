@@ -156,7 +156,11 @@ def _pending_card(row: dict, store) -> None:
                 st.rerun()
             else:
                 st.session_state["reviewer"] = reviewer.strip()
-                learned = (" " + "; ".join(receipt["learned"]).capitalize() + ".") if receipt.get("learned") else ""
+                vendor_name = (result.vendor or {}).get("name")
+                lessons = [C.screen_words(line) for line in receipt.get("learned", [])]
+                if vendor_name:
+                    lessons = [line.replace(vendor_name, C.vendor_case(vendor_name)) for line in lessons]
+                learned = " " + "; ".join(line[:1].upper() + line[1:] for line in lessons) + "." if lessons else ""
                 if receipt.get("decision") == "FIRST_APPROVAL":
                     text = (f"{run_id}: first approval recorded by {reviewer.strip()}. The invoice stays on hold until a "
                             f"second, different person approves.")
@@ -181,7 +185,8 @@ def page() -> None:
     if problem:
         st.error(problem)
     runs = store.list_runs()
-    pending = [r for r in reversed(runs) if r["review_status"] == "PENDING"]       # oldest first
+    pending = sorted((r for r in runs if r["review_status"] == "PENDING"),
+                     key=lambda r: (r.get("invoice_date") or r["created_at"][:10], r["created_at"], r["seq"]))
     if not pending:
         st.markdown("**Nothing needs a signature.** Nothing is waiting for a person: invoices put on hold appear here "
                     "with the question that has to be answered.")

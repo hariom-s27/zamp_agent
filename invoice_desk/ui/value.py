@@ -144,7 +144,7 @@ def page() -> None:
                            f"after the desk's cost of {K.inr_short(float(a.desk_cost_per_month_inr))}",
                            help="The saving minus the cost of running the desk.")
             else:
-                K.kpi_card("Gross saving", K.inr_short(float(m["saving_inr"])) + " a month", "enter the desk's cost for "
+                K.kpi_card("Gross saving", K.inr_short(float(m["saving_inr"])), "a month; enter the desk's cost for "
                            "the net figure", help="Hours given back times the cost of an hour.")
         _bars(m["cost_before_per_invoice"], m["cost_after_per_invoice"])
         st.caption("Published US averages for comparison: 9.40 to 9.90 dollars an invoice, 2.67 to 2.78 for the best "

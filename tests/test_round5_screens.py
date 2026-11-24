@@ -45,7 +45,7 @@ def page_text(at: AppTest) -> str:
         parts.append(str(getattr(el, "label", "") or ""))
     for el in at.metric:
         parts += [str(el.label), str(el.value), str(getattr(el, "delta", "") or "")]
-    for frame in at.dataframe:
+    for frame in list(at.dataframe) + list(at.table):
         value = frame.value
         parts += [str(c) for c in value.columns] + [str(v) for v in value.to_numpy().ravel()]
     for button in at.get("download_button"):
